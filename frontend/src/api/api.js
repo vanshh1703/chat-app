@@ -1,0 +1,22 @@
+import axios from 'axios';
+
+const API = axios.create({ baseURL: 'http://localhost:5000/api' });
+
+// Add JWT to requests
+API.interceptors.request.use((req) => {
+    const profile = JSON.parse(localStorage.getItem('profile'));
+    if (profile && profile.token) {
+        req.headers.Authorization = `Bearer ${profile.token}`;
+    }
+    return req;
+});
+
+export const signIn = (formData) => API.post('/auth/login', formData);
+export const signUp = (formData) => API.post('/auth/register', formData);
+export const searchUsers = (query) => API.get(`/users/search?q=${query}`);
+export const getSidebar = () => API.get('/users/sidebar');
+export const getMessages = (otherId) => API.get(`/messages/${otherId}`);
+export const markAsRead = (data) => API.post('/messages/mark-read', data);
+export const uploadFile = (formData) => API.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+});
