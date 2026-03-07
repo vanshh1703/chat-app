@@ -39,6 +39,7 @@ const Home = () => {
     const recordingTimerRef = useRef(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const videoRef = useRef(null);
+    const [chatWallpaper, setChatWallpaper] = useState(localStorage.getItem('chatWallpaper') || 'default');
 
     // Initialize Socket and Request Notification Permission
     useEffect(() => {
@@ -202,6 +203,15 @@ const Home = () => {
             }
         }, 'image/jpeg', 0.8);
     };
+
+    // Wallpaper Logic
+    useEffect(() => {
+        const handleStorage = (e) => {
+            if (e.key === 'chatWallpaper') setChatWallpaper(e.newValue || 'default');
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -585,9 +595,27 @@ const Home = () => {
             </div>
 
             {/* Main Chat Area */}
-            <div className={`flex-1 flex-col bg-white/40 backdrop-blur-sm relative h-full w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
+            <div className={`flex-1 flex-col relative h-full w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
+                {/* Wallpaper Background */}
+                <div className={`absolute inset-0 z-0 transition-all duration-700 ${
+                    chatWallpaper === 'gradient' ? 'wallpaper-gradient' : 
+                    chatWallpaper === 'stars' ? 'wallpaper-stars' : 
+                    'bg-[#f0f2f5] dark:bg-[#0f172a]'
+                }`}
+                style={chatWallpaper.startsWith('data:') ? { 
+                    backgroundImage: `url(${chatWallpaper})`, 
+                    backgroundSize: 'cover', 
+                    backgroundPosition: 'center' 
+                } : {}}
+                >
+                    {/* Legibility Overlay */}
+                    {chatWallpaper !== 'default' && (
+                        <div className="absolute inset-0 bg-white/30 dark:bg-slate-900/40 backdrop-blur-[1px]"></div>
+                    )}
+                </div>
+
                 {activeChat ? (
-                    <>
+                    <div className="flex flex-col h-full relative z-10">
                         <div className="p-3 md:p-4 flex items-center justify-between bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-white/30 dark:border-slate-700/30 z-10 shrink-0">
                             <div className="flex items-center gap-2 md:gap-4 flex-1">
                                 <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl hover:bg-white/60 dark:hover:bg-slate-700/60 text-gray-500 dark:text-slate-400 transition-colors">
@@ -933,7 +961,7 @@ const Home = () => {
                                 </form>
                             </div>
                         </div>
-                    </>
+                    </div>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300">
                         <div className="w-20 h-20 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center mb-6 text-blue-500 dark:text-blue-400 ring-1 ring-slate-100 dark:ring-slate-700">

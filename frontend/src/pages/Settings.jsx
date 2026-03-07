@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Moon, Sun, Bell, Shield, User, LogOut } from 'lucide-react';
+import { ArrowLeft, Moon, Sun, Bell, Shield, User, LogOut, Image as ImageIcon, Check, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Settings = () => {
     const navigate = useNavigate();
     const [themePreference, setThemePreference] = useState(localStorage.getItem('themePreference') || 'light');
     const [notifs, setNotifs] = useState(JSON.parse(localStorage.getItem('notifSettings') || '{"individual": true, "all": true, "sound": true}'));
+    const [chatWallpaper, setChatWallpaper] = useState(localStorage.getItem('chatWallpaper') || 'default');
+    const fileInputRef = React.useRef(null);
 
     useEffect(() => {
         const applyTheme = (theme) => {
@@ -29,7 +31,8 @@ const Settings = () => {
             localStorage.removeItem('theme'); // Let App.jsx handle system
         }
 
-    }, [themePreference]);
+        localStorage.setItem('chatWallpaper', chatWallpaper);
+    }, [themePreference, chatWallpaper]);
 
     useEffect(() => {
         localStorage.setItem('notifSettings', JSON.stringify(notifs));
@@ -102,6 +105,79 @@ const Settings = () => {
                                     ))}
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Chat Wallpaper Section */}
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 dark:text-emerald-400">
+                                <ImageIcon size={20} />
+                            </div>
+                            <h2 className="font-bold text-gray-800 dark:text-white">Chat Wallpaper</h2>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {[
+                                    { id: 'default', label: 'Default', bg: 'bg-gray-100 dark:bg-slate-700' },
+                                    { id: 'gradient', label: 'Gradient', bg: 'bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500' },
+                                    { id: 'stars', label: 'Stars', bg: 'bg-slate-900' },
+                                ].map((wp) => (
+                                    <button
+                                        key={wp.id}
+                                        onClick={() => setChatWallpaper(wp.id)}
+                                        className={`group relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
+                                            chatWallpaper === wp.id ? 'border-blue-500 scale-95 shadow-lg' : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600'
+                                        }`}
+                                    >
+                                        <div className={`w-full h-full ${wp.bg} flex items-center justify-center`}>
+                                            <span className="text-[10px] font-bold text-white drop-shadow-md">{wp.label}</span>
+                                        </div>
+                                        {chatWallpaper === wp.id && (
+                                            <div className="absolute inset-0 bg-blue-500/10 flex items-center justify-center text-blue-600">
+                                                <div className="bg-white rounded-full p-1 shadow-md">
+                                                    <Check size={12} strokeWidth={4} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                                
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={`group relative aspect-square rounded-2xl overflow-hidden border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1 ${
+                                        chatWallpaper.startsWith('data:') 
+                                        ? 'border-blue-500 scale-95 shadow-lg' 
+                                        : 'border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-800'
+                                    }`}
+                                >
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        hidden 
+                                        accept="image/*" 
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => setChatWallpaper(reader.result);
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                    />
+                                    {chatWallpaper.startsWith('data:') ? (
+                                        <img src={chatWallpaper} className="w-full h-full object-cover" alt="Custom" />
+                                    ) : (
+                                        <>
+                                            <Plus size={20} className="text-slate-400 group-hover:text-blue-500" />
+                                            <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-500">Gallery</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            <p className="text-xs text-gray-400 dark:text-slate-400">Animated presets or choose a custom photo for your chat background.</p>
                         </div>
                     </div>
 
