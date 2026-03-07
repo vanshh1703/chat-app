@@ -21,3 +21,4 @@ export const uploadFile = (formData) => API.post('/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
 });
 export const getChatStats = (otherId) => API.get(`/messages/stats/${otherId}`);
+export const getAISuggestions = (data) => API.post('/ai/suggest', data);

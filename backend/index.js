@@ -1,4 +1,5 @@
 const express = require('express');
+const axios = require('axios');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -327,6 +328,111 @@ app.get('/api/messages/stats/:otherId', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Stats error');
+    }
+});
+
+// AI Reply Suggestion endpoint
+app.post('/api/ai/suggest', authenticateToken, async (req, res) => {
+    try {
+        const { otherId, context } = req.body;
+        const hfToken = process.env.HUGGING_FACE_TOKEN;
+
+        const fallbackJokes = [
+            "Sleeping is for the weak! 😴",
+            "Even Google can't find that! 😄",
+            "I'm processing... or just ignoring you. 🤖",
+            "That's what she said! 😂",
+            "I'm actually impressed. Or not. 🤨",
+            "Error 404: Brain not found. 🧠",
+            "You're like a cloud. When you disappear, it's a beautiful day. ☁️",
+            "I'm not lazy, I'm just on energy saving mode. 🔋"
+        ];
+
+        const getRandomFallbacks = (count = 3) => {
+            return [...fallbackJokes].sort(() => 0.5 - Math.random()).slice(0, count);
+        };
+
+        if (!hfToken) {
+            return res.json({ suggestions: getRandomFallbacks() });
+        }
+
+        // Use OpenAI-compatible router with a modern model
+        const model = "Qwen/Qwen2.5-7B-Instruct";
+        const apiUrl = `https://router.huggingface.co/v1/chat/completions`;
+
+        // Construct context-aware messages
+        const chatMessages = [];
+        chatMessages.push({
+            role: "system",
+            content: "You are a witty, funny, and slightly sarcastic chat assistant. Suggest a one-sentence reply or roast based on the conversation history. Keep it short, conversational, and context-aware. Return ONLY the suggested message text without quotes."
+        });
+
+        if (context && context.length > 0) {
+            context.forEach(m => {
+                if (!m.content || typeof m.content !== 'string') return;
+                // Normalize case for comparison
+                const role = m.sender.toLowerCase() === req.user.username.toLowerCase() ? 'assistant' : 'user';
+
+                const lastMsg = chatMessages[chatMessages.length - 1];
+                if (lastMsg && lastMsg.role === role && lastMsg.role !== 'system') {
+                    lastMsg.content += " " + m.content;
+                } else {
+                    chatMessages.push({ role, content: m.content });
+                }
+            });
+            chatMessages.push({ role: "user", content: "Suggest a witty reply I can send now (1 sentence):" });
+        } else {
+            chatMessages.push({ role: "user", content: "Suggest a funny and clever icebreaker for a new chat (1 sentence)." });
+        }
+
+        console.log(`--- AI Request Start ---`);
+        console.log(`User: ${req.user.username}`);
+        console.log(`Context Length: ${context ? context.length : 0}`);
+
+        const response = await axios.post(apiUrl, {
+            model: model,
+            messages: chatMessages,
+            max_tokens: 60,
+            temperature: 0.9
+        }, {
+            headers: {
+                Authorization: `Bearer ${hfToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log(`AI Response Status: ${response.status}`);
+        let reply = response.data?.choices?.[0]?.message?.content || "";
+        console.log(`AI Reply: ${reply}`);
+
+        reply = reply.replace(/^["']|["']$/g, '').trim();
+
+        let suggestions = [
+            reply,
+            ...getRandomFallbacks(2)
+        ].filter(s => s && s.length > 0 && s.length < 150).slice(0, 3);
+
+        if (!reply) {
+            suggestions = getRandomFallbacks();
+        }
+
+        console.log(`Suggestions sent:`, suggestions);
+        console.log(`--- AI Request End ---`);
+
+        res.json({ suggestions });
+    } catch (err) {
+        const errorMsg = err.response?.data?.error?.message || err.response?.data?.error || err.message;
+        console.error('--- AI Request FAILED ---');
+        console.error('Error details:', errorMsg);
+
+        // Fallback suggestions
+        res.json({
+            suggestions: [
+                "Even Google can't find that! 😄",
+                "Sleeping is for the weak! 😴",
+                "I'm just a simple AI, don't mind me. 🤖"
+            ]
+        });
     }
 });
 
