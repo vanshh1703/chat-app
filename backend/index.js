@@ -193,7 +193,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('send_message', async (data) => {
-        const { senderId, receiverId, content, messageType, replyToId, fileUrl } = data;
+        const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName } = data;
         try {
             const result = await pool.query(
                 'INSERT INTO messages (sender_id, receiver_id, content, message_type, reply_to_id, file_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
@@ -206,7 +206,7 @@ io.on('connection', (socket) => {
                 const replyResult = await pool.query('SELECT * FROM messages WHERE id = $1', [replyToId]);
                 replyToMsg = replyResult.rows[0] || null;
             }
-            const payload = { ...newMessage, reply_to_msg: replyToMsg };
+            const payload = { ...newMessage, reply_to_msg: replyToMsg, senderName };
 
             // Emit to both parties
             io.to(senderId.toString()).emit('receive_message', payload);

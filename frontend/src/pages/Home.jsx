@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { Link } from 'react-router-dom';
 import * as api from '../api/api';
 import EmojiPicker from 'emoji-picker-react';
 
@@ -24,6 +25,8 @@ const Home = () => {
     const [replyingTo, setReplyingTo] = useState(null);
     const inputRef = useRef();
     const [highlightedMsgId, setHighlightedMsgId] = useState(null);
+    const [chatSearchTerm, setChatSearchTerm] = useState('');
+    const [showChatSearch, setShowChatSearch] = useState(false);
     const fileInputRef = useRef();
     const [uploading, setUploading] = useState(false);
     const [attachPreview, setAttachPreview] = useState(null); // { file, url, type }
@@ -34,9 +37,16 @@ const Home = () => {
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const recordingTimerRef = useRef(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const videoRef = useRef(null);
 
-    // Initialize Socket
+    // Initialize Socket and Request Notification Permission
     useEffect(() => {
+        // Request browser notification permission
+        if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            Notification.requestPermission();
+        }
+
         socket.current = io('http://localhost:5000');
         if (user) {
             socket.current.emit('join', user.id);
@@ -50,6 +60,31 @@ const Home = () => {
                 }
                 return prev;
             });
+
+            if (newMessage.sender_id !== user.id) {
+                // Determine if we should show a notification
+                const isDifferentChat = !activeChat || activeChat.id !== newMessage.sender_id;
+                if (isDifferentChat || document.hidden) {
+                    const notifSettings = JSON.parse(localStorage.getItem('notifSettings') || '{"individual": true, "all": true, "sound": true}');
+                    const shouldNotify = notifSettings.all && (isDifferentChat ? notifSettings.individual : true);
+
+                    if (shouldNotify) {
+                        if (notifSettings.sound) {
+                            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                            audio.play().catch(e => console.error("Sound play failed", e));
+                        }
+
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            const title = `New message from ${newMessage.senderName || 'a user'}`;
+                            const options = {
+                                body: newMessage.message_type === 'text' ? newMessage.content : `Sent an ${newMessage.message_type}`,
+                                icon: '/pwa-192x192.png',
+                            };
+                            new Notification(title, options);
+                        }
+                    }
+                }
+            }
 
             if (activeChat && newMessage.sender_id === activeChat.id) {
                 try {
@@ -106,6 +141,16 @@ const Home = () => {
             const { data } = await api.getSidebar();
             setSidebarUsers(data);
 
+            // Update App Badge
+            const totalUnread = data.reduce((sum, u) => sum + Number(u.unreadcount || 0), 0);
+            if ('setAppBadge' in navigator) {
+                if (totalUnread > 0) {
+                    navigator.setAppBadge(totalUnread).catch(() => {});
+                } else {
+                    navigator.clearAppBadge().catch(() => {});
+                }
+            }
+
             const statuses = {};
             data.forEach(u => statuses[u.id] = { isOnline: u.is_online, lastSeen: u.last_seen });
             setOnlineUsers(prev => ({ ...prev, ...statuses }));
@@ -117,6 +162,46 @@ const Home = () => {
     useEffect(() => {
         fetchSidebar();
     }, []);
+
+    // Camera Logic
+    useEffect(() => {
+        let stream = null;
+        if (isCameraOpen) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+                .then(s => {
+                    stream = s;
+                    if (videoRef.current) videoRef.current.srcObject = s;
+                })
+                .catch(err => {
+                    console.error('Camera access error', err);
+                    setIsCameraOpen(false);
+                    alert('Could not access camera. Please check permissions.');
+                });
+        }
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [isCameraOpen]);
+
+    const capturePhoto = () => {
+        if (!videoRef.current) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoRef.current, 0, 0);
+        
+        canvas.toBlob((blob) => {
+            if (blob) {
+                const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                const url = URL.createObjectURL(file);
+                setAttachPreview({ file, url, type: 'image', name: file.name });
+                setIsCameraOpen(false);
+            }
+        }, 'image/jpeg', 0.8);
+    };
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -169,7 +254,8 @@ const Home = () => {
             receiverId: activeChat.id,
             content: messageText,
             messageType: 'text',
-            replyToId: replyingTo ? replyingTo.id : null
+            replyToId: replyingTo ? replyingTo.id : null,
+            senderName: user.username
         };
 
         socket.current.emit('send_message', msgData);
@@ -223,7 +309,8 @@ const Home = () => {
                 content: data.originalName,
                 messageType: data.messageType,
                 fileUrl: data.fileUrl,
-                replyToId: replyingTo ? replyingTo.id : null
+                replyToId: replyingTo ? replyingTo.id : null,
+                senderName: user.username
             });
             setAttachPreview(null);
             setReplyingTo(null);
@@ -402,31 +489,34 @@ const Home = () => {
     };
 
     return (
-        <div className="flex h-screen w-full bg-[#f0f2f5] overflow-hidden font-sans relative">
+        <div className="flex h-screen w-full bg-[#f0f2f5] dark:bg-[#0f172a] overflow-hidden font-sans relative transition-colors duration-300">
             {/* Sidebar */}
-            <div className={`w-full md:w-1/4 md:min-w-[320px] flex-col bg-white/70 backdrop-blur-[10px] border-r border-white/30 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+            <div className={`w-full md:w-1/4 md:min-w-[320px] flex-col bg-white/70 dark:bg-slate-900/70 backdrop-blur-[10px] border-r border-white/30 dark:border-slate-800/30 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm">
                             <img src={user?.avatar_url} alt="Profile" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-gray-800 text-sm">{user?.username}</h3>
+                            <h3 className="font-bold text-gray-800 dark:text-white text-sm">{user?.username}</h3>
                             <p className="text-xs text-green-500 font-medium">Online</p>
                         </div>
                     </div>
+                    <Link to="/settings" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                        <SettingsIcon size={20} />
+                    </Link>
                 </div>
 
                 {/* Search */}
                 <div className="px-4 py-2 relative">
-                    <div className="relative rounded-2xl flex items-center px-4 py-2.5 bg-gray-100/80 border border-transparent transition-all duration-300 focus-within:bg-white focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
+                    <div className="relative rounded-2xl flex items-center px-4 py-2.5 bg-gray-100/80 dark:bg-slate-800/80 border border-transparent transition-all duration-300 focus-within:bg-white dark:focus-within:bg-slate-800 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
                         <Search size={18} className="text-gray-400 mr-2" />
                         <input
                             type="text"
                             placeholder="Find someone new..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-transparent border-none outline-none w-full text-sm placeholder-gray-400"
+                            className="bg-transparent border-none outline-none w-full text-sm placeholder-gray-400 dark:text-white"
                         />
                     </div>
 
@@ -498,45 +588,74 @@ const Home = () => {
             <div className={`flex-1 flex-col bg-white/40 backdrop-blur-sm relative h-full w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
                 {activeChat ? (
                     <>
-                        <div className="p-3 md:p-4 flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-white/30 z-10 shrink-0">
-                            <div className="flex items-center gap-2 md:gap-4">
-                                <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl hover:bg-white/60 text-gray-500 transition-colors">
+                        <div className="p-3 md:p-4 flex items-center justify-between bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-white/30 dark:border-slate-700/30 z-10 shrink-0">
+                            <div className="flex items-center gap-2 md:gap-4 flex-1">
+                                <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl hover:bg-white/60 dark:hover:bg-slate-700/60 text-gray-500 dark:text-slate-400 transition-colors">
                                     <ArrowLeft size={20} />
                                 </button>
-                                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm shrink-0">
+                                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm shrink-0">
                                     <img src={activeChat.avatar_url} alt="Active Chat" />
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-800 text-sm">{activeChat.username}</h3>
-                                    <div className="flex items-center gap-1">
-                                        {onlineUsers[activeChat.id]?.isOnline && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}
-                                        <p className="text-[11px] text-gray-500 font-medium">
-                                            {getStatusText(activeChat.id)}
-                                        </p>
+                                {!showChatSearch ? (
+                                    <div>
+                                        <h3 className="font-bold text-gray-800 dark:text-white text-sm">{activeChat.username}</h3>
+                                        <div className="flex items-center gap-1">
+                                            {onlineUsers[activeChat.id]?.isOnline && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}
+                                            <p className="text-[11px] text-gray-500 dark:text-slate-400 font-medium">
+                                                {getStatusText(activeChat.id)}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="flex-1 max-w-md">
+                                        <div className="relative">
+                                            <input 
+                                                autoFocus
+                                                type="text" 
+                                                placeholder="Search messages..."
+                                                value={chatSearchTerm}
+                                                onChange={(e) => setChatSearchTerm(e.target.value)}
+                                                className="w-full pl-4 pr-10 py-1.5 bg-gray-100 dark:bg-slate-700 rounded-xl text-sm border-none focus:ring-2 focus:ring-blue-500/20 dark:text-white"
+                                            />
+                                            <button 
+                                                onClick={() => { setShowChatSearch(false); setChatSearchTerm(''); }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="flex items-center gap-1 md:gap-2">
-                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40">
+                                <button 
+                                    onClick={() => setShowChatSearch(prev => !prev)}
+                                    className={`p-2 md:p-2.5 rounded-xl transition-colors shadow-sm bg-white/40 dark:bg-slate-800/40 ${showChatSearch ? 'text-blue-600 bg-blue-50' : 'text-gray-500 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-700/60'}`}
+                                >
+                                    <Search size={18} />
+                                </button>
+                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 dark:hover:bg-slate-700/60 text-gray-500 dark:text-slate-400 transition-colors shadow-sm bg-white/40 dark:bg-slate-800/40">
                                     <Phone size={18} />
                                 </button>
-                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40">
+                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 dark:hover:bg-slate-700/60 text-gray-500 dark:text-slate-400 transition-colors shadow-sm bg-white/40 dark:bg-slate-800/40">
                                     <Video size={18} />
                                 </button>
-                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40 hidden sm:block">
+                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 dark:hover:bg-slate-700/60 text-gray-500 dark:text-slate-400 transition-colors shadow-sm bg-white/40 dark:bg-slate-800/40 hidden sm:block">
                                     <MoreVertical size={18} />
                                 </button>
                             </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                            {messages.map((msg, index) => (
+                            {messages
+                                .filter(msg => !chatSearchTerm || (msg.content && msg.content.toLowerCase().includes(chatSearchTerm.toLowerCase())))
+                                .map((msg, index) => (
                                 <div
                                     key={index}
                                     id={`msg-${msg.id}`}
                                     className={`flex transition-all duration-300 ${msg.sender_id === user.id ? 'justify-end' : 'justify-start'
                                         } ${highlightedMsgId === msg.id
-                                            ? 'bg-yellow-100/80 rounded-2xl -mx-3 px-3'
+                                            ? 'bg-yellow-100/80 dark:bg-yellow-900/40 rounded-2xl -mx-3 px-3'
                                             : ''
                                         }`}
                                     onMouseEnter={() => !msg.is_deleted && setHoveredMsgId(msg.id)}
@@ -546,15 +665,15 @@ const Home = () => {
                                         <div className="flex flex-col relative">
                                             <div className={`px-4 py-3 text-sm shadow-[0_4px_15px_rgba(0,0,0,0.05)] ${msg.is_deleted
                                                 ? (msg.sender_id === user.id
-                                                    ? 'bg-linear-to-br from-[#93c5fd] to-[#60a5fa] text-white/70 rounded-[20px_20px_5px_20px] italic'
-                                                    : 'bg-gray-100 text-gray-400 rounded-[20px_20px_20px_5px] italic')
+                                                    ? 'bg-linear-to-br from-[#93c5fd] to-[#60a5fa] dark:from-blue-900/60 dark:to-blue-800/60 text-white/70 rounded-[20px_20px_5px_20px] italic'
+                                                    : 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 rounded-[20px_20px_20px_5px] italic')
                                                 : msg.message_type !== 'text'
                                                     ? (msg.sender_id === user.id
                                                         ? 'bg-linear-to-br from-[#3b82f6] to-[#2563eb] text-white rounded-[20px_20px_5px_20px] p-2'
-                                                        : 'bg-white text-gray-800 rounded-[20px_20px_20px_5px] p-2')
+                                                        : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 rounded-[20px_20px_20px_5px] p-2')
                                                     : (msg.sender_id === user.id
                                                         ? 'bg-linear-to-br from-[#3b82f6] to-[#2563eb] text-white rounded-[20px_20px_5px_20px]'
-                                                        : 'bg-white text-gray-800 rounded-[20px_20px_20px_5px]')
+                                                        : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 rounded-[20px_20px_20px_5px]')
                                                 }`}>
                                                 {msg.is_deleted ? (
                                                     <span className="flex items-center gap-1.5">
@@ -569,7 +688,7 @@ const Home = () => {
                                                                 onClick={() => scrollToMessage(msg.reply_to_msg.id)}
                                                                 className={`mb-2 px-3 py-2 rounded-xl border-l-4 text-xs cursor-pointer active:scale-[0.98] transition-all ${msg.sender_id === user.id
                                                                     ? 'bg-white/20 border-white/60 text-white/90 hover:bg-white/30'
-                                                                    : 'bg-gray-50 border-blue-300 text-gray-500 hover:bg-blue-50'
+                                                                    : 'bg-gray-50 dark:bg-slate-700 border-blue-300 dark:border-blue-500 text-gray-500 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-600'
                                                                     }`}
                                                             >
                                                                 <p className="font-semibold mb-0.5">
@@ -593,7 +712,7 @@ const Home = () => {
                                                             <span
                                                                 key={emoji}
                                                                 onClick={() => handleReact(msg.id, emoji)}
-                                                                className="text-xs bg-white border border-gray-100 shadow-sm rounded-full px-2 py-0.5 cursor-pointer hover:bg-gray-50 transition-colors"
+                                                                className="text-xs bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm rounded-full px-2 py-0.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                                                             >
                                                                 {emoji} {count > 1 ? count : ''}
                                                             </span>
@@ -771,8 +890,13 @@ const Home = () => {
                                             />
                                             <button type="button"
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="text-gray-400 hover:text-blue-500 transition-colors p-2 rounded-lg hover:bg-blue-50">
+                                                className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800">
                                                 <Plus size={20} />
+                                            </button>
+                                            <button type="button"
+                                                onClick={() => setIsCameraOpen(true)}
+                                                className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800">
+                                                <Camera size={20} />
                                             </button>
                                             <input
                                                 ref={inputRef}
@@ -784,13 +908,13 @@ const Home = () => {
                                                 }}
                                                 onKeyDown={(e) => { if (e.key === 'Escape') { setShowEmojiPicker(false); setReplyingTo(null); } }}
                                                 placeholder={replyingTo ? 'Type your reply...' : 'Type your message...'}
-                                                className="flex-1 bg-transparent border-none outline-none text-sm py-2 px-2 min-w-0"
+                                                className="flex-1 bg-transparent border-none outline-none text-sm py-2 px-2 min-w-0 dark:text-white"
                                             />
                                             <div className="flex items-center gap-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowEmojiPicker(prev => !prev)}
-                                                    className={`text-gray-400 hover:text-yellow-500 transition-colors p-2 rounded-lg hover:bg-yellow-50 ${showEmojiPicker ? 'text-yellow-500 bg-yellow-50' : ''}`}
+                                                    className={`text-gray-400 hover:text-yellow-500 transition-colors p-2 rounded-lg hover:bg-yellow-50 dark:hover:bg-slate-800 ${showEmojiPicker ? 'text-yellow-500 bg-yellow-50 dark:bg-slate-700' : ''}`}
                                                 >
                                                     <Smile size={20} />
                                                 </button>
@@ -799,7 +923,7 @@ const Home = () => {
                                                         <Send size={18} className="ml-0.5" />
                                                     </button>
                                                 ) : (
-                                                    <button type="button" onClick={startRecording} className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 flex items-center justify-center transition-all ml-1 md:ml-2 shrink-0">
+                                                    <button type="button" onClick={startRecording} className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center transition-all ml-1 md:ml-2 shrink-0">
                                                         <Mic size={18} />
                                                     </button>
                                                 )}
@@ -811,15 +935,52 @@ const Home = () => {
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
-                        <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-6 text-blue-500 ring-1 ring-slate-100">
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300">
+                        <div className="w-20 h-20 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center mb-6 text-blue-500 dark:text-blue-400 ring-1 ring-slate-100 dark:ring-slate-700">
                             <Send size={40} />
                         </div>
-                        <h2 className="text-xl font-bold text-slate-700">Your messages</h2>
+                        <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">Your messages</h2>
                         <p className="text-sm mt-2 max-w-[280px] text-center">Search for a username above to start a conversation with someone new.</p>
                     </div>
                 )}
             </div>
+
+            {/* Camera Modal */}
+            {isCameraOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+                    <div className="bg-slate-900 rounded-3xl overflow-hidden shadow-2xl w-full max-w-lg border border-white/10">
+                        <div className="p-4 flex justify-between items-center bg-slate-800/50">
+                            <h3 className="text-white font-bold">Capture Photo</h3>
+                            <button onClick={() => setIsCameraOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="relative aspect-video bg-black flex items-center justify-center">
+                            <video 
+                                ref={videoRef} 
+                                autoPlay 
+                                playsInline 
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                        <div className="p-6 flex justify-center items-center gap-6 bg-slate-800/50">
+                            <button 
+                                onClick={() => setIsCameraOpen(false)}
+                                className="px-6 py-2 rounded-xl text-slate-400 hover:text-white font-semibold transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={capturePhoto}
+                                className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all group"
+                            >
+                                <div className="w-12 h-12 rounded-full border-4 border-slate-900 transition-colors"></div>
+                            </button>
+                            <div className="w-20"></div> {/* Spacer for symmetry */}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
