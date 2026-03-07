@@ -61,6 +61,20 @@ const initializeDB = async () => {
             await pool.query('ALTER TABLE users ADD COLUMN is_online BOOLEAN DEFAULT FALSE;');
         } catch (e) { }
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS pinned_chats (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                pinned_user_id INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, pinned_user_id)
+            );
+        `);
+
+        try {
+            await pool.query('ALTER TABLE messages ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE;');
+        } catch (e) { }
+
         console.log('Database tables initialized');
     } catch (err) {
         console.error('Database initialization error:', err);

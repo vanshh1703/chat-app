@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
 import * as api from '../api/api';
@@ -520,6 +520,26 @@ const Home = () => {
         }
     };
 
+    const handlePinChat = async (e, pinnedUserId) => {
+        e.stopPropagation();
+        try {
+            const { data } = await api.pinChat({ pinnedUserId });
+            setSidebarUsers(prev => prev.map(u => u.id === pinnedUserId ? { ...u, is_pinned: data.pinned } : u).sort((a, b) => b.is_pinned - a.is_pinned || new Date(b.lastMsgTime) - new Date(a.lastMsgTime)));
+        } catch (err) {
+            console.error('Pin chat error', err);
+        }
+    };
+
+    const handlePinMessage = async (messageId) => {
+        try {
+            const { data } = await api.pinMessage({ messageId });
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, is_pinned: data.is_pinned } : m));
+            setHoveredMsgId(null);
+        } catch (err) {
+            console.error('Pin message error', err);
+        }
+    };
+
     const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '👎'];
 
     const getStatusText = (userId) => {
@@ -579,21 +599,39 @@ const Home = () => {
                     <h4 className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Direct Messages</h4>
                     <div className="space-y-1">
                         {sidebarUsers.map(chat => (
-                            <div key={chat.id} onClick={() => handleSelectChat(chat)} className={`flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all duration-200 ${activeChat?.id === chat.id ? 'bg-white shadow-[0_10px_25px_rgba(0,0,0,0.05)]' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80' : 'hover:bg-white/50'}`}>
+                            <div key={chat.id} onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)} onMouseLeave={() => setHoveredMsgId(null)} onClick={() => handleSelectChat(chat)} className={`group flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all duration-200 ${activeChat?.id === chat.id ? 'bg-white shadow-[0_10px_25px_rgba(0,0,0,0.05)]' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80' : 'hover:bg-white/50'}`}>
                                 <div className="relative">
                                     <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm">
                                         <img src={chat.avatar_url} alt={chat.username} />
                                     </div>
                                     {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
+                                    {chat.is_pinned && (
+                                        <div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-900 rounded-full shadow-md text-blue-500 border border-blue-100">
+                                            <Pin size={8} fill="currentColor" />
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <h4 className="text-sm font-bold truncate">{chat.username}</h4>
-                                        <span className="text-[10px] text-gray-400">{chat.lasttime ? new Date(chat.lasttime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                        <h4 className="text-sm font-bold truncate flex items-center gap-1">
+                                            {chat.username}
+                                        </h4>
+                                        <span className="text-[10px] text-gray-400">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                                     </div>
                                     <p className="text-xs truncate text-gray-500">{typingUsers[chat.id] ? <span className="text-blue-500 italic">typing...</span> : chat.lastmsg || 'No messages yet'}</p>
                                 </div>
-                                {Number(chat.unreadcount) > 0 && <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">{chat.unreadcount}</div>}
+                                <div className="flex flex-col items-end gap-2">
+                                    {Number(chat.unreadcount) > 0 && <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">{chat.unreadcount}</div>}
+                                    {(hoveredMsgId === `sidebar_${chat.id}` || chat.is_pinned) && (
+                                        <button
+                                            onClick={(e) => handlePinChat(e, chat.id)}
+                                            className={`p-1.5 rounded-full transition-all duration-200 ${chat.is_pinned ? 'text-blue-500' : 'text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100'}`}
+                                            title={chat.is_pinned ? 'Unpin chat' : 'Pin chat'}
+                                        >
+                                            {chat.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -632,6 +670,24 @@ const Home = () => {
                             </div>
                         </div>
 
+                        {/* Pinned Messages Banner */}
+                        {messages.some(m => m.is_pinned) && (
+                            <div className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20 backdrop-blur-sm border-b border-amber-100 dark:border-amber-800 flex items-center justify-between z-10 sticky top-[60px] md:top-[73px]">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className="p-1.5 bg-amber-100 dark:bg-amber-800 rounded-lg text-amber-600 dark:text-amber-400">
+                                        <Pin size={14} fill="currentColor" />
+                                    </div>
+                                    <div className="flex-1 truncate">
+                                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Pinned Message</p>
+                                        <p className="text-xs text-gray-700 dark:text-slate-300 truncate font-medium">
+                                            {messages.filter(m => m.is_pinned).reverse()[0].content || "Attachment"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button onClick={() => scrollToMessage(messages.filter(m => m.is_pinned).reverse()[0].id)} className="text-[10px] font-bold text-amber-600 hover:scale-105 transition-transform px-3 py-1 bg-white dark:bg-slate-800 rounded-lg border border-amber-200">View</button>
+                            </div>
+                        )}
+
                         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
                             {messages.filter(m => !chatSearchTerm || (m.content && m.content.toLowerCase().includes(chatSearchTerm.toLowerCase()))).map((msg, i) => (
                                 <div key={i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : msg.sender_id === user.id ? 'justify-end' : 'justify-start'}`}>
@@ -639,7 +695,7 @@ const Home = () => {
                                         <div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>
                                     ) : (
                                         <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'items-end' : 'items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
-                                            <div className={`px-4 py-3 rounded-2xl relative ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.sender_id === user.id ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200 shadow-sm'}`}>
+                                            <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : msg.sender_id === user.id ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
                                                 {msg.is_deleted ? 'This message was deleted' : (
                                                     <>
                                                         {msg.reply_to_msg && (
@@ -648,14 +704,18 @@ const Home = () => {
                                                                 <p className="truncate">{msg.reply_to_msg.content}</p>
                                                             </div>
                                                         )}
+                                                        {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
                                                         {msg.message_type === 'text' ? msg.content : renderFileMessage(msg)}
                                                     </>
                                                 )}
                                                 {hoveredMsgId === msg.id && !msg.is_deleted && (
                                                     <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
-                                                        <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded">😊</button>
-                                                        <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500"><CornerUpLeft size={14} /></button>
-                                                        {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500"><Trash2 size={14} /></button>}
+                                                        <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded" title="React">😊</button>
+                                                        <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500" title="Reply"><CornerUpLeft size={14} /></button>
+                                                        <button onClick={() => handlePinMessage(msg.id)} className={`p-1 hover:bg-gray-100 rounded ${msg.is_pinned ? 'text-amber-500' : 'text-gray-500'}`} title={msg.is_pinned ? 'Unpin' : 'Pin'}>
+                                                            {msg.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                                                        </button>
+                                                        {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
                                                     </div>
                                                 )}
                                                 {reactionPickerMsgId === msg.id && (

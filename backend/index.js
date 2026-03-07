@@ -161,19 +161,39 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
                 (SELECT created_at FROM messages 
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
-                 ORDER BY created_at DESC LIMIT 1) as lastTime,
+                 ORDER BY created_at DESC LIMIT 1) as lastMsgTime,
                 (SELECT COUNT(*) FROM messages 
-                 WHERE sender_id = u.id AND receiver_id = $1 AND is_read = false) as unreadCount
+                 WHERE sender_id = u.id AND receiver_id = $1 AND is_read = false) as unreadCount,
+                EXISTS (SELECT 1 FROM pinned_chats WHERE user_id = $1 AND pinned_user_id = u.id) as is_pinned
             FROM users u
-            JOIN messages m ON (m.sender_id = u.id OR m.receiver_id = u.id)
-            WHERE (m.sender_id = $1 OR m.receiver_id = $1) AND u.id != $1
-            ORDER BY lastTime DESC
+            JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = $1) OR (m.sender_id = $1 AND m.receiver_id = u.id)
+            WHERE u.id != $1
+            ORDER BY is_pinned DESC, lastMsgTime DESC NULLS LAST
         `;
         const result = await pool.query(query, [req.user.id]);
         res.json(result.rows);
     } catch (err) {
         console.error(err);
         res.status(500).send('Sidebar error');
+    }
+});
+
+// Pin/Unpin a chat
+app.post('/api/users/pin-chat', authenticateToken, async (req, res) => {
+    const { pinnedUserId } = req.body;
+    try {
+        // Toggle pin
+        const check = await pool.query('SELECT id FROM pinned_chats WHERE user_id = $1 AND pinned_user_id = $2', [req.user.id, pinnedUserId]);
+        if (check.rows.length > 0) {
+            await pool.query('DELETE FROM pinned_chats WHERE user_id = $1 AND pinned_user_id = $2', [req.user.id, pinnedUserId]);
+            res.json({ pinned: false });
+        } else {
+            await pool.query('INSERT INTO pinned_chats (user_id, pinned_user_id) VALUES ($1, $2)', [req.user.id, pinnedUserId]);
+            res.json({ pinned: true });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Pin chat failed' });
     }
 });
 
@@ -208,6 +228,23 @@ app.get('/api/messages/:otherId', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Message history error');
+    }
+});
+
+// Pin/Unpin a message
+app.post('/api/messages/pin', authenticateToken, async (req, res) => {
+    const { messageId } = req.body;
+    try {
+        const check = await pool.query('SELECT is_pinned FROM messages WHERE id = $1', [messageId]);
+        if (check.rows.length === 0) return res.status(404).json({ error: 'Message not found' });
+
+        const newPinnedStatus = !check.rows[0].is_pinned;
+        await pool.query('UPDATE messages SET is_pinned = $1 WHERE id = $2', [newPinnedStatus, messageId]);
+
+        res.json({ id: messageId, is_pinned: newPinnedStatus });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Pin message failed' });
     }
 });
 // Chat stats between two users
