@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Sparkles } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
 import * as api from '../api/api';
@@ -43,8 +43,6 @@ const Home = () => {
     const [showInsights, setShowInsights] = useState(false);
     const [chatStats, setChatStats] = useState(null);
     const [loadingStats, setLoadingStats] = useState(false);
-    const [aiSuggestions, setAiSuggestions] = useState([]);
-    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -522,23 +520,6 @@ const Home = () => {
         }
     };
 
-    const handleFetchSuggestions = async () => {
-        if (!activeChat) return;
-        setLoadingSuggestions(true);
-        try {
-            const context = messages.slice(-5).map(m => ({
-                sender: m.sender_id === user.id ? user.username : activeChat.username,
-                content: m.content
-            }));
-            const { data } = await api.getAISuggestions({ otherId: activeChat.id, context });
-            setAiSuggestions(data.suggestions);
-        } catch (err) {
-            console.error('Fetch suggestions error', err);
-        } finally {
-            setLoadingSuggestions(false);
-        }
-    };
-
     const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '👎'];
 
     const getStatusText = (userId) => {
@@ -740,37 +721,8 @@ const Home = () => {
                                             <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
                                             <button type="button" onClick={() => fileInputRef.current.click()} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Plus size={20} /></button>
                                             <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Camera size={20} /></button>
-                                            <div className="flex-1 relative">
-                                                {aiSuggestions.length > 0 && (
-                                                    <div className="absolute bottom-full mb-3 left-0 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                                        {aiSuggestions.map((s, i) => (
-                                                            <button
-                                                                key={i}
-                                                                onClick={() => { setMessageText(s); setAiSuggestions([]); inputRef.current?.focus(); }}
-                                                                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 rounded-2xl text-xs font-bold hover:bg-blue-100 transition-colors shadow-sm"
-                                                            >
-                                                                {s}
-                                                            </button>
-                                                        ))}
-                                                        <button onClick={() => setAiSuggestions([])} className="p-1.5 bg-gray-100 dark:bg-slate-800 text-gray-400 rounded-full hover:text-gray-600"><X size={12} /></button>
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-800 rounded-2xl px-4 py-2 border border-transparent focus-within:border-blue-400 focus-within:bg-white dark:focus-within:bg-slate-900 transition-all shadow-sm">
-                                                    <button type="button" onClick={() => setShowEmojiPicker(p => !p)} className="text-gray-400 hover:text-blue-500 transition-colors"><Smile size={20} /></button>
-                                                    <input
-                                                        ref={inputRef}
-                                                        type="text"
-                                                        value={messageText}
-                                                        onChange={(e) => { setMessageText(e.target.value); handleTyping(); }}
-                                                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage(e))}
-                                                        placeholder="Type a message..."
-                                                        className="flex-1 bg-transparent border-none outline-none text-sm text-gray-700 dark:text-slate-200 placeholder-gray-400 py-1"
-                                                    />
-                                                    <button type="button" onClick={handleFetchSuggestions} disabled={loadingSuggestions} className={`text-gray-400 hover:text-amber-500 transition-colors ${loadingSuggestions ? 'animate-pulse text-amber-500' : ''}`} title="AI Suggestions">
-                                                        <Sparkles size={20} />
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type a message..." className="flex-1 bg-transparent outline-none text-sm" />
+                                            <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"><Smile size={20} /></button>
                                             {messageText.trim() || attachPreview ? (
                                                 <button type="submit" className="p-2 bg-blue-600 text-white rounded-xl"><Send size={18} /></button>
                                             ) : (
