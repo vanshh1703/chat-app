@@ -116,6 +116,39 @@ app.get('/api/users/search', authenticateToken, async (req, res) => {
     }
 });
 
+// Update Profile
+app.post('/api/users/update-profile', authenticateToken, async (req, res) => {
+    const { username, avatar_url } = req.body;
+    try {
+        const result = await pool.query(
+            'UPDATE users SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url) WHERE id = $3 RETURNING id, username, email, avatar_url',
+            [username, avatar_url, req.user.id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Profile update failed' });
+    }
+});
+
+// Change Password
+app.post('/api/users/change-password', authenticateToken, async (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+    try {
+        const result = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+        const user = result.rows[0];
+        const validPassword = await bcrypt.compare(oldPassword, user.password);
+        if (!validPassword) return res.status(400).json({ error: 'Invalid old password' });
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, req.user.id]);
+        res.json({ message: 'Password changed successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Password change failed' });
+    }
+});
+
 // Sidebar: Get users with whom there is a chat history
 app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
     try {
@@ -175,6 +208,125 @@ app.get('/api/messages/:otherId', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Message history error');
+    }
+});
+// Chat stats between two users
+app.get('/api/messages/stats/:otherId', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const otherId = req.params.otherId;
+
+        const result = await pool.query(`
+            SELECT * FROM messages 
+            WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1)
+            ORDER BY created_at ASC
+        `, [userId, otherId]);
+
+        const messages = result.rows;
+        if (messages.length === 0) {
+            return res.json({
+                totalMessages: 0,
+                friendshipScore: 0,
+                avgReplyTime: '0s',
+                longestConversation: '0s',
+                mostActiveDay: 'N/A',
+                topWords: []
+            });
+        }
+
+        // 1. Total Messages
+        const totalMessages = messages.length;
+
+        // 2. Average Reply Time & 3. Longest Conversation
+        let replyTimes = [];
+        let bursts = [];
+        let currentBurst = { start: messages[0].created_at, end: messages[0].created_at };
+
+        for (let i = 1; i < messages.length; i++) {
+            const prev = messages[i - 1];
+            const curr = messages[i];
+            const diff = (new Date(curr.created_at) - new Date(prev.created_at)) / 1000;
+
+            if (curr.sender_id !== prev.sender_id && diff < 86400) {
+                replyTimes.push(diff);
+            }
+
+            if (diff < 900) {
+                currentBurst.end = curr.created_at;
+            } else {
+                bursts.push((new Date(currentBurst.end) - new Date(currentBurst.start)) / 1000);
+                currentBurst = { start: curr.created_at, end: curr.created_at };
+            }
+        }
+        bursts.push((new Date(currentBurst.end) - new Date(currentBurst.start)) / 1000);
+
+        const avgReplyTimeSec = replyTimes.length > 0 ? replyTimes.reduce((a, b) => a + b, 0) / replyTimes.length : 0;
+        const longestBurstSec = Math.max(...bursts);
+
+        const formatDuration = (sec) => {
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = Math.floor(sec % 60);
+            if (h > 0) return `${h}h ${m}m`;
+            if (m > 0) return `${m}m ${s}s`;
+            return `${s}s`;
+        };
+
+        // 4. Most Active Day
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayCounts = {};
+        messages.forEach(m => {
+            const day = days[new Date(m.created_at).getDay()];
+            dayCounts[day] = (dayCounts[day] || 0) + 1;
+        });
+        const mostActiveDay = Object.keys(dayCounts).sort((a, b) => dayCounts[b] - dayCounts[a])[0];
+
+        // 5. Top Words
+        const stopWords = new Set(['the', 'a', 'in', 'and', 'is', 'it', 'to', 'for', 'with', 'on', 'of', 'this', 'that', 'i', 'you', 'my', 'me', 'be', 'are', 'was', 'were', 'have', 'has', 'had']);
+        const wordCounts = {};
+        messages.forEach(m => {
+            if (m.message_type === 'text' && m.content) {
+                const words = m.content.toLowerCase().match(/\b(\w+)\b/g);
+                if (words) {
+                    words.forEach(w => {
+                        if (w.length > 2 && !stopWords.has(w)) {
+                            wordCounts[w] = (wordCounts[w] || 0) + 1;
+                        }
+                    });
+                }
+            }
+        });
+        const topWords = Object.entries(wordCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([word, count]) => ({ word, count }));
+
+        // 6. Friendship Score
+        const uniqueDays = new Set(messages.map(m => new Date(m.created_at).toDateString())).size;
+        const totalInteractions = messages.filter(m => m.reply_to_id).length +
+            messages.reduce((sum, m) => sum + Object.keys(m.reactions || {}).length, 0);
+
+        const volumeScore = Math.min(100, (totalMessages / 500) * 100);
+        const consistencyScore = Math.min(100, (uniqueDays / 10) * 100);
+        const speedScore = 100 * (1 / (1 + (avgReplyTimeSec / 3600)));
+        const interactionScore = Math.min(100, (totalInteractions / 30) * 100);
+
+        const friendshipScore = Math.round(
+            (volumeScore * 0.4) + (consistencyScore * 0.2) + (speedScore * 0.2) + (interactionScore * 0.2)
+        );
+
+        res.json({
+            totalMessages,
+            avgReplyTime: formatDuration(avgReplyTimeSec),
+            longestConversation: formatDuration(longestBurstSec),
+            mostActiveDay,
+            topWords,
+            friendshipScore,
+            scores: { volumeScore, consistencyScore, speedScore, interactionScore }
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Stats error');
     }
 });
 
@@ -259,6 +411,24 @@ io.on('connection', (socket) => {
             io.to(receiverId.toString()).emit('message_deleted', { messageId: deleted.id });
         } catch (err) {
             console.error('Delete message error:', err);
+        }
+    });
+
+    socket.on('screenshot_taken', async (data) => {
+        const { senderId, receiverId, senderName } = data;
+        try {
+            const content = `${senderName} took a screenshot`;
+            const result = await pool.query(
+                'INSERT INTO messages (sender_id, receiver_id, content, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
+                [senderId, receiverId, content, 'system']
+            );
+            const newMessage = result.rows[0];
+            const payload = { ...newMessage, senderName: 'System' };
+
+            io.to(senderId.toString()).emit('receive_message', payload);
+            io.to(receiverId.toString()).emit('receive_message', payload);
+        } catch (err) {
+            console.error('Socket screenshot_taken error:', err);
         }
     });
 

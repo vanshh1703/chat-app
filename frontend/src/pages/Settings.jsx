@@ -4,10 +4,17 @@ import { useNavigate } from 'react-router-dom';
 
 const Settings = () => {
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem('profile'))?.user;
     const [themePreference, setThemePreference] = useState(localStorage.getItem('themePreference') || 'light');
     const [notifs, setNotifs] = useState(JSON.parse(localStorage.getItem('notifSettings') || '{"individual": true, "all": true, "sound": true}'));
-    const [chatWallpaper, setChatWallpaper] = useState(localStorage.getItem('chatWallpaper') || 'default');
+    const [chatWallpaper, setChatWallpaper] = useState('default');
     const fileInputRef = React.useRef(null);
+
+    useEffect(() => {
+        if (user) {
+            setChatWallpaper(localStorage.getItem(`chatWallpaper_${user.id}`) || 'default');
+        }
+    }, [user]);
 
     useEffect(() => {
         const applyTheme = (theme) => {
@@ -31,8 +38,10 @@ const Settings = () => {
             localStorage.removeItem('theme'); // Let App.jsx handle system
         }
 
-        localStorage.setItem('chatWallpaper', chatWallpaper);
-    }, [themePreference, chatWallpaper]);
+        if (user) {
+            localStorage.setItem(`chatWallpaper_${user.id}`, chatWallpaper);
+        }
+    }, [user, themePreference, chatWallpaper]);
 
     useEffect(() => {
         localStorage.setItem('notifSettings', JSON.stringify(notifs));
@@ -44,7 +53,7 @@ const Settings = () => {
 
     const sendTestNotification = () => {
         if (!('Notification' in window)) return;
-        
+
         if (Notification.permission === 'granted') {
             new Notification("Test Notification", {
                 body: "This is a test to verify your notification settings are working!",
@@ -64,7 +73,7 @@ const Settings = () => {
             <div className="max-w-2xl mx-auto p-4 md:p-8">
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-8">
-                    <button 
+                    <button
                         onClick={() => navigate('/home')}
                         className="p-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all"
                     >
@@ -82,7 +91,7 @@ const Settings = () => {
                             </div>
                             <h2 className="font-bold text-gray-800 dark:text-white">Appearance</h2>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -94,11 +103,10 @@ const Settings = () => {
                                         <button
                                             key={t}
                                             onClick={() => setThemePreference(t)}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${
-                                                themePreference === t 
-                                                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${themePreference === t
+                                                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
                                                 : 'text-gray-500 dark:text-slate-500 hover:text-gray-700'
-                                            }`}
+                                                }`}
                                         >
                                             {t}
                                         </button>
@@ -116,7 +124,7 @@ const Settings = () => {
                             </div>
                             <h2 className="font-bold text-gray-800 dark:text-white">Chat Wallpaper</h2>
                         </div>
-                        
+
                         <div className="space-y-6">
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {[
@@ -127,9 +135,8 @@ const Settings = () => {
                                     <button
                                         key={wp.id}
                                         onClick={() => setChatWallpaper(wp.id)}
-                                        className={`group relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
-                                            chatWallpaper === wp.id ? 'border-blue-500 scale-95 shadow-lg' : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600'
-                                        }`}
+                                        className={`group relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${chatWallpaper === wp.id ? 'border-blue-500 scale-95 shadow-lg' : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600'
+                                            }`}
                                     >
                                         <div className={`w-full h-full ${wp.bg} flex items-center justify-center`}>
                                             <span className="text-[10px] font-bold text-white drop-shadow-md">{wp.label}</span>
@@ -143,20 +150,19 @@ const Settings = () => {
                                         )}
                                     </button>
                                 ))}
-                                
+
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className={`group relative aspect-square rounded-2xl overflow-hidden border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1 ${
-                                        chatWallpaper.startsWith('data:') 
-                                        ? 'border-blue-500 scale-95 shadow-lg' 
+                                    className={`group relative aspect-square rounded-2xl overflow-hidden border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1 ${chatWallpaper.startsWith('data:')
+                                        ? 'border-blue-500 scale-95 shadow-lg'
                                         : 'border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-800'
-                                    }`}
+                                        }`}
                                 >
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        hidden 
-                                        accept="image/*" 
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        hidden
+                                        accept="image/*"
                                         onChange={(e) => {
                                             const file = e.target.files[0];
                                             if (file) {
@@ -189,14 +195,14 @@ const Settings = () => {
                             </div>
                             <h2 className="font-bold text-gray-800 dark:text-white">Notifications</h2>
                         </div>
-                        
+
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Individual Chats</p>
                                     <p className="text-xs text-gray-400 dark:text-slate-400">Receive alerts for direct messages</p>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => handleToggleNotif('individual')}
                                     className={`w-12 h-6 rounded-full transition-colors relative ${notifs.individual ? 'bg-blue-600' : 'bg-gray-200'}`}
                                 >
@@ -209,7 +215,7 @@ const Settings = () => {
                                     <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">All Notifications</p>
                                     <p className="text-xs text-gray-400 dark:text-slate-400">Enable or disable all browser alerts</p>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => handleToggleNotif('all')}
                                     className={`w-12 h-6 rounded-full transition-colors relative ${notifs.all ? 'bg-blue-600' : 'bg-gray-200'}`}
                                 >
@@ -222,7 +228,7 @@ const Settings = () => {
                                     <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Notification Sound</p>
                                     <p className="text-xs text-gray-400 dark:text-slate-400">Play a sound on new messages</p>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => handleToggleNotif('sound')}
                                     className={`w-12 h-6 rounded-full transition-colors relative ${notifs.sound ? 'bg-blue-600' : 'bg-gray-200'}`}
                                 >
@@ -231,7 +237,7 @@ const Settings = () => {
                             </div>
 
                             <div className="pt-4 border-t border-gray-100 dark:border-slate-700">
-                                <button 
+                                <button
                                     onClick={sendTestNotification}
                                     className="w-full py-3 px-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl font-bold text-sm hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all border border-blue-100 dark:border-blue-800/50"
                                 >
@@ -249,8 +255,16 @@ const Settings = () => {
                             </div>
                             <h2 className="font-bold text-gray-800 dark:text-white">Account</h2>
                         </div>
-                        
-                        <button 
+
+                        <button
+                            onClick={() => navigate('/profile')}
+                            className="flex items-center gap-3 w-full p-3 mb-2 rounded-2xl text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition-colors"
+                        >
+                            <User size={20} className="text-blue-500" />
+                            <span className="font-semibold text-sm">Edit Profile</span>
+                        </button>
+
+                        <button
                             onClick={() => {
                                 localStorage.removeItem('profile');
                                 window.location.href = '/';
