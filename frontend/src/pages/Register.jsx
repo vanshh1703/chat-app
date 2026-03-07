@@ -18,8 +18,8 @@ function Register() {
     };
 
     return (
-        <div className='bg-slate-100 h-screen w-screen flex items-center justify-center font-sans'>
-            <div className='bg-white p-8 rounded-2xl shadow-xl w-96 border border-slate-200'>
+        <div className='bg-slate-100 h-screen w-screen flex items-center justify-center font-sans px-4'>
+            <div className='bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200'>
                 <h2 className='text-3xl font-extrabold mb-8 text-center text-blue-600'>Create Account</h2>
                 {error && <p className="text-red-500 text-xs mb-4 text-center bg-red-50 p-2 rounded-lg">{error}</p>}
                 <form onSubmit={handleRegister}>

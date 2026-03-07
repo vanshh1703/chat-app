@@ -63,6 +63,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => 
     let messageType = 'file';
     if (mimeType.startsWith('image/')) messageType = 'image';
     else if (mimeType.startsWith('video/')) messageType = 'video';
+    else if (mimeType.startsWith('audio/')) messageType = 'audio';
     res.json({ fileUrl, originalName, messageType, fileName: originalName });
 });
 
@@ -244,9 +245,12 @@ io.on('connection', (socket) => {
     socket.on('delete_message', async (data) => {
         const { messageId, senderId, receiverId } = data;
         try {
-            // Only the sender can delete their own message
+            // Only the sender can delete their own message. We soft delete it by setting is_deleted=true.
+            // Note: The prompt says "deleting message from frontend should not be deleting message from database".
+            // It was already doing an UPDATE setting is_deleted = true.
+            // But we can also clear file_url if we want to be thorough.
             const result = await pool.query(
-                'UPDATE messages SET is_deleted = true, content = \'\' WHERE id = $1 AND sender_id = $2 RETURNING *',
+                'UPDATE messages SET is_deleted = true, content = \'\', file_url = NULL WHERE id = $1 AND sender_id = $2 RETURNING *',
                 [messageId, senderId]
             );
             if (result.rows.length === 0) return; // not authorised

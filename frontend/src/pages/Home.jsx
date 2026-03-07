@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2 } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square } from 'lucide-react';
 import { io } from 'socket.io-client';
 import * as api from '../api/api';
 import EmojiPicker from 'emoji-picker-react';
@@ -27,6 +27,13 @@ const Home = () => {
     const fileInputRef = useRef();
     const [uploading, setUploading] = useState(false);
     const [attachPreview, setAttachPreview] = useState(null); // { file, url, type }
+
+    // Audio recording state
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const recordingTimerRef = useRef(null);
 
     // Initialize Socket
     useEffect(() => {
@@ -245,6 +252,13 @@ const Home = () => {
                 </video>
             );
         }
+        if (msg.message_type === 'audio') {
+            return (
+                <audio controls className="max-w-[240px] h-10" src={msg.file_url}>
+                    Your browser does not support audio.
+                </audio>
+            );
+        }
         // Document / generic file
         return (
             <a href={msg.file_url} download={msg.content} target="_blank" rel="noreferrer"
@@ -263,6 +277,69 @@ const Home = () => {
                 <Download size={14} className={isMine ? 'text-white/80' : 'text-blue-400'} />
             </a>
         );
+    };
+
+    // Audio Recording Logic
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const url = URL.createObjectURL(audioBlob);
+                const file = new File([audioBlob], `voice_message_${Date.now()}.webm`, { type: 'audio/webm' });
+                setAttachPreview({ file, url, type: 'audio', name: 'Voice Message' });
+                
+                // Cleanup stream tracks
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingTime(0);
+
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+            
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            alert('Microphone access is required to record audio messages.');
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+            clearInterval(recordingTimerRef.current);
+        }
+    };
+
+    const cancelRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.onstop = () => {
+                const stream = mediaRecorderRef.current.stream;
+                stream.getTracks().forEach(track => track.stop());
+            };
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+            clearInterval(recordingTimerRef.current);
+            setRecordingTime(0);
+        }
+    };
+
+    const formatRecordingTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
     const handleTyping = () => {
@@ -325,9 +402,9 @@ const Home = () => {
     };
 
     return (
-        <div className="flex h-screen w-full bg-[#f0f2f5] overflow-hidden font-sans">
+        <div className="flex h-screen w-full bg-[#f0f2f5] overflow-hidden font-sans relative">
             {/* Sidebar */}
-            <div className="w-1/4 min-w-[320px] flex flex-col bg-white/70 backdrop-blur-[10px] border-r border-white/30">
+            <div className={`w-full md:w-1/4 md:min-w-[320px] flex-col bg-white/70 backdrop-blur-[10px] border-r border-white/30 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
@@ -418,12 +495,15 @@ const Home = () => {
             </div>
 
             {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col bg-white/40 backdrop-blur-sm relative">
+            <div className={`flex-1 flex-col bg-white/40 backdrop-blur-sm relative h-full w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
                 {activeChat ? (
                     <>
-                        <div className="p-4 flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-white/30 z-10">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm">
+                        <div className="p-3 md:p-4 flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-white/30 z-10 shrink-0">
+                            <div className="flex items-center gap-2 md:gap-4">
+                                <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl hover:bg-white/60 text-gray-500 transition-colors">
+                                    <ArrowLeft size={20} />
+                                </button>
+                                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm shrink-0">
                                     <img src={activeChat.avatar_url} alt="Active Chat" />
                                 </div>
                                 <div>
@@ -436,14 +516,14 @@ const Home = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button className="p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40">
+                            <div className="flex items-center gap-1 md:gap-2">
+                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40">
                                     <Phone size={18} />
                                 </button>
-                                <button className="p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40">
+                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40">
                                     <Video size={18} />
                                 </button>
-                                <button className="p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40">
+                                <button className="p-2 md:p-2.5 rounded-xl hover:bg-white/60 text-gray-500 transition-colors shadow-sm bg-white/40 hidden sm:block">
                                     <MoreVertical size={18} />
                                 </button>
                             </div>
@@ -462,7 +542,7 @@ const Home = () => {
                                     onMouseEnter={() => !msg.is_deleted && setHoveredMsgId(msg.id)}
                                     onMouseLeave={() => { setHoveredMsgId(null); setReactionPickerMsgId(null); }}
                                 >
-                                    <div className={`flex gap-3 max-w-[70%] ${msg.sender_id === user.id ? 'flex-row-reverse' : 'flex-row'}`}>
+                                    <div className={`flex gap-2 md:gap-3 max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'flex-row-reverse' : 'flex-row'}`}>
                                         <div className="flex flex-col relative">
                                             <div className={`px-4 py-3 text-sm shadow-[0_4px_15px_rgba(0,0,0,0.05)] ${msg.is_deleted
                                                 ? (msg.sender_id === user.id
@@ -591,7 +671,7 @@ const Home = () => {
                             <div ref={scrollRef} />
                         </div>
 
-                        <div className="p-4 bg-white/30 backdrop-blur-md">
+                        <div className="p-2 md:p-4 bg-white/30 backdrop-blur-md shrink-0">
                             <div className="max-w-4xl mx-auto relative">
 
                                 {/* File attachment preview */}
@@ -610,12 +690,17 @@ const Home = () => {
                                                 <FileText size={22} className="text-blue-400" />
                                             </div>
                                         )}
+                                        {attachPreview.type === 'audio' && (
+                                            <div className="bg-blue-50/50 rounded-xl px-2 py-1 flex items-center justify-center shrink-0">
+                                                <audio controls src={attachPreview.url} className="h-10 w-48" />
+                                            </div>
+                                        )}
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-semibold text-gray-800 truncate">{attachPreview.name}</p>
                                             <p className="text-xs text-gray-400 capitalize">{attachPreview.type}</p>
                                         </div>
                                         <button onClick={handleSendFile} disabled={uploading}
-                                            className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shadow-lg disabled:opacity-50 transition-all hover:scale-105">
+                                            className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shadow-lg disabled:opacity-50 transition-all hover:scale-105 ml-2">
                                             {uploading ? <span className="text-[10px]">...</span> : <Send size={16} />}
                                         </button>
                                         <button onClick={() => setAttachPreview(null)}
@@ -647,7 +732,7 @@ const Home = () => {
                                 )}
                                 {/* Emoji Picker floating above input */}
                                 {showEmojiPicker && (
-                                    <div className="absolute bottom-full mb-2 right-0 z-50" ref={emojiPickerRef}>
+                                    <div className="absolute bottom-full mb-2 right-0 sm:right-auto sm:left-0 md:left-auto md:right-0 z-50 max-w-[100vw]" ref={emojiPickerRef}>
                                         <EmojiPicker
                                             onEmojiClick={handleEmojiClick}
                                             height={380}
@@ -658,44 +743,69 @@ const Home = () => {
                                         />
                                     </div>
                                 )}
-                                <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-white shadow-xl shadow-blue-500/5 rounded-2xl px-4 py-2 border border-blue-50 transition-all focus-within:ring-2 focus-within:ring-blue-100">
-                                    {/* Hidden file input */}
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
-                                        className="hidden"
-                                        onChange={handleFileSelect}
-                                    />
-                                    <button type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="text-gray-400 hover:text-blue-500 transition-colors p-2 rounded-lg hover:bg-blue-50">
-                                        <Plus size={20} />
-                                    </button>
-                                    <input
-                                        ref={inputRef}
-                                        type="text"
-                                        value={messageText}
-                                        onChange={(e) => {
-                                            setMessageText(e.target.value);
-                                            handleTyping();
-                                        }}
-                                        onKeyDown={(e) => { if (e.key === 'Escape') { setShowEmojiPicker(false); setReplyingTo(null); } }}
-                                        placeholder={replyingTo ? 'Type your reply...' : 'Type your message...'}
-                                        className="flex-1 bg-transparent border-none outline-none text-sm py-2 px-2"
-                                    />
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowEmojiPicker(prev => !prev)}
-                                            className={`text-gray-400 hover:text-yellow-500 transition-colors p-2 rounded-lg hover:bg-yellow-50 ${showEmojiPicker ? 'text-yellow-500 bg-yellow-50' : ''}`}
-                                        >
-                                            <Smile size={20} />
-                                        </button>
-                                        <button type="submit" className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 ml-2">
-                                            <Send size={18} className="ml-0.5" />
-                                        </button>
-                                    </div>
+                                <form onSubmit={handleSendMessage} className="flex items-center gap-2 md:gap-3 bg-white shadow-xl shadow-blue-500/5 rounded-2xl px-2 md:px-4 py-2 border border-blue-50 transition-all focus-within:ring-2 focus-within:ring-blue-100">
+                                    {isRecording ? (
+                                        <>
+                                            <div className="flex items-center gap-2 text-red-500 font-medium text-sm animate-pulse px-2 flex-1">
+                                                <div className="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+                                                Recording... {formatRecordingTime(recordingTime)}
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <button type="button" onClick={cancelRecording} className="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50">
+                                                    <Trash2 size={20} />
+                                                </button>
+                                                <button type="button" onClick={stopRecording} className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/30 hover:scale-105 ml-1 md:ml-2 shrink-0">
+                                                    <Square size={16} fill="white" />
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {/* Hidden file input */}
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                                                className="hidden"
+                                                onChange={handleFileSelect}
+                                            />
+                                            <button type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="text-gray-400 hover:text-blue-500 transition-colors p-2 rounded-lg hover:bg-blue-50">
+                                                <Plus size={20} />
+                                            </button>
+                                            <input
+                                                ref={inputRef}
+                                                type="text"
+                                                value={messageText}
+                                                onChange={(e) => {
+                                                    setMessageText(e.target.value);
+                                                    handleTyping();
+                                                }}
+                                                onKeyDown={(e) => { if (e.key === 'Escape') { setShowEmojiPicker(false); setReplyingTo(null); } }}
+                                                placeholder={replyingTo ? 'Type your reply...' : 'Type your message...'}
+                                                className="flex-1 bg-transparent border-none outline-none text-sm py-2 px-2 min-w-0"
+                                            />
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowEmojiPicker(prev => !prev)}
+                                                    className={`text-gray-400 hover:text-yellow-500 transition-colors p-2 rounded-lg hover:bg-yellow-50 ${showEmojiPicker ? 'text-yellow-500 bg-yellow-50' : ''}`}
+                                                >
+                                                    <Smile size={20} />
+                                                </button>
+                                                {messageText.trim() || attachPreview ? (
+                                                    <button type="submit" className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 ml-1 md:ml-2 shrink-0">
+                                                        <Send size={18} className="ml-0.5" />
+                                                    </button>
+                                                ) : (
+                                                    <button type="button" onClick={startRecording} className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 flex items-center justify-center transition-all ml-1 md:ml-2 shrink-0">
+                                                        <Mic size={18} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
                                 </form>
                             </div>
                         </div>
