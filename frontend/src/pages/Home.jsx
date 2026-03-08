@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
 import * as api from '../api/api';
@@ -43,6 +43,13 @@ const Home = () => {
     const [showInsights, setShowInsights] = useState(false);
     const [chatStats, setChatStats] = useState(null);
     const [loadingStats, setLoadingStats] = useState(false);
+    const [viewingProfile, setViewingProfile] = useState(null); // User object
+    const [isEditingAlias, setIsEditingAlias] = useState(false);
+    const [newAlias, setNewAlias] = useState('');
+    const [isPowerModalOpen, setIsPowerModalOpen] = useState(false);
+    const [powerLevel, setPowerLevel] = useState(0);
+    const [isPoweringUp, setIsPoweringUp] = useState(false);
+    const [activeSorryBlast, setActiveSorryBlast] = useState(null); // { power, timestamp }
 
     useEffect(() => {
         if (user) {
@@ -341,6 +348,31 @@ const Home = () => {
         }
     };
 
+    const handleSendPowerMessage = (power) => {
+        if (!activeChat) return;
+
+        const msgData = {
+            senderId: user.id,
+            receiverId: activeChat.id,
+            content: JSON.stringify({ type: 'sorry', power }),
+            messageType: 'template',
+            senderName: user.username
+        };
+
+        socket.current.emit('send_message', msgData);
+
+        // Trigger one-time animation
+        setActiveSorryBlast({ power, timestamp: Date.now() });
+        setTimeout(() => setActiveSorryBlast(null), 3000);
+
+        setIsPowerModalOpen(false);
+        setPowerLevel(0);
+
+        if (!sidebarUsers.find(u => u.id === activeChat.id)) {
+            fetchSidebar();
+        }
+    };
+
     const handleStartReply = (msg) => {
         setReplyingTo(msg);
         setReactionPickerMsgId(null);
@@ -540,6 +572,28 @@ const Home = () => {
         }
     };
 
+    const handleSetAlias = async (e) => {
+        if (e) e.preventDefault();
+        if (!activeChat) return;
+        try {
+            const { data } = await api.setAlias({ contactId: activeChat.id, alias: newAlias });
+            setActiveChat(prev => ({ ...prev, alias: data.alias }));
+            setSidebarUsers(prev => prev.map(u => u.id === activeChat.id ? { ...u, alias: data.alias } : u));
+            setIsEditingAlias(false);
+        } catch (err) {
+            console.error('Set alias error', err);
+        }
+    };
+
+    const handleViewProfile = async (targetUser) => {
+        try {
+            const { data } = await api.getUserProfile(targetUser.id);
+            setViewingProfile(data);
+        } catch (err) {
+            console.error('View profile error', err);
+        }
+    };
+
     const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '👎'];
 
     const getStatusText = (userId) => {
@@ -559,6 +613,108 @@ const Home = () => {
         if (diffHours < 24) return `Last seen ${diffHours}h ago`;
         if (diffDays === 1) return 'Last seen yesterday';
         return `Last seen ${lastSeenDate.toLocaleDateString()}`;
+    };
+
+    const renderSorryBlast = () => {
+        if (!activeSorryBlast) return null;
+        const { power } = activeSorryBlast;
+        const particleCount = Math.min(20 + Math.floor(power / 10), 100);
+
+        return (
+            <div className="fixed inset-0 z-200 pointer-events-none overflow-hidden flex items-center justify-center">
+                {/* Screen Shake Effect */}
+                <div className="absolute inset-0 bg-rose-500/10 animate-pulse"></div>
+
+                {/* Particle Explosion */}
+                {[...Array(particleCount)].map((_, i) => {
+                    const angle = (i / particleCount) * 360;
+                    const velocity = 5 + Math.random() * 10;
+                    const size = 4 + Math.random() * 8;
+                    const delay = Math.random() * 0.5;
+
+                    return (
+                        <div
+                            key={i}
+                            className="absolute bg-rose-500 rounded-full animate-out fade-out zoom-out duration-1000 fill-mode-forwards"
+                            style={{
+                                width: `${size}px`,
+                                height: `${size}px`,
+                                left: '50%',
+                                top: '50%',
+                                animationDelay: `${delay}s`,
+                                transform: `rotate(${angle}deg) translate(${velocity * 20}px)`,
+                                boxShadow: '0 0 10px rgba(244,63,94,0.8)'
+                            }}
+                        ></div>
+                    );
+                })}
+
+                {/* Central Shockwave */}
+                <div className="w-20 h-20 rounded-full border-4 border-white/50 animate-ping duration-700"></div>
+                <div className="absolute text-white font-black italic text-6xl md:text-8xl tracking-tighter animate-in zoom-in fade-in duration-500 fill-mode-forwards">
+                    SORRY!
+                </div>
+            </div>
+        );
+    };
+
+    const renderTemplateMessage = (msg) => {
+        try {
+            const data = JSON.parse(msg.content);
+            if (data.type === 'sorry') {
+                const power = data.power || 0;
+
+                // Dynamic Theme based on power
+                let theme = { text: 'text-white', badge: 'bg-white text-blue-600', shadow: 'rgba(244,63,94,0.5)', glow: 'rose' };
+                if (power > 5000) theme = { text: 'text-yellow-400', badge: 'bg-yellow-400 text-slate-900', shadow: 'rgba(234,179,8,0.8)', glow: 'yellow' };
+                else if (power > 1000) theme = { text: 'text-cyan-400', badge: 'bg-cyan-400 text-slate-900', shadow: 'rgba(34,211,238,0.7)', glow: 'cyan' };
+                else if (power > 100) theme = { text: 'text-orange-400', badge: 'bg-orange-400 text-slate-900', shadow: 'rgba(251,146,60,0.6)', glow: 'orange' };
+
+                const isMyMessage = msg.sender_id === user.id;
+                const textColor = isMyMessage ? 'text-white' : theme.text;
+
+                // log scale for extreme numbers so it doesn't break layout but feels bigger
+                const scale = 1 + Math.min(Math.log10(power + 1) * 0.1, 0.4);
+
+                return (
+                    <div className="flex flex-col items-center pt-4 pr-6 pb-2 pl-2 select-none max-w-full relative">
+                        <div
+                            className={`relative transition-all duration-500 transform hover:scale-105 active:scale-95 cursor-default group`}
+                            style={{
+                                transform: `scale(${scale})`,
+                                filter: `drop-shadow(0 0 ${Math.min(power * 0.01, 20)}px ${theme.shadow})`
+                            }}
+                        >
+                            <div className={`text-3xl md:text-5xl font-black italic tracking-tighter leading-none ${textColor} whitespace-nowrap drop-shadow-sm`}>
+                                SORRY
+                            </div>
+
+                            {/* Level Badge - Now more prominent and colorful */}
+                            <div className={`absolute -top-3 -right-6 ${theme.badge} text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xl border-2 border-white/20 z-10 transition-transform group-hover:scale-110 whitespace-nowrap`}>
+                                LVL {power.toLocaleString()}
+                            </div>
+
+                            {/* Extra effects for high levels */}
+                            {power > 100 && (
+                                <div className={`absolute inset-0 pointer-events-none opacity-50`}>
+                                    <div className={`absolute inset-0 animate-pulse bg-${theme.glow}-500/20 blur-xl rounded-full`}></div>
+                                </div>
+                            )}
+
+                            {power > 20 && (
+                                <div className="absolute inset-0 pointer-events-none text-white/40">
+                                    <div className="absolute top-0 left-1/4 w-1 h-1 bg-current rounded-full animate-ping"></div>
+                                    <div className="absolute bottom-0 right-1/4 w-1.5 h-1.5 bg-current rounded-full animate-ping delay-100"></div>
+                                    {power > 1000 && <div className="absolute top-1/2 left-0 w-2 h-2 bg-current rounded-full animate-ping delay-200"></div>}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+        } catch (e) {
+            return msg.content;
+        }
     };
 
     return (
@@ -614,7 +770,7 @@ const Home = () => {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
                                         <h4 className="text-sm font-bold truncate flex items-center gap-1">
-                                            {chat.username}
+                                            {chat.alias || chat.username}
                                         </h4>
                                         <span className="text-[10px] text-gray-400">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                                     </div>
@@ -649,10 +805,40 @@ const Home = () => {
                         <div className="p-3 md:p-4 flex items-center justify-between bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-white/30 dark:border-slate-700/30 z-10">
                             <div className="flex items-center gap-2 md:gap-4 flex-1">
                                 <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-gray-500"><ArrowLeft size={20} /></button>
-                                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm"><img src={activeChat.avatar_url} alt="Active" /></div>
+                                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform" onClick={() => handleViewProfile(activeChat)}>
+                                    <img src={activeChat.avatar_url} alt="Active" />
+                                </div>
                                 {!showChatSearch ? (
                                     <div>
-                                        <h3 className="font-bold text-gray-800 dark:text-white text-sm">{activeChat.username}</h3>
+                                        {isEditingAlias ? (
+                                            <form onSubmit={handleSetAlias} className="flex items-center gap-2">
+                                                <input
+                                                    autoFocus
+                                                    type="text"
+                                                    value={newAlias}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onChange={(e) => setNewAlias(e.target.value)}
+                                                    className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                                    placeholder="Set custom name..."
+                                                />
+                                                <button type="submit" className="text-blue-600 font-bold text-xs">Save</button>
+                                                <button type="button" onClick={() => setIsEditingAlias(false)} className="text-gray-400 text-xs">Cancel</button>
+                                            </form>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer" onClick={() => handleViewProfile(activeChat)}>
+                                                    {activeChat.alias || activeChat.username}
+                                                </h3>
+                                                <button
+                                                    onClick={() => { setIsEditingAlias(true); setNewAlias(activeChat.alias || activeChat.username); }}
+                                                    onFocus={(e) => e.target.select()}
+                                                    className="p-1 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                                                    title="Edit Name"
+                                                >
+                                                    <Plus size={12} />
+                                                </button>
+                                            </div>
+                                        )}
                                         <p className="text-[11px] text-gray-500">{getStatusText(activeChat.id)}</p>
                                     </div>
                                 ) : (
@@ -700,12 +886,12 @@ const Home = () => {
                                                     <>
                                                         {msg.reply_to_msg && (
                                                             <div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/20 border-white' : 'bg-gray-50 border-blue-500 text-gray-500'}`}>
-                                                                <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.username}</p>
+                                                                <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
                                                                 <p className="truncate">{msg.reply_to_msg.content}</p>
                                                             </div>
                                                         )}
                                                         {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
-                                                        {msg.message_type === 'text' ? msg.content : renderFileMessage(msg)}
+                                                        {msg.message_type === 'text' ? msg.content : msg.message_type === 'template' ? renderTemplateMessage(msg) : renderFileMessage(msg)}
                                                     </>
                                                 )}
                                                 {hoveredMsgId === msg.id && !msg.is_deleted && (
@@ -783,6 +969,7 @@ const Home = () => {
                                             <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Camera size={20} /></button>
                                             <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type a message..." className="flex-1 bg-transparent outline-none text-sm" />
                                             <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"><Smile size={20} /></button>
+                                            <button type="button" onClick={() => setIsPowerModalOpen(true)} className="p-2 text-gray-400 hover:text-rose-500 transition-colors" title="Send Sorry Power"><Zap size={20} /></button>
                                             {messageText.trim() || attachPreview ? (
                                                 <button type="submit" className="p-2 bg-blue-600 text-white rounded-xl"><Send size={18} /></button>
                                             ) : (
@@ -798,13 +985,15 @@ const Home = () => {
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
                         <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 text-blue-500"><Send size={32} /></div>
-                        <h2 className="text-xl font-bold text-gray-700">Select a chat to start messaging</h2>
+                        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Your Space to Connect</h2>
+                        <p className="text-sm text-gray-500 dark:text-slate-400">Search for a friend or select a chat to start messaging.</p>
                     </div>
                 )}
             </div>
 
+            {/* Camera Modal */}
             {isCameraOpen && (
-                <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 bg-black/90 flex flex-col items-center justify-center p-4">
                     <div className="relative w-full max-w-lg aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl">
                         <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
                         <button onClick={() => setIsCameraOpen(false)} className="absolute top-4 right-4 p-2 bg-black/40 text-white rounded-full"><X size={24} /></button>
@@ -816,6 +1005,137 @@ const Home = () => {
                     </div>
                 </div>
             )}
+
+            {/* Profile View Modal */}
+            {viewingProfile && (
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[42px] shadow-2xl overflow-hidden border border-white/20 dark:border-slate-700/50">
+                        <div className="h-40 bg-linear-to-br from-blue-500 via-indigo-600 to-violet-700 relative">
+                            <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
+                            <button
+                                onClick={() => setViewingProfile(null)}
+                                className="absolute top-6 right-6 p-2.5 bg-black/20 hover:bg-black/40 text-white rounded-full transition-all hover:rotate-90"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="px-8 pb-10 text-center -mt-20 relative z-10">
+                            <div className="w-36 h-36 rounded-full border-10 border-white dark:border-slate-800 shadow-2xl overflow-hidden bg-white dark:bg-slate-900 mx-auto">
+                                <img src={viewingProfile.avatar_url} alt={viewingProfile.username} className="w-full h-full object-cover" />
+                            </div>
+                            <h2 className="mt-6 text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">
+                                {viewingProfile.alias || viewingProfile.username}
+                            </h2>
+                            {viewingProfile.alias && (
+                                <p className="text-xs font-black text-blue-500 dark:text-blue-400 uppercase tracking-[0.2em] mt-2 opacity-80">@{viewingProfile.username}</p>
+                            )}
+
+                            <div className="mt-8 space-y-4">
+                                <div className="flex items-center gap-4 p-4.5 bg-gray-50/80 dark:bg-slate-900/40 rounded-[28px] border border-gray-100/50 dark:border-slate-700/30 transition-colors hover:bg-white dark:hover:bg-slate-900/60">
+                                    <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded-2xl flex items-center justify-center shadow-inner">
+                                        <Mail size={22} />
+                                    </div>
+                                    <div className="text-left overflow-hidden">
+                                        <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Email Address</p>
+                                        <p className="text-[14px] font-bold text-gray-700 dark:text-slate-200 truncate">{viewingProfile.email}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 p-4.5 bg-gray-50/80 dark:bg-slate-900/40 rounded-[28px] border border-gray-100/50 dark:border-slate-700/30 transition-colors hover:bg-white dark:hover:bg-slate-900/60">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${viewingProfile.is_online ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 dark:text-emerald-400' : 'bg-gray-100 dark:bg-slate-800 text-gray-400'}`}>
+                                        <Activity size={22} />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Global Status</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${viewingProfile.is_online ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                                            <p className={`text-[14px] font-black ${viewingProfile.is_online ? 'text-emerald-500' : 'text-gray-500'}`}>
+                                                {viewingProfile.is_online ? 'Available Now' : 'Currently Offline'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setViewingProfile(null)}
+                                className="w-full mt-10 py-5 bg-linear-to-r from-gray-800 to-gray-900 dark:from-slate-700 dark:to-slate-800 hover:from-black hover:to-black text-white font-black text-sm uppercase tracking-widest rounded-[24px] transition-all shadow-xl active:scale-95 border-b-4 border-black/20"
+                            >
+                                Close Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Power Up Modal */}
+            {isPowerModalOpen && (
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl transition-all animate-in fade-in duration-300">
+                    <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[48px] shadow-2xl overflow-hidden p-8 text-center relative">
+                        <button
+                            onClick={() => { setIsPowerModalOpen(false); setPowerLevel(0); }}
+                            className="absolute top-8 right-8 p-3 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all hover:rotate-90"
+                        >
+                            <X size={24} />
+                        </button>
+
+                        <div className="mt-8 mb-12">
+                            <h2 className="text-4xl font-black text-white tracking-tighter mb-2">SORRY POWER</h2>
+                            <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">Tap to increase intensity</p>
+                        </div>
+
+                        <div className="relative flex items-center justify-center h-64">
+                            {[...Array(6)].map((_, i) => (
+                                <div
+                                    key={i}
+                                    style={{
+                                        transform: `scale(${1 + (powerLevel * 0.05)})`,
+                                        opacity: Math.max(0.1, 1 - (i * 0.15)),
+                                        transition: 'all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                                    }}
+                                    className={`absolute inset-0 rounded-full border-2 border-rose-500/30 animate-ping`}
+                                ></div>
+                            ))}
+
+                            <button
+                                onMouseDown={() => setIsPoweringUp(true)}
+                                onMouseUp={() => setIsPoweringUp(false)}
+                                onClick={() => setPowerLevel(prev => Math.min(prev + 1, 10000))}
+                                className={`relative w-48 h-48 rounded-full bg-linear-to-br from-rose-500 to-rose-700 shadow-[0_0_50px_rgba(244,63,94,0.4)] flex items-center justify-center text-white transition-all active:scale-90 select-none group ${isPoweringUp ? 'scale-110' : 'scale-100'}`}
+                                style={{ transform: `scale(${1 + Math.min(powerLevel * 0.001, 0.4)})` }}
+                            >
+                                <div className="flex flex-col items-center">
+                                    <span className="text-2xl font-black italic tracking-tighter text-white/90 group-active:text-white">SORRY</span>
+                                    <span className="text-4xl font-black mt-1">{powerLevel}</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div className="mt-16 space-y-4">
+                            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-linear-to-r from-rose-500 to-rose-300 transition-all duration-300 shadow-[0_0_15px_rgba(244,63,94,0.5)]"
+                                    style={{ width: `${Math.min((powerLevel / 10000) * 100, 100)}%` }}
+                                ></div>
+                            </div>
+
+                            <button
+                                onClick={() => handleSendPowerMessage(powerLevel)}
+                                className={`w-full py-5 font-black text-lg uppercase tracking-widest rounded-3xl transition-all shadow-2xl active:scale-95 disabled:opacity-50 ${powerLevel > 5000 ? 'bg-yellow-400 text-slate-900 shadow-yellow-500/20' :
+                                        powerLevel > 1000 ? 'bg-cyan-400 text-slate-900 shadow-cyan-500/20' :
+                                            powerLevel > 100 ? 'bg-orange-400 text-slate-900 shadow-orange-500/20' :
+                                                'bg-white text-slate-900 shadow-white/20'
+                                    }`}
+                                disabled={powerLevel === 0}
+                            >
+                                Send Level {powerLevel.toLocaleString()} Sorry
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {renderSorryBlast()}
         </div>
     );
 };
@@ -824,14 +1144,14 @@ export default Home;
 
 const ChatInsights = ({ onClose, stats, otherUser }) => {
     if (!stats) return (
-        <div className="absolute inset-0 z-[60] bg-[#f0f2f5]/95 dark:bg-[#0f172a]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in slide-in-from-right duration-300">
+        <div className="absolute inset-0 z-60 bg-[#f0f2f5]/95 dark:bg-[#0f172a]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in slide-in-from-right duration-300">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             <p className="mt-4 text-gray-500 font-bold">Calculating insights...</p>
         </div>
     );
 
     return (
-        <div className="absolute inset-0 z-[60] bg-[#f0f2f5]/95 dark:bg-[#0f172a]/95 backdrop-blur-md flex flex-col p-6 animate-in slide-in-from-right duration-300">
+        <div className="absolute inset-0 z-60 bg-[#f0f2f5]/95 dark:bg-[#0f172a]/95 backdrop-blur-md flex flex-col p-6 animate-in slide-in-from-right duration-300">
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-500/20">
@@ -839,7 +1159,7 @@ const ChatInsights = ({ onClose, stats, otherUser }) => {
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-gray-800 dark:text-white font-sans">Chat Insights</h2>
-                        <p className="text-xs text-gray-500">Analytics with {otherUser?.username}</p>
+                        <p className="text-xs text-gray-500">Analytics with {otherUser?.alias || otherUser?.username}</p>
                     </div>
                 </div>
                 <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-xl transition-colors">

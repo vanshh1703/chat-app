@@ -75,6 +75,17 @@ const initializeDB = async () => {
             await pool.query('ALTER TABLE messages ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE;');
         } catch (e) { }
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS contact_aliases (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                contact_id INTEGER REFERENCES users(id),
+                alias VARCHAR(100) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, contact_id)
+            );
+        `);
+
         console.log('Database tables initialized');
     } catch (err) {
         console.error('Database initialization error:', err);

@@ -23,3 +23,5 @@ export const uploadFile = (formData) => API.post('/upload', formData, {
 export const getChatStats = (otherId) => API.get(`/messages/stats/${otherId}`);
 export const pinChat = (data) => API.post('/users/pin-chat', data);
 export const pinMessage = (data) => API.post('/messages/pin', data);
+export const setAlias = (data) => API.post('/users/set-alias', data);
+export const getUserProfile = (userId) => API.get(`/users/profile/${userId}`);

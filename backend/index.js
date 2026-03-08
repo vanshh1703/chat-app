@@ -106,7 +106,10 @@ app.get('/api/users/search', authenticateToken, async (req, res) => {
     const { q } = req.query;
     try {
         const result = await pool.query(
-            'SELECT id, username, avatar_url, is_online, last_seen FROM users WHERE username ILIKE $1 AND id != $2 LIMIT 10',
+            `SELECT u.id, u.username, u.avatar_url, u.is_online, u.last_seen, a.alias 
+             FROM users u 
+             LEFT JOIN contact_aliases a ON a.contact_id = u.id AND a.user_id = $2 
+             WHERE u.username ILIKE $1 AND u.id != $2 LIMIT 10`,
             [`%${q}%`, req.user.id]
         );
         res.json(result.rows);
@@ -153,7 +156,7 @@ app.post('/api/users/change-password', authenticateToken, async (req, res) => {
 app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
     try {
         const query = `
-            SELECT DISTINCT u.id, u.username, u.avatar_url, u.is_online, u.last_seen,
+            SELECT DISTINCT u.id, u.username, u.avatar_url, u.is_online, u.last_seen, a.alias,
                 (SELECT content FROM messages 
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
@@ -167,6 +170,7 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
                 EXISTS (SELECT 1 FROM pinned_chats WHERE user_id = $1 AND pinned_user_id = u.id) as is_pinned
             FROM users u
             JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = $1) OR (m.sender_id = $1 AND m.receiver_id = u.id)
+            LEFT JOIN contact_aliases a ON a.contact_id = u.id AND a.user_id = $1
             WHERE u.id != $1
             ORDER BY is_pinned DESC, lastMsgTime DESC NULLS LAST
         `;
@@ -194,6 +198,41 @@ app.post('/api/users/pin-chat', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Pin chat failed' });
+    }
+});
+
+// Set contact alias
+app.post('/api/users/set-alias', authenticateToken, async (req, res) => {
+    const { contactId, alias } = req.body;
+    try {
+        const result = await pool.query(`
+            INSERT INTO contact_aliases (user_id, contact_id, alias)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, contact_id) DO UPDATE SET alias = $3
+            RETURNING *
+        `, [req.user.id, contactId, alias]);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Set alias failed' });
+    }
+});
+
+// Get other user's profile
+app.get('/api/users/profile/:id', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT u.id, u.username, u.email, u.avatar_url, u.is_online, u.last_seen, a.alias
+            FROM users u
+            LEFT JOIN contact_aliases a ON a.contact_id = u.id AND a.user_id = $1
+            WHERE u.id = $2
+        `, [req.user.id, req.params.id]);
+
+        if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Get profile error');
     }
 });
 
