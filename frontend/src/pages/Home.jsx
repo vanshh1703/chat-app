@@ -4,6 +4,9 @@ import { io } from 'socket.io-client';
 import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
 import EmojiPicker from 'emoji-picker-react';
+import CallUI from '../components/CallUI';
+import * as webrtc from '../webrtc';
+import * as signaling from '../socket-events';
 
 const Home = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('profile'))?.user);
@@ -52,6 +55,15 @@ const Home = () => {
     const [activeSorryBlast, setActiveSorryBlast] = useState(null); // { power, timestamp }
     const navigate = useNavigate();
 
+    // WebRTC & Calling State
+    const [incomingCall, setIncomingCall] = useState(null);
+    const [activeCall, setActiveCall] = useState(null);
+    const [localStream, setLocalStream] = useState(null);
+    const [remoteStream, setRemoteStream] = useState(null);
+    const peerConnection = useRef(null);
+    const pendingCandidates = useRef([]);
+    const currentCallIdRef = useRef(null);
+
     useEffect(() => {
         if (user) {
             setChatWallpaper(localStorage.getItem(`chatWallpaper_${user.id}`) || 'default');
@@ -77,7 +89,7 @@ const Home = () => {
 
         if (user) {
             currentSocket.emit('join', user.id);
-            
+
             // Handle reconnection
             currentSocket.on('connect', () => {
                 currentSocket.emit('join', user.id);
@@ -210,6 +222,215 @@ const Home = () => {
             window.removeEventListener('keyup', handleKeyUp);
         };
     }, [user, activeChat]);
+
+    // --- WebRTC Signaling Listeners ---
+    useEffect(() => {
+        if (!socket.current) return;
+        const s = socket.current;
+
+        s.on('incoming-call', (data) => {
+            console.log("Incoming call received:", data);
+            currentCallIdRef.current = data.callId;
+            setIncomingCall({ ...data, isCaller: false });
+            // Play ringtone
+            const ringtone = new Audio('https://assets.mixkit.co/active_storage/sfx/1350/1350-preview.mp3');
+            ringtone.play().catch(e => console.error("Ringtone failed", e));
+        });
+
+        s.on('call-initiated', (data) => {
+            console.log("Call record created on server, ID:", data.callId);
+            currentCallIdRef.current = data.callId;
+        });
+
+        s.on('accept-call', async () => {
+            console.log("Call accepted by remote user");
+            // Stop ringback tone
+            if (window.ringbackTone) {
+                window.ringbackTone.pause();
+                window.ringbackTone = null;
+            }
+            try {
+                const stream = await webrtc.getMediaStream(incomingCall?.type || 'video');
+                setLocalStream(stream);
+
+                peerConnection.current = webrtc.createPeerConnection(
+                    (candidate) => signaling.emitIceCandidate(s, { to: activeChat.id, candidate }),
+                    (rStream) => setRemoteStream(rStream)
+                );
+
+                stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
+
+                const offer = await webrtc.createOffer(peerConnection.current);
+                signaling.emitOffer(s, { to: activeChat.id, offer });
+                setActiveCall(true);
+
+                // Drain candidates if any arrived early
+                for (const cand of pendingCandidates.current) {
+                    await webrtc.addIceCandidate(peerConnection.current, cand);
+                }
+                pendingCandidates.current = [];
+            } catch (err) {
+                console.error("Error setting up call after acceptance", err);
+                alert("Could not access camera/microphone.");
+                handleEndCall();
+            }
+        });
+
+        s.on('reject-call', () => {
+            alert("Call rejected");
+            if (window.ringbackTone) {
+                window.ringbackTone.pause();
+                window.ringbackTone = null;
+            }
+            handleEndCall();
+        });
+
+        s.on('send-offer', async (data) => {
+            console.log("Received WebRTC offer");
+            try {
+                const answer = await webrtc.createAnswer(peerConnection.current, data.offer);
+                signaling.emitAnswer(s, { to: data.from, answer });
+                setActiveCall(true);
+
+                // Drain candidates
+                for (const cand of pendingCandidates.current) {
+                    await webrtc.addIceCandidate(peerConnection.current, cand);
+                }
+                pendingCandidates.current = [];
+            } catch (err) {
+                console.error("Error handling offer", err);
+            }
+        });
+
+        s.on('send-answer', async (data) => {
+            console.log("Received WebRTC answer");
+            await webrtc.handleAnswer(peerConnection.current, data.answer);
+
+            // Drain candidates
+            for (const cand of pendingCandidates.current) {
+                await webrtc.addIceCandidate(peerConnection.current, cand);
+            }
+            pendingCandidates.current = [];
+        });
+
+        s.on('ice-candidate', async (data) => {
+            console.log("Received ICE candidate");
+            if (peerConnection.current && peerConnection.current.remoteDescription) {
+                await webrtc.addIceCandidate(peerConnection.current, data.candidate);
+            } else {
+                pendingCandidates.current.push(data.candidate);
+            }
+        });
+
+        s.on('end-call', () => {
+            console.log("Call ended by remote user");
+            handleEndCall();
+        });
+
+        return () => {
+            s.off('incoming-call');
+            s.off('call-initiated');
+            s.off('accept-call');
+            s.off('reject-call');
+            s.off('send-offer');
+            s.off('send-answer');
+            s.off('ice-candidate');
+            s.off('end-call');
+        };
+    }, [activeChat, incomingCall]);
+
+    const handleStartCall = async (type = 'video') => {
+        if (!activeChat) return;
+        try {
+            // First notify the other user
+            signaling.emitCallUser(socket.current, {
+                to: activeChat.id,
+                from: user.id,
+                name: user.username,
+                avatar: user.avatar_url,
+                type: type
+            });
+
+            // Set up local state
+            setIncomingCall({
+                name: activeChat.username,
+                avatar: activeChat.avatar_url,
+                type,
+                isCaller: true,
+                to: activeChat.id
+            });
+
+            // Play ringback tone (calling sound)
+            const ringback = new Audio('https://assets.mixkit.co/active_storage/sfx/1350/1350-preview.mp3');
+            ringback.loop = true;
+            ringback.play().catch(e => console.error("Ringback failed", e));
+            window.ringbackTone = ringback;
+
+            // Note: We wait for 'accept-call' before starting the WebRTC stream to save resources 
+            // and avoid camera activation until the other person is ready.
+        } catch (err) {
+            console.error("Start call error", err);
+        }
+    };
+
+    const handleAcceptCall = async () => {
+        if (!incomingCall) return;
+        try {
+            const stream = await webrtc.getMediaStream(incomingCall.type);
+            setLocalStream(stream);
+
+            peerConnection.current = webrtc.createPeerConnection(
+                (candidate) => signaling.emitIceCandidate(socket.current, { to: incomingCall.from, candidate }),
+                (rStream) => setRemoteStream(rStream)
+            );
+
+            stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
+
+            signaling.emitAcceptCall(socket.current, { to: incomingCall.from, callId: currentCallIdRef.current });
+            setActiveCall(true);
+            // The caller will receive 'accept-call' and send an offer.
+        } catch (err) {
+            console.error("Accept call error", err);
+            alert("Could not access camera/microphone.");
+            handleRejectCall();
+        }
+    };
+
+    const handleRejectCall = () => {
+        if (incomingCall?.from) {
+            signaling.emitRejectCall(socket.current, { to: incomingCall.from, callId: currentCallIdRef.current });
+        }
+        setIncomingCall(null);
+        currentCallIdRef.current = null;
+    };
+
+    const handleEndCall = () => {
+        if (activeChat || incomingCall) {
+            const targetId = activeChat?.id || incomingCall?.from || incomingCall?.to;
+            if (targetId) signaling.emitEndCall(socket.current, { to: targetId, callId: currentCallIdRef.current });
+        }
+
+        // Stop ringback tone if active
+        if (window.ringbackTone) {
+            window.ringbackTone.pause();
+            window.ringbackTone = null;
+        }
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+        if (peerConnection.current) {
+            peerConnection.current.close();
+            peerConnection.current = null;
+        }
+
+        setLocalStream(null);
+        setRemoteStream(null);
+        setActiveCall(null);
+        setIncomingCall(null);
+        pendingCandidates.current = [];
+        currentCallIdRef.current = null;
+    };
 
     // Fetch sidebar users
     const fetchSidebar = async () => {
@@ -738,9 +959,14 @@ const Home = () => {
                             <p className="text-xs text-green-500 font-medium">Online</p>
                         </div>
                     </div>
-                    <Link to="/settings" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
-                        <SettingsIcon size={20} />
-                    </Link>
+                    <div className="flex items-center gap-1">
+                        <Link to="/calls" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" title="Call History">
+                            <Clock size={20} />
+                        </Link>
+                        <Link to="/settings" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                            <SettingsIcon size={20} />
+                        </Link>
+                    </div>
                 </div>
                 <div className="px-4 py-2 relative">
                     <div className="relative rounded-2xl flex items-center px-4 py-2.5 bg-gray-100/80 dark:bg-slate-800/80 border border-transparent transition-all duration-300 focus-within:bg-white dark:focus-within:bg-slate-800 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
@@ -859,8 +1085,8 @@ const Home = () => {
                             <div className="flex items-center gap-1 md:gap-2">
                                 <button onClick={handleFetchStats} className={`p-2 rounded-xl ${showInsights ? 'text-blue-600' : 'text-gray-500'}`} title="Chat Insights"><BarChart2 size={18} /></button>
                                 <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl ${showChatSearch ? 'text-blue-600' : 'text-gray-500'}`}><Search size={18} /></button>
-                                <button className="p-2 rounded-xl text-gray-500"><Phone size={18} /></button>
-                                <button className="p-2 rounded-xl text-gray-500"><Video size={18} /></button>
+                                <button onClick={() => handleStartCall('voice')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Phone size={18} /></button>
+                                <button onClick={() => handleStartCall('video')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Video size={18} /></button>
                             </div>
                         </div>
 
@@ -899,7 +1125,18 @@ const Home = () => {
                                                             </div>
                                                         )}
                                                         {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
-                                                        {msg.message_type === 'text' ? msg.content : msg.message_type === 'template' ? renderTemplateMessage(msg) : renderFileMessage(msg)}
+                                                        {msg.message_type === 'call' && msg.content ? (
+                                                            <div className="flex items-center gap-3 py-1">
+                                                                <div className={`p-2.5 rounded-xl ${msg.content.includes('Missed') ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                                                    {msg.content.includes('video') ? <Video size={18} /> : <Phone size={18} />}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-black text-sm tracking-tight">{msg.content.split(' • ')[0]}</p>
+                                                                    {msg.content.includes(' • ') && <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-0.5">{msg.content.split(' • ')[1]}</p>}
+                                                                </div>
+                                                            </div>
+                                                        ) : msg.message_type === 'text' ? msg.content : msg.message_type === 'template' ? renderTemplateMessage(msg) : renderFileMessage(msg)}
+
                                                     </>
                                                 )}
                                                 {hoveredMsgId === msg.id && !msg.is_deleted && (
@@ -1139,9 +1376,9 @@ const Home = () => {
                             <button
                                 onClick={() => handleSendPowerMessage(powerLevel)}
                                 className={`w-full py-5 font-black text-lg uppercase tracking-widest rounded-3xl transition-all shadow-2xl active:scale-95 disabled:opacity-50 ${powerLevel > 5000 ? 'bg-yellow-400 text-slate-900 shadow-yellow-500/20' :
-                                        powerLevel > 1000 ? 'bg-cyan-400 text-slate-900 shadow-cyan-500/20' :
-                                            powerLevel > 100 ? 'bg-orange-400 text-slate-900 shadow-orange-500/20' :
-                                                'bg-white text-slate-900 shadow-white/20'
+                                    powerLevel > 1000 ? 'bg-cyan-400 text-slate-900 shadow-cyan-500/20' :
+                                        powerLevel > 100 ? 'bg-orange-400 text-slate-900 shadow-orange-500/20' :
+                                            'bg-white text-slate-900 shadow-white/20'
                                     }`}
                                 disabled={powerLevel === 0}
                             >
@@ -1154,6 +1391,15 @@ const Home = () => {
 
             {renderSorryBlast()}
 
+            <CallUI
+                incomingCall={incomingCall}
+                activeCall={activeCall}
+                localStream={localStream}
+                remoteStream={remoteStream}
+                onAccept={handleAcceptCall}
+                onReject={handleRejectCall}
+                onEnd={handleEndCall}
+            />
         </div>
     );
 };

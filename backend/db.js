@@ -38,7 +38,11 @@ const initializeDB = async () => {
         `);
 
         try {
-            await pool.query('ALTER TABLE messages ADD COLUMN is_read BOOLEAN DEFAULT FALSE');
+            await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE');
+        } catch (e) { }
+
+        try {
+            await pool.query("ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(10) DEFAULT 'text';");
         } catch (e) { }
 
         try {
@@ -80,15 +84,22 @@ const initializeDB = async () => {
         } catch (e) { }
 
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS contact_aliases (
+            CREATE TABLE IF NOT EXISTS call_logs (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                contact_id INTEGER REFERENCES users(id),
-                alias VARCHAR(100) NOT NULL,
+                caller_id INTEGER REFERENCES users(id),
+                receiver_id INTEGER REFERENCES users(id),
+                call_type VARCHAR(10), -- 'voice' or 'video'
+                status VARCHAR(15), -- 'ongoing', 'ended', 'missed', 'rejected'
+                duration INTEGER DEFAULT 0, -- in seconds
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, contact_id)
+                ended_at TIMESTAMP,
+                is_chat_logged BOOLEAN DEFAULT FALSE
             );
         `);
+
+        try {
+            await pool.query('ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS is_chat_logged BOOLEAN DEFAULT FALSE;');
+        } catch (e) { }
 
         console.log('Database tables initialized');
     } catch (err) {

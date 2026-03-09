@@ -4,6 +4,7 @@ import Register from './pages/Register'
 import Home from './pages/Home'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
+import CallLogs from './pages/CallLogs'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/calls" element={<CallLogs />} />
         </Routes>
       </BrowserRouter>
     </>

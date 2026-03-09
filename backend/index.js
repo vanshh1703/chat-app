@@ -7,7 +7,8 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const uuidv4 = require('uuid').v4;
+const WebRTCSignaling = require('./socketServer');
 require('dotenv').config();
 const { pool, initializeDB } = require('./db');
 
@@ -413,11 +414,32 @@ app.get('/api/messages/stats/:otherId', authenticateToken, async (req, res) => {
 
 
 
-// Socket.io for Real-time
+app.get('/api/calls/history', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const result = await pool.query(`
+            SELECT 
+                cl.*,
+                u1.username as caller_name, u1.avatar_url as caller_avatar,
+                u2.username as receiver_name, u2.avatar_url as receiver_avatar
+            FROM call_logs cl
+            JOIN users u1 ON cl.caller_id = u1.id
+            JOIN users u2 ON cl.receiver_id = u2.id
+            WHERE cl.caller_id = $1 OR cl.receiver_id = $1
+            ORDER BY cl.created_at DESC
+            LIMIT 50
+        `, [userId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Database error');
+    }
+});
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     socket.on('join', async (userId) => {
+        if (!userId) return;
         socket.join(userId.toString());
         socket.userId = userId;
         console.log(`User ${userId} joined their private room`);
@@ -426,6 +448,15 @@ io.on('connection', (socket) => {
             io.emit('user_status', { userId, isOnline: true, lastSeen: new Date() });
         } catch (e) { console.error(e); }
     });
+
+    // Initialize WebRTC Signaling
+    if (typeof WebRTCSignaling === 'function') {
+        try {
+            WebRTCSignaling(io, socket);
+        } catch (err) {
+            console.error('Error during WebRTCSignaling call:', err);
+        }
+    }
 
     socket.on('send_message', async (data) => {
         const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName } = data;
