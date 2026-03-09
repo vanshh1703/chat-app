@@ -11,6 +11,139 @@ const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 const { pool, initializeDB } = require('./db');
 
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+const calculateExpectedScore = (ratingA, ratingB) => {
+    return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+}; // Kept for reference or future use if needed
+
+const updateElo = async (user1Id, user2Id, actualScoreU1) => {
+    const u1Data = await pool.query('SELECT debate_rating FROM users WHERE id = $1', [user1Id]);
+    const u2Data = await pool.query('SELECT debate_rating FROM users WHERE id = $1', [user2Id]);
+    
+    const r1 = u1Data.rows[0].debate_rating;
+    const r2 = u2Data.rows[0].debate_rating;
+    
+    let change1 = 0;
+    let change2 = 0;
+
+    if (actualScoreU1 === 1) { // User 1 wins
+        change1 = 10;
+    } else if (actualScoreU1 === 0) { // User 2 wins
+        change2 = 10;
+    } else { // Draw
+        change1 = 5;
+        change2 = 5;
+    }
+    
+    const newR1 = r1 + change1;
+    const newR2 = r2 + change2;
+    
+    await pool.query('UPDATE users SET debate_rating = $1 WHERE id = $2', [newR1, user1Id]);
+    await pool.query('UPDATE users SET debate_rating = $1 WHERE id = $2', [newR2, user2Id]);
+    
+    // Update wins/losses/draws
+    if (actualScoreU1 === 1) {
+        await pool.query('UPDATE users SET wins = wins + 1 WHERE id = $1', [user1Id]);
+        await pool.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [user2Id]);
+    } else if (actualScoreU1 === 0) {
+        await pool.query('UPDATE users SET losses = losses + 1 WHERE id = $1', [user1Id]);
+        await pool.query('UPDATE users SET wins = wins + 1 WHERE id = $1', [user2Id]);
+    } else {
+        await pool.query('UPDATE users SET draws = draws + 1 WHERE id = $1', [user1Id]);
+        await pool.query('UPDATE users SET draws = draws + 1 WHERE id = $1', [user2Id]);
+    }
+
+    return { change1, change2 };
+};
+
+const runAIJudge = async (debateId, topic, messages) => {
+    if (!OPENROUTER_API_KEY) {
+        console.error("AI Judge Error: OPENROUTER_API_KEY is not defined in environment variables.");
+        return { winner_id: null, score_user1: 50, score_user2: 50, explanation: "AI evaluation failed: API key missing." };
+    }
+
+    const formattedMessages = messages.map(m => `User ${m.user_id} (Round ${m.round_number}): ${m.message}`).join('\n');
+    const prompt = `
+        You are an expert debate judge. Analyze the following debate on the topic: "${topic}".
+        Debate Messages:
+        ${formattedMessages}
+
+        Evaluate based on:
+        1. Logic
+        2. Clarity
+        3. Relevance
+        4. Strength of argument
+
+        Respond ONLY in valid JSON format. Do not include any markdown blocks or extra text.
+        Structure:
+        {
+            "winner_id": <user_id_of_winner_or_null_if_draw>,
+            "score_user1": <points_0_to_10>,
+            "score_user2": <points_0_to_10>,
+            "explanation": "<short_explanation>"
+        }
+    `;
+
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                "model": "arcee-ai/trinity-large-preview:free",
+                "messages": [{ "role": "user", "content": prompt }]
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`AI Judge API Error (Status ${response.status}):`, errorText);
+            return { winner_id: null, score_user1: 5, score_user2: 5, explanation: "AI evaluation failed: API error." };
+        }
+
+        const data = await response.json();
+        let content = data.choices[0].message.content.trim();
+        
+        // Sanitize: strip markdown code blocks if present
+        if (content.startsWith('```json')) {
+            content = content.replace(/^```json/, '').replace(/```$/, '').trim();
+        } else if (content.startsWith('```')) {
+            content = content.replace(/^```/, '').replace(/```$/, '').trim();
+        }
+
+        try {
+            const result = JSON.parse(content);
+            
+            // Sanitize winner_id: Ensure it is an integer or null
+            if (result.winner_id !== null) {
+                const parsedId = parseInt(result.winner_id, 10);
+                if (isNaN(parsedId)) {
+                    // Handle cases like "User 2" or "2"
+                    const match = String(result.winner_id).match(/\d+/);
+                    result.winner_id = match ? parseInt(match[0], 10) : null;
+                } else {
+                    result.winner_id = parsedId;
+                }
+            }
+            
+            // Ensure points are numbers
+            result.score_user1 = parseInt(result.score_user1, 10) || 5;
+            result.score_user2 = parseInt(result.score_user2, 10) || 5;
+
+            return result;
+        } catch (parseErr) {
+            console.error("AI Judge JSON Parse Error. Raw content:", content);
+            return { winner_id: null, score_user1: 5, score_user2: 5, explanation: "AI evaluation failed: Invalid format returned." };
+        }
+    } catch (err) {
+        console.error("AI Judge Network Error:", err);
+        return { winner_id: null, score_user1: 5, score_user2: 5, explanation: "AI evaluation failed: Network error." };
+    }
+};
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -406,6 +539,154 @@ app.get('/api/messages/stats/:otherId', authenticateToken, async (req, res) => {
     }
 });
 
+// --- Debate System Endpoints ---
+
+// Create a debate invite
+app.post('/api/debates/invite', authenticateToken, async (req, res) => {
+    const { opponentId, topic } = req.body;
+    try {
+        // Anti-Abuse: Max 10 ranked debates per day
+        const dailyCount = await pool.query(
+            "SELECT COUNT(*) FROM debates WHERE (user1_id = $1 OR user2_id = $1) AND created_at > NOW() - INTERVAL '1 day'",
+            [req.user.id]
+        );
+        if (parseInt(dailyCount.rows[0].count) >= 10) {
+            return res.status(429).json({ error: 'Daily debate limit reached (10)' });
+        }
+
+        // Anti-Abuse: Max 3 debates against same opponent per day
+        const opponentCount = await pool.query(
+            "SELECT COUNT(*) FROM debates WHERE ((user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)) AND created_at > NOW() - INTERVAL '1 day'",
+            [req.user.id, opponentId]
+        );
+        if (parseInt(opponentCount.rows[0].count) >= 3) {
+            return res.status(429).json({ error: 'Limit reached for this opponent (3/day)' });
+        }
+
+        const result = await pool.query(
+            'INSERT INTO debates (topic, user1_id, user2_id, status) VALUES ($1, $2, $3, $4) RETURNING *',
+            [topic, req.user.id, opponentId, 'pending']
+        );
+        const debate = result.rows[0];
+
+        // Notify opponent via socket
+        io.to(opponentId.toString()).emit('debate_invite', {
+            debateId: debate.id,
+            topic: debate.topic,
+            senderId: req.user.id,
+            senderName: req.user.username
+        });
+
+        res.json(debate);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create debate invite' });
+    }
+});
+
+// Respond to debate invite
+app.post('/api/debates/respond', authenticateToken, async (req, res) => {
+    const { debateId, action } = req.body; // 'accept' or 'reject'
+    const status = action === 'accept' ? 'active' : 'rejected';
+    try {
+        const result = await pool.query(
+            'UPDATE debates SET status = $1 WHERE id = $2 AND user2_id = $3 AND status = $4 RETURNING *',
+            [status, debateId, req.user.id, 'pending']
+        );
+
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Invite not found or already processed' });
+
+        const debate = result.rows[0];
+        // Notify both parties
+        io.to(debate.user1_id.toString()).emit('debate_accept', { debateId: debate.id, status });
+        io.to(debate.user2_id.toString()).emit('debate_accept', { debateId: debate.id, status });
+
+        res.json(debate);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to respond to invite' });
+    }
+});
+
+// Get debate info
+app.get('/api/debates/:id', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM debates WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Debate not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch debate' });
+    }
+});
+
+// Get debate messages
+app.get('/api/debates/:id/messages', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM debate_messages WHERE debate_id = $1 ORDER BY round_number ASC, created_at ASC', [req.params.id]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch debate messages' });
+    }
+});
+
+// Get user debate stats
+app.get('/api/user/:id/debate-stats', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const statsQuery = await pool.query(
+            'SELECT debate_rating, wins, losses, draws FROM users WHERE id = $1',
+            [userId]
+        );
+        if (statsQuery.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+        const rankQuery = await pool.query(
+            'SELECT COUNT(*) + 1 as rank FROM users WHERE debate_rating > (SELECT debate_rating FROM users WHERE id = $1)',
+            [userId]
+        );
+
+        const totalDebatesQuery = await pool.query(
+            'SELECT COUNT(*) FROM debates WHERE (user1_id = $1 OR user2_id = $1) AND status = $2',
+            [userId, 'finished']
+        );
+
+        const stats = statsQuery.rows[0];
+        const total = parseInt(totalDebatesQuery.rows[0].count);
+        const winRate = total > 0 ? (stats.wins / total * 100).toFixed(1) : 0;
+
+        res.json({
+            rating: stats.debate_rating,
+            rank: parseInt(rankQuery.rows[0].rank),
+            totalDebates: total,
+            wins: stats.wins,
+            losses: stats.losses,
+            draws: stats.draws,
+            winRate: `${winRate}%`
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch debate stats' });
+    }
+});
+
+// Global Leaderboard
+app.get('/api/leaderboard', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT username, debate_rating, wins, losses, 
+             RANK() OVER (ORDER BY debate_rating DESC) as rank
+             FROM users 
+             ORDER BY debate_rating DESC 
+             LIMIT 100`
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    }
+});
+
 // Socket.io for Real-time
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -505,6 +786,79 @@ io.on('connection', (socket) => {
             io.to(receiverId.toString()).emit('receive_message', payload);
         } catch (err) {
             console.error('Socket screenshot_taken error:', err);
+        }
+    });
+
+    socket.on('debate_message', async (data) => {
+        const { debateId, userId, message, roundNumber } = data;
+        try {
+            // Validation: Min 20 chars
+            if (message.length < 20) return;
+
+            // Check if user already sent message for this round
+            const checkQuery = await pool.query(
+                'SELECT * FROM debate_messages WHERE debate_id = $1 AND user_id = $2 AND round_number = $3',
+                [debateId, userId, roundNumber]
+            );
+            if (checkQuery.rows.length > 0) return;
+
+            await pool.query(
+                'INSERT INTO debate_messages (debate_id, user_id, round_number, message) VALUES ($1, $2, $3, $4)',
+                [debateId, userId, roundNumber, message]
+            );
+
+            // Fetch the debate to get both parties
+            const debateRes = await pool.query('SELECT * FROM debates WHERE id = $1', [debateId]);
+            const debate = debateRes.rows[0];
+
+            // Notify both parties
+            io.to(debate.user1_id.toString()).emit('debate_message', data);
+            io.to(debate.user2_id.toString()).emit('debate_message', data);
+
+            // Check if round is finished
+            const roundMsgs = await pool.query(
+                'SELECT * FROM debate_messages WHERE debate_id = $1 AND round_number = $2',
+                [debateId, roundNumber]
+            );
+
+            if (roundMsgs.rows.length === 2) {
+                // Round finished
+                if (roundNumber < 3) {
+                    io.to(debate.user1_id.toString()).emit('debate_round_end', { debateId, roundNumber, nextRound: roundNumber + 1 });
+                    io.to(debate.user2_id.toString()).emit('debate_round_end', { debateId, roundNumber, nextRound: roundNumber + 1 });
+                } else {
+                    // Debate finished! Run AI Judge
+                    io.to(debate.user1_id.toString()).emit('debate_status', { debateId, status: 'evaluating' });
+                    io.to(debate.user2_id.toString()).emit('debate_status', { debateId, status: 'evaluating' });
+
+                    const allMsgs = await pool.query('SELECT * FROM debate_messages WHERE debate_id = $1 ORDER BY round_number ASC, created_at ASC', [debateId]);
+                    const judgeRes = await runAIJudge(debateId, debate.topic, allMsgs.rows);
+
+                    await pool.query(
+                        'UPDATE debates SET status = $1, winner_id = $2, score_user1 = $3, score_user2 = $4, explanation = $5 WHERE id = $6',
+                        ['finished', judgeRes.winner_id, judgeRes.score_user1, judgeRes.score_user2, judgeRes.explanation, debateId]
+                    );
+
+                    // Update Elo
+                    let actualScoreU1 = 0.5;
+                    if (judgeRes.winner_id === debate.user1_id) actualScoreU1 = 1;
+                    else if (judgeRes.winner_id === debate.user2_id) actualScoreU1 = 0;
+                    const { change1, change2 } = await updateElo(debate.user1_id, debate.user2_id, actualScoreU1);
+                    
+                    const finalResult = { 
+                        debateId, 
+                        ...judgeRes,
+                        ratingChange1: change1,
+                        ratingChange2: change2
+                    };
+
+                    io.to(debate.user1_id.toString()).emit('debate_finished', finalResult);
+                    io.to(debate.user2_id.toString()).emit('debate_finished', finalResult);
+                    io.emit('leaderboard_update'); // Global update
+                }
+            }
+        } catch (err) {
+            console.error('Debate message error:', err);
         }
     });
 

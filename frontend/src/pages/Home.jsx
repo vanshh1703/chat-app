@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Trophy, Swords } from 'lucide-react';
 import { io } from 'socket.io-client';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
 import EmojiPicker from 'emoji-picker-react';
 
@@ -50,6 +50,8 @@ const Home = () => {
     const [powerLevel, setPowerLevel] = useState(0);
     const [isPoweringUp, setIsPoweringUp] = useState(false);
     const [activeSorryBlast, setActiveSorryBlast] = useState(null); // { power, timestamp }
+    const [incomingInvite, setIncomingInvite] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (user) {
@@ -72,11 +74,16 @@ const Home = () => {
             Notification.requestPermission();
         }
 
-        if (user) {
-            socket.current.emit('join', user.id);
-        }
-
         const currentSocket = socket.current;
+
+        if (user) {
+            currentSocket.emit('join', user.id);
+            
+            // Handle reconnection
+            currentSocket.on('connect', () => {
+                currentSocket.emit('join', user.id);
+            });
+        }
 
         currentSocket.on('receive_message', async (newMessage) => {
             console.log('Message received:', newMessage);
@@ -159,6 +166,16 @@ const Home = () => {
             );
         });
 
+        currentSocket.on('debate_invite', (data) => {
+            setIncomingInvite(data);
+        });
+
+        currentSocket.on('debate_accept', (data) => {
+            if (data.status === 'active') {
+                navigate(`/debate/${data.debateId}`);
+            }
+        });
+
         // Screenshot detection
         const handleKeyDown = (e) => {
             const screenshotKeys = ['PrintScreen', 'Print', 'Snapshot'];
@@ -192,6 +209,7 @@ const Home = () => {
         window.addEventListener('keyup', handleKeyUp);
 
         return () => {
+            currentSocket.off('connect');
             currentSocket.off('receive_message');
             currentSocket.off('typing');
             currentSocket.off('stop_typing');
@@ -199,6 +217,8 @@ const Home = () => {
             currentSocket.off('messages_read');
             currentSocket.off('message_updated');
             currentSocket.off('message_deleted');
+            currentSocket.off('debate_invite');
+            currentSocket.off('debate_accept');
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
@@ -319,6 +339,31 @@ const Home = () => {
             fetchSidebar();
         } catch (err) {
             console.error('Fetch messages error', err);
+        }
+    };
+
+    const handleStartDebate = async (opponent) => {
+        const topic = prompt("Enter the debate topic:");
+        if (!topic) return;
+
+        try {
+            await api.inviteDebate({ opponentId: opponent.id, topic });
+            alert("Invitation sent! Waiting for opponent to accept.");
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.error || "Failed to send invitation.");
+        }
+    };
+
+    const handleInviteRespond = async (action) => {
+        try {
+            const { data } = await api.respondDebate({ debateId: incomingInvite.debateId, action });
+            if (action === 'accept') {
+                navigate(`/debate/${data.id}`);
+            }
+            setIncomingInvite(null);
+        } catch (err) {
+            console.error(err);
         }
     };
 
@@ -792,6 +837,24 @@ const Home = () => {
                         ))}
                     </div>
                 </div>
+
+                {/* Sidebar Bottom Actions */}
+                <div className="p-4 border-t border-gray-100 dark:border-slate-800 space-y-2">
+                    <button
+                        onClick={() => navigate('/leaderboard')}
+                        className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl transition-all font-bold text-sm border border-blue-100 dark:border-blue-800/50"
+                    >
+                        <Trophy size={18} />
+                        Leaderboard
+                    </button>
+                    <button
+                        onClick={() => navigate('/settings')}
+                        className="w-full flex items-center justify-center gap-2 p-3 bg-gray-50 dark:bg-slate-900/50 hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-400 rounded-2xl transition-all font-bold text-sm"
+                    >
+                        <SettingsIcon size={18} />
+                        Settings
+                    </button>
+                </div>
             </div>
 
             {/* Main Chat Area */}
@@ -1064,6 +1127,16 @@ const Home = () => {
                                         </p>
                                     </div>
                                 )}
+
+                                {viewingProfile.id !== user.id && (
+                                    <button
+                                        onClick={() => handleStartDebate(viewingProfile)}
+                                        className="w-full mt-4 flex items-center justify-center gap-3 py-4.5 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-[28px] transition-all shadow-xl active:scale-95 border-b-4 border-blue-900/30"
+                                    >
+                                        <Swords size={20} className="animate-pulse" />
+                                        <span className="font-black uppercase tracking-widest text-sm">Challenge to Debate</span>
+                                    </button>
+                                )}
                             </div>
 
                             <button
@@ -1145,6 +1218,40 @@ const Home = () => {
             )}
 
             {renderSorryBlast()}
+
+            {/* Incoming Debate Invite Modal */}
+            {incomingInvite && (
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-slate-800 rounded-[40px] p-8 max-w-sm w-full shadow-2xl border border-gray-100 dark:border-slate-700 text-center space-y-6">
+                        <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto">
+                            <Swords size={40} className="text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Debate Challenge!</h3>
+                            <p className="text-sm text-gray-500 mt-2">
+                                <span className="font-bold text-blue-500">{incomingInvite.senderName}</span> challenged you on:
+                            </p>
+                            <div className="mt-4 p-4 bg-gray-50 dark:bg-slate-900/50 rounded-2xl border border-gray-100 dark:border-slate-700 italic text-gray-600 dark:text-slate-300">
+                                "{incomingInvite.topic}"
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => handleInviteRespond('reject')}
+                                className="flex-1 py-4 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-black uppercase tracking-widest rounded-2xl hover:bg-gray-200 transition-all active:scale-95"
+                            >
+                                Reject
+                            </button>
+                            <button
+                                onClick={() => handleInviteRespond('accept')}
+                                className="flex-1 py-4 bg-blue-600 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-blue-700 transition-all shadow-lg active:scale-95"
+                            >
+                                Accept
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

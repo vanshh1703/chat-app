@@ -4,6 +4,8 @@ import Register from './pages/Register'
 import Home from './pages/Home'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
+import Leaderboard from './pages/Leaderboard'
+import DebateRoom from './pages/DebateRoom'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
 function App() {
@@ -49,6 +51,8 @@ function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/debate/:id" element={<DebateRoom />} />
         </Routes>
       </BrowserRouter>
     </>
