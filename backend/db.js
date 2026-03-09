@@ -90,36 +90,6 @@ const initializeDB = async () => {
             );
         `);
 
-        try {
-            await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS debate_rating INTEGER DEFAULT 0, ADD COLUMN IF NOT EXISTS wins INTEGER DEFAULT 0, ADD COLUMN IF NOT EXISTS losses INTEGER DEFAULT 0, ADD COLUMN IF NOT EXISTS draws INTEGER DEFAULT 0;');
-        } catch (e) { }
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS debates (
-                id SERIAL PRIMARY KEY,
-                topic TEXT NOT NULL,
-                user1_id INTEGER REFERENCES users(id),
-                user2_id INTEGER REFERENCES users(id),
-                winner_id INTEGER REFERENCES users(id),
-                score_user1 INTEGER,
-                score_user2 INTEGER,
-                explanation TEXT,
-                status VARCHAR(20) DEFAULT 'pending', -- pending, active, finished, rejected
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS debate_messages (
-                id SERIAL PRIMARY KEY,
-                debate_id INTEGER REFERENCES debates(id),
-                user_id INTEGER REFERENCES users(id),
-                round_number INTEGER NOT NULL, -- 1, 2, 3
-                message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
         console.log('Database tables initialized');
     } catch (err) {
         console.error('Database initialization error:', err);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, User, Mail, Lock, Camera, Check, AlertCircle, Loader2, Trophy, Swords, TrendingUp, Zap } from 'lucide-react';
+import { ArrowLeft, User, Mail, Lock, Camera, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
@@ -13,31 +13,14 @@ const Profile = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-    const [debateStats, setDebateStats] = useState(null);
     const fileInputRef = useRef(null);
 
     useEffect(() => {
         if (!user) {
             navigate('/');
-        } else {
-            const fetchDebateStats = async () => {
-                try {
-                    const response = await fetch(`http://localhost:5000/api/user/${user.id}/debate-stats`, {
-                        headers: {
-                            'Authorization': `Bearer ${JSON.parse(localStorage.getItem('profile')).token}`
-                        }
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        setDebateStats(data);
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch debate stats:', err);
-                }
-            };
-            fetchDebateStats();
         }
     }, [user, navigate]);
+
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -198,51 +181,6 @@ const Profile = () => {
                             <p className="text-sm text-gray-400 dark:text-slate-400">{user?.email}</p>
                         </div>
                     </div>
-
-                    {/* Debate Performance Stats */}
-                    {debateStats && (
-                        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden relative">
-                            <div className="absolute top-0 right-0 p-8 opacity-5 text-blue-600">
-                                <Swords size={120} />
-                            </div>
-                            <div className="flex items-center gap-3 mb-6 relative z-10">
-                                <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 dark:text-emerald-400">
-                                    <Trophy size={20} />
-                                </div>
-                                <h2 className="font-bold text-gray-800 dark:text-white">Debate Performance</h2>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-4 relative z-10">
-                                <div className="p-4 rounded-2xl bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700 text-center">
-                                    <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Elo Rating</p>
-                                    <div className="flex items-center justify-center gap-1">
-                                        <Zap size={14} className="text-yellow-500" />
-                                        <span className="text-xl font-black text-blue-600 dark:text-blue-400">{debateStats.rating}</span>
-                                    </div>
-                                </div>
-                                <div className="p-4 rounded-2xl bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700 text-center">
-                                    <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Global Rank</p>
-                                    <span className="text-xl font-black text-gray-800 dark:text-white">#{debateStats.rank}</span>
-                                </div>
-                                <div className="p-4 rounded-2xl bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700 text-center">
-                                    <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Win Rate</p>
-                                    <div className="flex items-center justify-center gap-1">
-                                        <TrendingUp size={14} className="text-emerald-500" />
-                                        <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">{debateStats.winRate}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-4 flex items-center justify-center gap-2 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/20">
-                                <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Record:</span>
-                                <span className="text-xs font-black text-emerald-600 uppercase tracking-wider">{debateStats.wins}W</span>
-                                <span className="text-gray-300 mx-1">|</span>
-                                <span className="text-xs font-black text-red-600 uppercase tracking-wider">{debateStats.losses}L</span>
-                                <span className="text-gray-300 mx-1">|</span>
-                                <span className="text-xs font-black text-gray-500 uppercase tracking-wider">{debateStats.draws}D</span>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Basic Info Form */}
                     <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">

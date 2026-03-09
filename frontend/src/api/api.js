@@ -26,10 +26,4 @@ export const pinMessage = (data) => API.post('/messages/pin', data);
 export const setAlias = (data) => API.post('/users/set-alias', data);
 export const getUserProfile = (userId) => API.get(`/users/profile/${userId}`);
 
-// Debates
-export const inviteDebate = (data) => API.post('/debates/invite', data);
-export const respondDebate = (data) => API.post('/debates/respond', data);
-export const getDebateStats = (userId) => API.get(`/user/${userId}/debate-stats`);
-export const getLeaderboard = () => API.get('/leaderboard');
-export const getDebate = (debateId) => API.get(`/debates/${debateId}`);
-export const getDebateMessages = (debateId) => API.get(`/debates/${debateId}/messages`);
+
