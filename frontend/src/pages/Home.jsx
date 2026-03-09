@@ -800,23 +800,6 @@ const Home = () => {
                     </div>
                 </div>
 
-                {/* Sidebar Bottom Actions */}
-                <div className="p-4 border-t border-gray-100 dark:border-slate-800 space-y-2">
-                    <button
-                        onClick={() => navigate('/leaderboard')}
-                        className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl transition-all font-bold text-sm border border-blue-100 dark:border-blue-800/50"
-                    >
-                        <Trophy size={18} />
-                        Leaderboard
-                    </button>
-                    <button
-                        onClick={() => navigate('/settings')}
-                        className="w-full flex items-center justify-center gap-2 p-3 bg-gray-50 dark:bg-slate-900/50 hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-400 rounded-2xl transition-all font-bold text-sm"
-                    >
-                        <SettingsIcon size={18} />
-                        Settings
-                    </button>
-                </div>
             </div>
 
             {/* Main Chat Area */}
