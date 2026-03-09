@@ -94,7 +94,7 @@ app.post('/api/auth/login', async (req, res) => {
         if (!validPassword) return res.status(400).json({ error: 'Invalid password' });
 
         const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username, email: user.email, avatar_url: user.avatar_url } });
+        res.json({ token, user: { id: user.id, username: user.username, email: user.email, avatar_url: user.avatar_url, bio: user.bio } });
     } catch (err) {
         console.error(err);
         res.status(500).send('Login error');
@@ -121,11 +121,11 @@ app.get('/api/users/search', authenticateToken, async (req, res) => {
 
 // Update Profile
 app.post('/api/users/update-profile', authenticateToken, async (req, res) => {
-    const { username, avatar_url } = req.body;
+    const { username, avatar_url, bio } = req.body;
     try {
         const result = await pool.query(
-            'UPDATE users SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url) WHERE id = $3 RETURNING id, username, email, avatar_url',
-            [username, avatar_url, req.user.id]
+            'UPDATE users SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url), bio = COALESCE($3, bio) WHERE id = $4 RETURNING id, username, email, avatar_url, bio',
+            [username, avatar_url, bio, req.user.id]
         );
         res.json(result.rows[0]);
     } catch (err) {
@@ -222,7 +222,7 @@ app.post('/api/users/set-alias', authenticateToken, async (req, res) => {
 app.get('/api/users/profile/:id', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(`
-            SELECT u.id, u.username, u.email, u.avatar_url, u.is_online, u.last_seen, a.alias
+            SELECT u.id, u.username, u.email, u.avatar_url, u.is_online, u.last_seen, u.bio, a.alias
             FROM users u
             LEFT JOIN contact_aliases a ON a.contact_id = u.id AND a.user_id = $1
             WHERE u.id = $2

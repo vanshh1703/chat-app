@@ -7,6 +7,7 @@ const Profile = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('profile'))?.user || null);
     const [username, setUsername] = useState(user?.username || '');
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
+    const [bio, setBio] = useState(user?.bio || '');
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,7 +32,7 @@ const Profile = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ username, avatar_url: avatarUrl })
+                body: JSON.stringify({ username, avatar_url: avatarUrl, bio })
             });
 
             if (response.ok) {
@@ -200,6 +201,18 @@ const Profile = () => {
                                         onChange={(e) => setUsername(e.target.value)}
                                         className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700 rounded-2xl outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-700 dark:text-white font-medium transition-all"
                                         placeholder="Username"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-gray-600 dark:text-slate-300 ml-1">Bio</label>
+                                <div className="relative group">
+                                    <textarea
+                                        value={bio}
+                                        onChange={(e) => setBio(e.target.value)}
+                                        className="w-full px-4 py-3.5 bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700 rounded-2xl outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-700 dark:text-white font-medium transition-all resize-none h-24"
+                                        placeholder="Tell us about yourself..."
                                     />
                                 </div>
                             </div>

@@ -1055,6 +1055,15 @@ const Home = () => {
                                         </div>
                                     </div>
                                 </div>
+
+                                {viewingProfile.bio && (
+                                    <div className="p-4.5 bg-gray-50/80 dark:bg-slate-900/40 rounded-[28px] border border-gray-100/50 dark:border-slate-700/30 text-left">
+                                        <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">About</p>
+                                        <p className="text-[14px] font-medium text-gray-700 dark:text-slate-200 line-clamp-3">
+                                            {viewingProfile.bio}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             <button

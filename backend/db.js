@@ -54,6 +54,10 @@ const initializeDB = async () => {
         } catch (e) { }
 
         try {
+            await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;');
+        } catch (e) { }
+
+        try {
             await pool.query('ALTER TABLE users ADD COLUMN last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP;');
         } catch (e) { }
 
