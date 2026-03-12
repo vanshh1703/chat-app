@@ -101,6 +101,10 @@ const initializeDB = async () => {
             await pool.query('ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS is_chat_logged BOOLEAN DEFAULT FALSE;');
         } catch (e) { }
 
+        try {
+            await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE;');
+        } catch (e) { }
+
         console.log('Database tables initialized');
     } catch (err) {
         console.error('Database initialization error:', err);

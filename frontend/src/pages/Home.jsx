@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
@@ -33,6 +33,7 @@ const Home = () => {
     const fileInputRef = useRef();
     const [uploading, setUploading] = useState(false);
     const [attachPreview, setAttachPreview] = useState(null); // { file, url, type }
+    const [editingMsg, setEditingMsg] = useState(null);
 
     // Audio recording state
     const [isRecording, setIsRecording] = useState(false);
@@ -555,16 +556,26 @@ const Home = () => {
         if (e) e.preventDefault();
         if (!messageText.trim() || !activeChat) return;
 
-        const msgData = {
-            senderId: user.id,
-            receiverId: activeChat.id,
-            content: messageText,
-            messageType: 'text',
-            replyToId: replyingTo ? replyingTo.id : null,
-            senderName: user.username
-        };
+        if (editingMsg) {
+            socket.current.emit('edit_message', {
+                messageId: editingMsg.id,
+                senderId: user.id,
+                receiverId: activeChat.id,
+                newContent: messageText
+            });
+            setEditingMsg(null);
+        } else {
+            const msgData = {
+                senderId: user.id,
+                receiverId: activeChat.id,
+                content: messageText,
+                messageType: 'text',
+                replyToId: replyingTo ? replyingTo.id : null,
+                senderName: user.username
+            };
+            socket.current.emit('send_message', msgData);
+        }
 
-        socket.current.emit('send_message', msgData);
         setMessageText('');
         setReplyingTo(null);
 
@@ -1135,7 +1146,14 @@ const Home = () => {
                                                                     {msg.content.includes(' • ') && <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-0.5">{msg.content.split(' • ')[1]}</p>}
                                                                 </div>
                                                             </div>
-                                                        ) : msg.message_type === 'text' ? msg.content : msg.message_type === 'template' ? renderTemplateMessage(msg) : renderFileMessage(msg)}
+                                                        ) : msg.message_type === 'text' ? (
+                                                            <div className="flex flex-col">
+                                                                <span>{msg.content}</span>
+                                                                {msg.is_edited && (
+                                                                    <span className={`text-[9px] mt-0.5 opacity-60 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}>(edited)</span>
+                                                                )}
+                                                            </div>
+                                                        ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : renderFileMessage(msg)}
 
                                                     </>
                                                 )}
@@ -1146,6 +1164,19 @@ const Home = () => {
                                                         <button onClick={() => handlePinMessage(msg.id)} className={`p-1 hover:bg-gray-100 rounded ${msg.is_pinned ? 'text-amber-500' : 'text-gray-500'}`} title={msg.is_pinned ? 'Unpin' : 'Pin'}>
                                                             {msg.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
                                                         </button>
+                                                        {msg.sender_id === user.id && msg.message_type === 'text' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingMsg(msg);
+                                                                    setMessageText(msg.content);
+                                                                    inputRef.current?.focus();
+                                                                }}
+                                                                className="p-1 hover:bg-gray-100 rounded text-blue-500"
+                                                                title="Edit"
+                                                            >
+                                                                <Edit2 size={14} />
+                                                            </button>
+                                                        )}
                                                         {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
                                                     </div>
                                                 )}
@@ -1196,6 +1227,12 @@ const Home = () => {
                                     <div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
                                         <div className="truncate"><span className="font-bold text-blue-600">Reply to: </span>{replyingTo.content}</div>
                                         <button onClick={() => setReplyingTo(null)}><X size={14} /></button>
+                                    </div>
+                                )}
+                                {editingMsg && (
+                                    <div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
+                                        <div className="truncate"><span className="font-bold text-blue-600">Editing: </span>{editingMsg.content}</div>
+                                        <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                                     </div>
                                 )}
                                 <form onSubmit={handleSendMessage} className="flex gap-2 items-center bg-white p-2 rounded-2xl shadow-sm border">

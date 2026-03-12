@@ -528,6 +528,31 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('edit_message', async (data) => {
+        const { messageId, senderId, receiverId, newContent } = data;
+        try {
+            const result = await pool.query(
+                'UPDATE messages SET content = $1, is_edited = true WHERE id = $2 AND sender_id = $3 RETURNING *',
+                [newContent, messageId, senderId]
+            );
+            if (result.rows.length === 0) return; // not authorised
+
+            const updatedMsg = result.rows[0];
+            // We need to fetch reply_to_msg if it exists, similar to send_message
+            let replyToMsg = null;
+            if (updatedMsg.reply_to_id) {
+                const replyResult = await pool.query('SELECT * FROM messages WHERE id = $1', [updatedMsg.reply_to_id]);
+                replyToMsg = replyResult.rows[0] || null;
+            }
+            const payload = { ...updatedMsg, reply_to_msg: replyToMsg };
+
+            io.to(senderId.toString()).emit('message_updated', payload);
+            io.to(receiverId.toString()).emit('message_updated', payload);
+        } catch (err) {
+            console.error('Edit message error:', err);
+        }
+    });
+
     socket.on('screenshot_taken', async (data) => {
         const { senderId, receiverId, senderName } = data;
         try {
