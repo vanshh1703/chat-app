@@ -26,5 +26,6 @@ export const pinMessage = (data) => API.post('/messages/pin', data);
 export const setAlias = (data) => API.post('/users/set-alias', data);
 export const getUserProfile = (userId) => API.get(`/users/profile/${userId}`);
 export const getCallHistory = () => API.get('/calls/history');
+export const getLoginActivity = () => API.get('/users/login-activity');
 
 

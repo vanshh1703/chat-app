@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Moon, Sun, Bell, Shield, User, LogOut, Image as ImageIcon, Check, Plus } from 'lucide-react';
+import { ArrowLeft, Moon, Sun, Bell, Shield, User, LogOut, Image as ImageIcon, Check, Plus, Monitor, Smartphone, MapPin, Activity, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getLoginActivity } from '../api/api';
 
 const Settings = () => {
     const navigate = useNavigate();
@@ -8,13 +9,31 @@ const Settings = () => {
     const [themePreference, setThemePreference] = useState(localStorage.getItem('themePreference') || 'light');
     const [notifs, setNotifs] = useState(JSON.parse(localStorage.getItem('notifSettings') || '{"individual": true, "all": true, "sound": true}'));
     const [chatWallpaper, setChatWallpaper] = useState('default');
+    const [loginActivities, setLoginActivities] = useState([]);
+    const [isLoadingActivities, setIsLoadingActivities] = useState(false);
     const fileInputRef = React.useRef(null);
+
+    useEffect(() => {
+        const fetchActivities = async () => {
+            if (!user) return;
+            setIsLoadingActivities(true);
+            try {
+                const { data } = await getLoginActivity();
+                setLoginActivities(data);
+            } catch (err) {
+                console.error("Failed to fetch login activities", err);
+            } finally {
+                setIsLoadingActivities(false);
+            }
+        };
+        fetchActivities();
+    }, [user?.id]);
 
     useEffect(() => {
         if (user) {
             setChatWallpaper(localStorage.getItem(`chatWallpaper_${user.id}`) || 'default');
         }
-    }, [user]);
+    }, [user?.id]);
 
     useEffect(() => {
         const applyTheme = (theme) => {
@@ -41,7 +60,7 @@ const Settings = () => {
         if (user) {
             localStorage.setItem(`chatWallpaper_${user.id}`, chatWallpaper);
         }
-    }, [user, themePreference, chatWallpaper]);
+    }, [user?.id, themePreference, chatWallpaper]);
 
     useEffect(() => {
         localStorage.setItem('notifSettings', JSON.stringify(notifs));
@@ -245,6 +264,66 @@ const Settings = () => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Login Activity Section */}
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400">
+                                <Activity size={20} />
+                            </div>
+                            <h2 className="font-bold text-gray-800 dark:text-white">Login Activity</h2>
+                        </div>
+
+                        <div className="space-y-4">
+                            {isLoadingActivities ? (
+                                <div className="py-4 text-center text-sm text-gray-400">Loading activity...</div>
+                            ) : loginActivities.length === 0 ? (
+                                <div className="py-4 text-center text-sm text-gray-400">No recent activity found</div>
+                            ) : (
+                                loginActivities.map((activity, idx) => (
+                                    <div key={activity.id || idx} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-900/40 transition-colors">
+                                        <div className="p-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400">
+                                            {activity.device_name.toLowerCase().includes('mobile') || activity.device_name.toLowerCase().includes('android') || activity.device_name.toLowerCase().includes('iphone') ? (
+                                                <Smartphone size={20} />
+                                            ) : (
+                                                <Monitor size={20} />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-bold text-gray-800 dark:text-white truncate">
+                                                    {(activity.device_name && activity.device_name.split('(')[0]) || 'Unknown Device'}
+                                                </p>
+                                                {idx === 0 && (
+                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full">
+                                                        Current Session
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-y-1 gap-x-3 mt-1">
+                                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
+                                                    <MapPin size={12} />
+                                                    <span>{activity.location || 'Unknown Location'}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
+                                                    <Activity size={12} />
+                                                    <span>{activity.ip_address}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
+                                                    <Clock size={12} />
+                                                    <span>{new Date(activity.last_active).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <p className="text-[11px] text-gray-400 dark:text-slate-500 mt-6 leading-relaxed">
+                            We use your device type, IP address, and general location to help you recognize your login sessions.
+                        </p>
                     </div>
 
                     {/* Account Section */}
