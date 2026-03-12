@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2 } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
@@ -7,6 +7,15 @@ import EmojiPicker from 'emoji-picker-react';
 import CallUI from '../components/CallUI';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
+
+const telepathySignals = [
+    { icon: '⚡', label: 'Thinking of you', color: 'text-yellow-500', bg: 'bg-yellow-50', glow: 'shadow-yellow-500/20' },
+    { icon: '💭', label: 'Call me later', color: 'text-blue-500', bg: 'bg-blue-50', glow: 'shadow-blue-500/20' },
+    { icon: '🙏', label: 'Thank you', color: 'text-emerald-500', bg: 'bg-emerald-50', glow: 'shadow-emerald-500/20' },
+    { icon: '💖', label: 'Emotional support', color: 'text-rose-500', bg: 'bg-rose-50', glow: 'shadow-rose-500/20' },
+    { icon: '🔥', label: 'You got this', color: 'text-orange-500', bg: 'bg-orange-50', glow: 'shadow-orange-500/20' },
+    { icon: '☕', label: 'Coffee soon?', color: 'text-amber-600', bg: 'bg-amber-50', glow: 'shadow-amber-500/20' },
+];
 
 const Home = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('profile'))?.user);
@@ -54,6 +63,7 @@ const Home = () => {
     const [powerLevel, setPowerLevel] = useState(0);
     const [isPoweringUp, setIsPoweringUp] = useState(false);
     const [activeSorryBlast, setActiveSorryBlast] = useState(null); // { power, timestamp }
+    const [showTelepathyPicker, setShowTelepathyPicker] = useState(false);
     const navigate = useNavigate();
 
     // WebRTC & Calling State
@@ -897,6 +907,45 @@ const Home = () => {
         );
     };
 
+    const renderTelepathyMessage = (msg) => {
+        try {
+            const signal = JSON.parse(msg.content);
+            const isMine = msg.sender_id === user.id;
+
+            return (
+                <div className={`flex flex-col items-center p-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 cursor-default group relative overflow-hidden`}>
+                    <div className="text-4xl mb-2 animate-bounce flex items-center justify-center" style={{ animationDuration: '3s' }}>
+                        {signal.icon}
+                    </div>
+                    <div className={`text-[10px] font-black uppercase tracking-[0.2em] text-center ${isMine ? 'text-white' : 'text-gray-500'}`}>
+                        {signal.label}
+                    </div>
+                </div>
+            );
+        } catch (e) {
+            return msg.content;
+        }
+    };
+
+    const handleSendTelepathy = (signal) => {
+        if (!activeChat) return;
+
+        const msgData = {
+            senderId: user.id,
+            receiverId: activeChat.id,
+            content: JSON.stringify(signal),
+            messageType: 'telepathy',
+            senderName: user.username
+        };
+
+        socket.current.emit('send_message', msgData);
+        setShowTelepathyPicker(false);
+
+        if (!sidebarUsers.find(u => u.id === activeChat.id)) {
+            fetchSidebar();
+        }
+    };
+
     const renderTemplateMessage = (msg) => {
         try {
             const data = JSON.parse(msg.content);
@@ -1153,7 +1202,7 @@ const Home = () => {
                                                                     <span className={`text-[9px] mt-0.5 opacity-60 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}>(edited)</span>
                                                                 )}
                                                             </div>
-                                                        ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : renderFileMessage(msg)}
+                                                        ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
 
                                                     </>
                                                 )}
@@ -1251,6 +1300,7 @@ const Home = () => {
                                             <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Camera size={20} /></button>
                                             <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type a message..." className="flex-1 bg-transparent outline-none text-sm" />
                                             <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"><Smile size={20} /></button>
+                                            <button type="button" onClick={() => setShowTelepathyPicker(!showTelepathyPicker)} className={`p-2 transition-colors ${showTelepathyPicker ? 'text-blue-500' : 'text-gray-400 hover:text-blue-600'}`} title="Telepathy Mode"><Brain size={20} /></button>
                                             <button type="button" onClick={() => setIsPowerModalOpen(true)} className="p-2 text-gray-400 hover:text-rose-500 transition-colors" title="Send Sorry Power"><Zap size={20} /></button>
                                             {messageText.trim() || attachPreview ? (
                                                 <button type="submit" className="p-2 bg-blue-600 text-white rounded-xl"><Send size={18} /></button>
@@ -1261,6 +1311,28 @@ const Home = () => {
                                     )}
                                 </form>
                                 {showEmojiPicker && <div className="absolute bottom-full mb-2 right-0 z-50"><EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} /></div>}
+                                {showTelepathyPicker && (
+                                    <div className="absolute bottom-full mb-4 right-0 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                                        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 p-4 rounded-[32px] shadow-2xl w-72">
+                                            <div className="flex items-center justify-between mb-4 px-2">
+                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Telepathy Mode</h4>
+                                                <button onClick={() => setShowTelepathyPicker(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={14} /></button>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {telepathySignals.map((sig, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => handleSendTelepathy(sig)}
+                                                        className={`flex flex-col items-center p-4 rounded-[24px] ${sig.bg} border border-transparent hover:border-white/20 transition-all hover:scale-105 active:scale-95 group relative overflow-hidden shadow-sm hover:shadow-md`}
+                                                    >
+                                                        <span className="text-3xl mb-2 group-hover:animate-bounce transition-transform">{sig.icon}</span>
+                                                        <span className={`text-[9px] font-black text-center uppercase tracking-tighter ${sig.color}`}>{sig.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

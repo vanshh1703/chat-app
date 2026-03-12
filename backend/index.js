@@ -242,6 +242,10 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
                  ORDER BY created_at DESC LIMIT 1) as lastMsg,
+                (SELECT message_type FROM messages 
+                 WHERE (sender_id = u.id AND receiver_id = $1) 
+                    OR (sender_id = $1 AND receiver_id = u.id) 
+                 ORDER BY created_at DESC LIMIT 1) as lastMsgType,
                 (SELECT created_at FROM messages 
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
@@ -256,7 +260,24 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
             ORDER BY is_pinned DESC, lastMsgTime DESC NULLS LAST
         `;
         const result = await pool.query(query, [req.user.id]);
-        res.json(result.rows);
+
+        const formattedRows = result.rows.map(row => {
+            let displayMsg = row.lastmsg;
+            if (row.lastmsgtype === 'telepathy') {
+                try {
+                    const signal = JSON.parse(row.lastmsg);
+                    displayMsg = `${signal.icon} ${signal.label}`;
+                } catch (e) { }
+            } else if (row.lastmsgtype === 'image') displayMsg = '📷 Photo';
+            else if (row.lastmsgtype === 'video') displayMsg = '🎥 Video';
+            else if (row.lastmsgtype === 'audio') displayMsg = '🎵 Audio';
+            else if (row.lastmsgtype === 'file') displayMsg = '📁 File';
+            else if (row.lastmsgtype === 'call') displayMsg = '📞 Call';
+
+            return { ...row, lastmsg: displayMsg };
+        });
+
+        res.json(formattedRows);
     } catch (err) {
         console.error(err);
         res.status(500).send('Sidebar error');
