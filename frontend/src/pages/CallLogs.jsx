@@ -129,8 +129,8 @@ const CallLogs = () => {
         <div className="min-h-screen bg-[#FDFDFF] dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-500 selection:bg-blue-500/30">
             {/* Ambient Background */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-40">
-                <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-[150px]" />
-                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[150px]" />
+                <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-blue-500/5 dark:bg-blue-500/10 rounded-full -[150px]" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full -[150px]" />
             </div>
 
             <div className="relative max-w-[1200px] mx-auto px-6 py-12 md:py-20">
@@ -186,7 +186,7 @@ const CallLogs = () => {
                 </div>
 
                 {/* Dashboard Table Wrapper */}
-                <div className="bg-white dark:bg-slate-900/40 backdrop-blur-3xl border border-slate-200/60 dark:border-slate-800/60 rounded-[48px] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
+                <div className="bg-white dark:bg-slate-900/40  border border-slate-200/60 dark:border-slate-800/60 rounded-[48px] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>

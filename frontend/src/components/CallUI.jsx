@@ -163,7 +163,7 @@ const CallUI = ({
                     </div>
 
                     {/* Header Info */}
-                    <div className="absolute top-8 left-8 flex items-center gap-4 z-10 bg-black/30 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 group-hover:translate-y-0 -translate-y-4 transition-transform">
+                    <div className="absolute top-8 left-8 flex items-center gap-4 z-10 bg-black/30  px-6 py-3 rounded-full border border-white/10 group-hover:translate-y-0 -translate-y-4 transition-transform">
                         <div className="w-3 h-3 bg-rose-500 rounded-full animate-pulse"></div>
                         <span className="text-white font-black text-sm tracking-widest">{formatTime(callDuration)}</span>
                     </div>
@@ -171,13 +171,13 @@ const CallUI = ({
                     {/* Toggle Maximize */}
                     <button
                         onClick={() => setIsMaximized(!isMaximized)}
-                        className="absolute bottom-8 right-8 p-3 bg-black/30 backdrop-blur-md text-white/70 hover:text-white rounded-full border border-white/10 transition-all hover:scale-110 z-10"
+                        className="absolute bottom-8 right-8 p-3 bg-black/30  text-white/70 hover:text-white rounded-full border border-white/10 transition-all hover:scale-110 z-10"
                     >
                         {isMaximized ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
                     </button>
 
                     {/* Bottom Controls */}
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 px-10 py-6 bg-black/40 backdrop-blur-xl rounded-[40px] border border-white/10 shadow-2xl transform translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 z-[20]">
+                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 px-10 py-6 bg-black/40  rounded-[40px] border border-white/10 shadow-2xl transform translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 z-[20]">
                         <button
                             onClick={toggleMute}
                             className={`p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
