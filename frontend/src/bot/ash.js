@@ -25,7 +25,7 @@ const HINDI_KEYWORDS = [
     "purana", "pichla", "pehle", "bheja", "tha", "raat", "andhera", "mita", "hata",
     "upar", "rakho", "dimag", "ishara", "kon", "hai", "mere", "sab", "dikha", "kise",
     "batao", "bolo", "kar", "de", "karo", "kese", "kru", "kre", "karu", "kaise", "kya", "baatao",
-    "yaar", "yr", "krega", "kregi", "karoge", "kaam", "kam", "bata", "bhao", "bhai", "bol", "kuch", "batayega"
+    "yaar", "yr", "krega", "kregi", "karoge", "kaam", "kam", "bata", "bhao", "bhai", "bol", "kuch", "batayega", "call", "kiski", "thi", "kisne", "kab"
 ];
 
 const detectLanguage = (input) => {
@@ -202,7 +202,7 @@ export const INTENTS = {
 };
 
 const FOLLOW_UP_KEYWORDS = ["tell me more", "how", "why", "kyu", "kise", "aur dikhao", "more", "explain", "baatao", "batao"];
-const HISTORY_TRIGGERS = ["last", "latest", "what did", "pichla", "pehle", "message from", "text by"];
+const HISTORY_TRIGGERS = ["last", "latest", "what did", "pichla", "pehle", "message from", "text by", "call", "phone"];
 
 // --- REASONING ENGINE ---
 
