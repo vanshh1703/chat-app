@@ -607,11 +607,12 @@ const Home = () => {
 
         if (activeChat.id === ashPersona.id) {
             // Local bot message
+            const currentMsg = messageText; // Important: Capture before state clear
             const botMsg = {
                 id: `ash_${Date.now()}`,
                 sender_id: user.id,
                 recipient_id: ashPersona.id,
-                content: messageText,
+                content: currentMsg,
                 message_type: 'text',
                 created_at: new Date().toISOString()
             };
@@ -623,7 +624,7 @@ const Home = () => {
 
             setTimeout(() => {
                 try {
-                    const response = processMessage(messageText, {
+                    const response = processMessage(currentMsg, {
                         user,
                         sidebarUsers,
                         contactsCount: sidebarUsers.length,
@@ -643,7 +644,7 @@ const Home = () => {
                         id: `ash_reply_${Date.now()}`,
                         sender_id: ashPersona.id,
                         recipient_id: user.id,
-                        content: response,
+                        content: response || "I am processing your signal, but no data was returned.",
                         message_type: 'text',
                         created_at: new Date().toISOString()
                     };

@@ -145,7 +145,7 @@ export const KNOWLEDGE = {
 
 export const INTENTS = {
     GREETINGS: {
-        keywords: ["hello", "hi", "hey", "greetings", "ash", "morning", "evening", "namaste", "kaise ho", "salam", "how are you", "kya haal hai", "fine", "yaar", "yr", "kaam", "kam", "krega", "kregi", "karoge", "bhai", "buddy"],
+        keywords: ["hello", "hi", "hey", "greetings", "ash", "morning", "evening", "namaste", "kaise", "kese", "ho", "hoo", "kaise ho", "kese ho", "kaise hoo", "kese hoo", "salam", "how are you", "kya haal hai", "fine", "yaar", "yr", "kaam", "kam", "krega", "kregi", "karoge", "bhai", "buddy"],
         response: {
             english: ["Greetings, traveler. How is your navigation today?", "ASH standing by. Systems nominal.", "I am functioning within optimal parameters. How can I assist you?", "Yes? I am ready for your command."],
             hinglish: ["Namaste traveler! Aaj aapki navigation kaisi hai?", "ASH haazir hai. Saare systems theek kaam kar rahe hain.", "Main bilkul badhiya hoon. Boliye, main aapki kaise madad kar sakti hoon?", "Haan bilkul, boliye kya kaam/help chahiye? Main taiyaar hoon."]
@@ -284,11 +284,15 @@ const calculateScore = (input, keywords) => {
     let score = 0;
     const words = input.split(/\s+/);
     keywords.forEach(word => {
-        if (input.includes(word)) score += 1;
-        const regex = new RegExp(`\\b${word}\\b`, 'i');
-        if (regex.test(input)) score += 4;
+        const lowerWord = word.toLowerCase();
+        // Exact inclusion or phrase match
+        if (input.includes(lowerWord)) score += 2;
+        // Whole word check
+        const regex = new RegExp(`\\b${lowerWord}\\b`, 'i');
+        if (regex.test(input)) score += 5;
+        // Fuzzy part
         words.forEach(w => {
-            if (isFuzzyMatch(word, w, 0.8)) score += 2;
+            if (isFuzzyMatch(lowerWord, w)) score += 3;
         });
     });
     return score;
