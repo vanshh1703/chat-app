@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
 import EmojiPicker from 'emoji-picker-react';
 import CallUI from '../components/CallUI';
+import DrawingModal from '../components/DrawingModal';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
 
@@ -43,6 +44,8 @@ const Home = () => {
     const [attachPreview, setAttachPreview] = useState(null); // { file, url, type }
     const [editingMsg, setEditingMsg] = useState(null);
     const [lastAshIntent, setLastAshIntent] = useState(null);
+    const [isDrawingOpen, setIsDrawingOpen] = useState(false);
+    const [drawingInitialImage, setDrawingInitialImage] = useState(null);
 
     // Audio recording state
     const [isRecording, setIsRecording] = useState(false);
@@ -772,10 +775,25 @@ const Home = () => {
     const renderFileMessage = (msg) => {
         const isMine = msg.sender_id === user.id;
         if (msg.message_type === 'image') {
-            return (<a href={msg.file_url} target="_blank" rel="noreferrer">
-                <img src={msg.file_url} alt={msg.content}
-                    className="max-w-[240px] max-h-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" />
-            </a>);
+            return (
+                <div className="relative group/image">
+                    <a href={msg.file_url} target="_blank" rel="noreferrer">
+                        <img src={msg.file_url} alt={msg.content}
+                            className="max-w-[240px] max-h-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" />
+                    </a>
+                    <button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setDrawingInitialImage(msg.file_url);
+                            setIsDrawingOpen(true);
+                        }}
+                        className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover/image:opacity-100 transition-opacity backdrop-blur-sm shadow-lg"
+                        title="Draw on Image"
+                    >
+                        <PenTool size={16} />
+                    </button>
+                </div>
+            );
         }
         if (msg.message_type === 'video') {
             return (<video controls className="max-w-[280px] rounded-xl" src={msg.file_url}>
@@ -1319,6 +1337,7 @@ const Home = () => {
                                     <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
                                     <button type="button" onClick={() => fileInputRef.current.click()} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Plus size={20} /></button>
                                     <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Camera size={20} /></button>
+                                    <button type="button" onClick={() => { setDrawingInitialImage(null); setIsDrawingOpen(true); }} className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Draw Message"><PenTool size={20} /></button>
                                     <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type a message..." className="flex-1 bg-transparent outline-none text-sm" />
                                     <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"><Smile size={20} /></button>
                                     <button type="button" onClick={() => setShowTelepathyPicker(!showTelepathyPicker)} className={`p-2 transition-colors ${showTelepathyPicker ? 'text-blue-500' : 'text-gray-400 hover:text-blue-600'}`} title="Telepathy Mode"><Brain size={20} /></button>
@@ -1512,6 +1531,16 @@ const Home = () => {
             onAccept={handleAcceptCall}
             onReject={handleRejectCall}
             onEnd={handleEndCall}
+        />
+        
+        <DrawingModal
+            isOpen={isDrawingOpen}
+            onClose={() => { setIsDrawingOpen(false); setDrawingInitialImage(null); }}
+            initialImage={drawingInitialImage}
+            onSend={(file) => {
+                const url = URL.createObjectURL(file);
+                setAttachPreview({ file, url, type: 'image', name: 'Drawing.png' });
+            }}
         />
     </div >);
 };
