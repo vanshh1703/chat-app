@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,6 +7,7 @@ import * as api from '../api/api';
 import EmojiPicker from 'emoji-picker-react';
 import CallUI from '../components/CallUI';
 import DrawingModal from '../components/DrawingModal';
+import OfflineChatManager from '../components/OfflineChatManager';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
 
@@ -67,6 +68,7 @@ const Home = () => {
     const [isPoweringUp, setIsPoweringUp] = useState(false);
     const [activeSorryBlast, setActiveSorryBlast] = useState(null); // { power, timestamp }
     const [showTelepathyPicker, setShowTelepathyPicker] = useState(false);
+    const [isOfflineChatOpen, setIsOfflineChatOpen] = useState(false);
     const navigate = useNavigate();
 
     // WebRTC & Calling State
@@ -1113,6 +1115,9 @@ const Home = () => {
                     </div>
                 </div >
                 <div className="flex items-center gap-1">
+                    <button onClick={() => setIsOfflineChatOpen(true)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors" title="Offline Mesh Chat (Bluetooth/Wi-Fi)">
+                        <Wifi size={20} />
+                    </button>
                     <Link to="/calls" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" title="Call History">
                         <Clock size={20} />
                     </Link>
@@ -1541,6 +1546,12 @@ const Home = () => {
                 const url = URL.createObjectURL(file);
                 setAttachPreview({ file, url, type: 'image', name: 'Drawing.png' });
             }}
+        />
+
+        <OfflineChatManager 
+            isOpen={isOfflineChatOpen} 
+            onClose={() => setIsOfflineChatOpen(false)} 
+            currentUser={user} 
         />
     </div >);
 };
