@@ -58,9 +58,6 @@ const Home = () => {
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const videoRef = useRef(null);
     const [chatWallpaper, setChatWallpaper] = useState('default');
-    const [showInsights, setShowInsights] = useState(false);
-    const [chatStats, setChatStats] = useState(null);
-    const [loadingStats, setLoadingStats] = useState(false);
     const [viewingProfile, setViewingProfile] = useState(null); // User object
     const [isEditingAlias, setIsEditingAlias] = useState(false);
     const [newAlias, setNewAlias] = useState('');
@@ -897,20 +894,6 @@ const Home = () => {
         if (!activeChat || !window.confirm('Delete this message for everyone?')) return;
         socket.current.emit('delete_message', { messageId: msgId, senderId: user.id, receiverId: activeChat.id });
     };
-    const handleFetchStats = async () => {
-        if (!activeChat) return;
-        setLoadingStats(true);
-        setShowInsights(true);
-        try {
-            const { data } = await api.getChatStats(activeChat.id);
-            setChatStats(data);
-        } catch (err) {
-            console.error('Fetch stats error', err);
-        } finally {
-            setLoadingStats(false);
-        }
-    };
-
     const handlePinChat = async (e, pinnedUserId) => {
         e.stopPropagation();
         try {
@@ -1225,7 +1208,6 @@ const Home = () => {
                             </div>)}
                         </div>
                         <div className="flex items-center gap-1 md:gap-2">
-                            <button onClick={handleFetchStats} className={`p-2 rounded-xl ${showInsights ? 'text-blue-600' : 'text-gray-500'}`} title="Chat Insights"><BarChart2 size={18} /></button>
                             <button onClick={() => setShowMediaGallery(p => !p)} className={`p-2 rounded-xl ${showMediaGallery ? 'text-blue-600' : 'text-gray-500'}`} title="Shared Media"><ImageIcon size={18} /></button>
                             <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl ${showChatSearch ? 'text-blue-600' : 'text-gray-500'}`}><Search size={18} /></button>
                             <button onClick={() => handleStartCall('voice')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Phone size={18} /></button>
@@ -1310,12 +1292,6 @@ const Home = () => {
                         </div>))}
                         <div ref={scrollRef} />
                     </div>
-
-                    {showInsights && (<ChatInsights
-                        otherUser={activeChat}
-                        stats={chatStats}
-                        onClose={() => setShowInsights(false)}
-                    />)}
 
                     {attachPreview && (<div className="p-3 bg-white/50  flex items-center gap-3 border-t">
                         {attachPreview.type === 'image' && <img src={attachPreview.url} className="w-12 h-12 rounded object-cover" alt="" />}
@@ -1567,98 +1543,3 @@ const Home = () => {
 };
 
 export default Home;
-
-const ChatInsights = ({ onClose, stats, otherUser }) => {
-    if (!stats) return (<div className="absolute inset-0 z-60 bg-[#f0f2f5]/95 dark:bg-[#0f172a]/95  flex flex-col items-center justify-center p-6 animate-in slide-in-from-right duration-300">
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-gray-500 font-bold">Calculating insights...</p>
-    </div>);
-
-    return (<div className="absolute inset-0 z-60 bg-[#f0f2f5]/95 dark:bg-[#0f172a]/95  flex flex-col p-6 animate-in slide-in-from-right duration-300">
-        <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-500/20">
-                    <BarChart2 size={24} />
-                </div>
-                <div>
-                    <h2 className="text-xl font-bold text-gray-800 dark:text-white font-sans">Chat Insights</h2>
-                    <p className="text-xs text-gray-500">Analytics with {otherUser?.alias || otherUser?.username}</p>
-                </div>
-            </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-xl transition-colors">
-                <X size={20} className="text-gray-500" />
-            </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar pb-10">
-            {/* Friendship Score Hero */}
-            <div className="relative overflow-hidden bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-sm border border-white/50 dark:border-slate-700/50">
-                <div className="absolute top-0 right-0 p-10 opacity-5 dark:opacity-10 translate-x-1/4 -translate-y-1/4">
-                    <Award size={200} />
-                </div>
-                <div className="relative z-10 flex flex-col items-center text-center">
-                    <div className="relative w-32 h-32 mb-4">
-                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                            <circle cx="18" cy="18" r="16" fill="none" className="stroke-current text-gray-100 dark:text-slate-700" strokeWidth="2.5" />
-                            <circle cx="18" cy="18" r="16" fill="none" className="stroke-current text-blue-600" strokeWidth="2.5" strokeDasharray={`${stats.friendshipScore}, 100`} strokeLinecap="round" />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-3xl font-black text-gray-800 dark:text-white">{stats.friendshipScore}%</span>
-                        </div>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white">Friendship Score</h3>
-                    <p className="text-sm text-gray-500 mt-1 max-w-[200px]">
-                        {stats.friendshipScore > 80 ? "Legendary Connection! 🏆" : stats.friendshipScore > 50 ? "Building a solid bond! ✨" : "Just getting started! 🌱"}
-                    </p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
-                    <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-3">
-                        <MessageSquare size={20} />
-                    </div>
-                    <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Messages</p>
-                    <h4 className="text-2xl font-black text-gray-800 dark:text-white mt-1">{stats.totalMessages}</h4>
-                </div>
-
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
-                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center mb-3">
-                        <Zap size={20} />
-                    </div>
-                    <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Longest Convo</p>
-                    <h4 className="text-xl font-black text-gray-800 dark:text-white mt-1 truncate">{stats.longestConversation}</h4>
-                </div>
-
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
-                    <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center mb-3">
-                        <Clock size={20} />
-                    </div>
-                    <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Avg Reply</p>
-                    <h4 className="text-xl font-black text-gray-800 dark:text-white mt-1 truncate">{stats.avgReplyTime}</h4>
-                </div>
-
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
-                    <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center mb-3">
-                        <Calendar size={20} />
-                    </div>
-                    <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Active Day</p>
-                    <h4 className="text-lg font-black text-gray-800 dark:text-white mt-1 truncate">{stats.mostActiveDay}</h4>
-                </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-4xl shadow-sm border border-gray-100 dark:border-slate-700">
-                <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp size={18} className="text-blue-500" />
-                    <h3 className="font-bold text-gray-800 dark:text-white">Top Used Words</h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {stats.topWords && stats.topWords.length > 0 ? stats.topWords.map((item, idx) => (<div key={idx} className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-slate-900/50 rounded-2xl border border-gray-100 dark:border-slate-800 hover:scale-105 transition-transform cursor-default">
-                        <span className="text-sm font-bold text-gray-700 dark:text-slate-200">{item.word}</span>
-                        <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full font-black">{item.count}</span>
-                    </div>)) : (<p className="text-xs text-gray-400">No word data available yet.</p>)}
-                </div>
-            </div>
-        </div>
-    </div>);
-};
