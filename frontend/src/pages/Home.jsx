@@ -8,6 +8,7 @@ import EmojiPicker from 'emoji-picker-react';
 import CallUI from '../components/CallUI';
 import DrawingModal from '../components/DrawingModal';
 import OfflineChatManager from '../components/OfflineChatManager';
+import MediaGallery from '../components/MediaGallery';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
 
@@ -69,6 +70,7 @@ const Home = () => {
     const [activeSorryBlast, setActiveSorryBlast] = useState(null); // { power, timestamp }
     const [showTelepathyPicker, setShowTelepathyPicker] = useState(false);
     const [isOfflineChatOpen, setIsOfflineChatOpen] = useState(false);
+    const [showMediaGallery, setShowMediaGallery] = useState(false);
     const navigate = useNavigate();
 
     // WebRTC & Calling State
@@ -1224,6 +1226,7 @@ const Home = () => {
                         </div>
                         <div className="flex items-center gap-1 md:gap-2">
                             <button onClick={handleFetchStats} className={`p-2 rounded-xl ${showInsights ? 'text-blue-600' : 'text-gray-500'}`} title="Chat Insights"><BarChart2 size={18} /></button>
+                            <button onClick={() => setShowMediaGallery(p => !p)} className={`p-2 rounded-xl ${showMediaGallery ? 'text-blue-600' : 'text-gray-500'}`} title="Shared Media"><ImageIcon size={18} /></button>
                             <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl ${showChatSearch ? 'text-blue-600' : 'text-gray-500'}`}><Search size={18} /></button>
                             <button onClick={() => handleStartCall('voice')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Phone size={18} /></button>
                             <button onClick={() => handleStartCall('video')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Video size={18} /></button>
@@ -1527,6 +1530,13 @@ const Home = () => {
         }
 
         {renderSorryBlast()}
+
+        <MediaGallery
+            isOpen={showMediaGallery}
+            onClose={() => setShowMediaGallery(false)}
+            messages={messages}
+            activeChat={activeChat}
+        />
 
         <CallUI
             incomingCall={incomingCall}
