@@ -11,6 +11,7 @@ import OfflineChatManager from '../components/OfflineChatManager';
 import MediaGallery from '../components/MediaGallery';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
+import * as faceapi from '@vladmandic/face-api';
 
 const telepathySignals = [{ icon: '⚡', label: 'Thinking of you', color: 'text-yellow-500', bg: 'bg-yellow-50', glow: 'shadow-yellow-500/20' },
 { icon: '💭', label: 'Call me later', color: 'text-blue-500', bg: 'bg-blue-50', glow: 'shadow-blue-500/20' },
@@ -18,6 +19,18 @@ const telepathySignals = [{ icon: '⚡', label: 'Thinking of you', color: 'text-
 { icon: '💖', label: 'Emotional support', color: 'text-rose-500', bg: 'bg-rose-50', glow: 'shadow-rose-500/20' },
 { icon: '🔥', label: 'You got this', color: 'text-orange-500', bg: 'bg-orange-50', glow: 'shadow-orange-500/20' },
 { icon: '☕', label: 'Coffee soon?', color: 'text-amber-600', bg: 'bg-amber-50', glow: 'shadow-amber-500/20' },];
+
+const CAMERA_FILTERS = [
+    { name: 'Normal', css: 'none', type: 'css' },
+    { name: 'Vintage', css: 'sepia(0.6) contrast(1.2)', type: 'css' },
+    { name: 'Noir', css: 'grayscale(1) contrast(1.5)', type: 'css' },
+    { name: 'Dreamy', css: 'blur(1px) brightness(1.2) contrast(0.9)', type: 'css' },
+    { name: 'Neon', css: 'hue-rotate(90deg) saturate(2)', type: 'css' },
+    { name: 'Warm', css: 'sepia(0.3) saturate(1.5) hue-rotate(-15deg)', type: 'css' },
+    { name: 'Cool', css: 'saturate(1.2) hue-rotate(180deg)', type: 'css' },
+    { name: 'Hearts', css: 'none', type: 'ar', element: '💖' },
+    { name: 'Clear Skin', css: 'none', type: 'ar', element: 'blur' }
+];
 
 const Home = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('profile'))?.user);
@@ -57,6 +70,18 @@ const Home = () => {
     const recordingTimerRef = useRef(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const videoRef = useRef(null);
+    const [activeCameraFilter, setActiveCameraFilter] = useState(CAMERA_FILTERS[0]);
+    const [isCameraRecording, setIsCameraRecording] = useState(false);
+    const isCameraRecordingRef = useRef(false);
+    const cameraRecorderRef = useRef(null);
+    const cameraCanvasRef = useRef(null);
+    const cameraStreamRef = useRef(null);
+    const cameraChunksRef = useRef([]);
+    const cameraAnimationRef = useRef(null);
+    const cameraOverlayCanvasRef = useRef(null);
+    const [isFaceApiLoaded, setIsFaceApiLoaded] = useState(false);
+    const arTrackingAnimationRef = useRef(null);
+    const [cameraPreview, setCameraPreview] = useState(null);
     const [chatWallpaper, setChatWallpaper] = useState('default');
     const [viewingProfile, setViewingProfile] = useState(null); // User object
     const [isEditingAlias, setIsEditingAlias] = useState(false);
@@ -500,27 +525,130 @@ const Home = () => {
         fetchSidebar();
     }, []);
 
-    // Camera Logic
-    useEffect(() => {
-        let stream = null;
+      useEffect(() => {
+        let stream;
         if (isCameraOpen) {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(s => {
                     stream = s;
-                    if (videoRef.current) videoRef.current.srcObject = s;
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = s;
+                    }
                 })
                 .catch(err => {
                     console.error('Camera access error', err);
                     setIsCameraOpen(false);
                     alert('Could not access camera. Please check permissions.');
                 });
+                
+            // Load Face API Models
+            const loadModels = async () => {
+                if (isFaceApiLoaded) return;
+                try {
+                    await Promise.all([
+                        // The face-api.js library requires the URI to point to the directory containing the manifests
+                        faceapi.nets.tinyFaceDetector.loadFromUri('/face-models'),
+                        faceapi.nets.faceLandmark68TinyNet.loadFromUri('/face-models')
+                    ]);
+                    setIsFaceApiLoaded(true);
+                    console.log("Face API models loaded successfully.");
+                } catch (e) {
+                    console.error("Failed to load face-api models:", e);
+                }
+            };
+            loadModels();
+            
         }
         return () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
+            if (arTrackingAnimationRef.current) cancelAnimationFrame(arTrackingAnimationRef.current);
         };
     }, [isCameraOpen]);
+    
+    // AR Tracking loop
+    useEffect(() => {
+        if (!isCameraOpen || !videoRef.current || !cameraOverlayCanvasRef.current) return;
+        
+        const video = videoRef.current;
+        const canvas = cameraOverlayCanvasRef.current;
+        const ctx = canvas.getContext('2d');
+        
+        const detectFace = async () => {
+             if (video.paused || video.ended || !isCameraOpen || video.readyState !== 4) {
+                 arTrackingAnimationRef.current = requestAnimationFrame(detectFace);
+                 return;
+             }
+             
+             // Setup canvas dimensions to match video
+             if (canvas.width !== video.videoWidth && video.videoWidth > 0) {
+                 canvas.width = video.videoWidth;
+                 canvas.height = video.videoHeight;
+             }
+             
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             
+             if (activeCameraFilter.type === 'ar') {
+                 if (!isFaceApiLoaded) {
+                     ctx.font = '20px Arial';
+                     ctx.fillStyle = 'white';
+                     ctx.textAlign = 'center';
+                     ctx.fillText('Loading AR Models...', canvas.width/2, 50);
+                 } else {
+                     try {
+                         const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceLandmarks(true);
+                         if (detections) {
+                             const dims = faceapi.matchDimensions(canvas, video, true);
+                             const resizedResult = faceapi.resizeResults(detections, dims);
+                             
+                             if (activeCameraFilter.name === 'Hearts') {
+                                 // Draw floating hearts over head
+                                 const landmarks = resizedResult.landmarks.positions;
+                                 const topOfHead = landmarks[27]; // between eyes
+                                 ctx.font = '40px Arial';
+                                 ctx.textAlign = 'center';
+                                 ctx.fillText('💖', topOfHead.x - 40, topOfHead.y - 120);
+                                 ctx.fillText('💖', topOfHead.x + 40, topOfHead.y - 100);
+                                 ctx.fillText('💖', topOfHead.x, topOfHead.y - 160);
+                             } else if (activeCameraFilter.name === 'Clear Skin') {
+                                 // Soft focus blur block over the central face
+                                 const box = resizedResult.detection.box;
+                                 ctx.filter = 'blur(4px) opacity(0.5)';
+                                 ctx.fillStyle = '#ffcccc'; // slight tint
+                                 ctx.beginPath();
+                                 ctx.ellipse(box.x + box.width/2, box.y + box.height/2, box.width/2.5, box.height/2.2, 0, 0, 2 * Math.PI);
+                                 ctx.fill();
+                                 ctx.filter = 'none';
+                             }
+                         } else {
+                             // No face detected debug text
+                             ctx.font = '20px Arial';
+                             ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                             ctx.textAlign = 'center';
+                             ctx.fillText('No Face Detected', canvas.width/2, 50);
+                         }
+                     } catch (err) {
+                         console.error("AR Tracking Error:", err);
+                     }
+                 }
+             }
+             
+             arTrackingAnimationRef.current = requestAnimationFrame(detectFace);
+        };
+        
+        // Start loop when video is playing
+        const handlePlay = () => detectFace();
+        video.addEventListener('play', handlePlay);
+        
+        // Fire immediately if already playing
+        if (!video.paused) detectFace();
+        
+        return () => {
+             video.removeEventListener('play', handlePlay);
+             if (arTrackingAnimationRef.current) cancelAnimationFrame(arTrackingAnimationRef.current);
+        };
+    }, [isCameraOpen, isFaceApiLoaded, activeCameraFilter]);
 
     const capturePhoto = () => {
         if (!videoRef.current) return;
@@ -528,16 +656,95 @@ const Home = () => {
         canvas.width = videoRef.current.videoWidth;
         canvas.height = videoRef.current.videoHeight;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(videoRef.current, 0, 0);
+        
+        ctx.filter = activeCameraFilter.type === 'css' ? activeCameraFilter.css : 'none';
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none'; // reset filter before drawing AR
+        
+        if (activeCameraFilter.type === 'ar' && cameraOverlayCanvasRef.current) {
+            ctx.drawImage(cameraOverlayCanvasRef.current, 0, 0, canvas.width, canvas.height);
+        }
 
         canvas.toBlob((blob) => {
             if (blob) {
                 const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
                 const url = URL.createObjectURL(file);
-                setAttachPreview({ file, url, type: 'image', name: file.name });
-                setIsCameraOpen(false);
+                setCameraPreview({ file, url, type: 'image', name: file.name });
             }
         }, 'image/jpeg', 0.8);
+    };
+
+    const startVideoRecording = () => {
+        if (!videoRef.current) return;
+        setIsCameraRecording(true);
+        isCameraRecordingRef.current = true;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        cameraCanvasRef.current = canvas;
+        const ctx = canvas.getContext('2d');
+
+        const drawFrame = () => {
+            if (!videoRef.current || !isCameraRecordingRef.current) return;
+            
+            ctx.filter = activeCameraFilter.type === 'css' ? activeCameraFilter.css : 'none';
+            ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            ctx.filter = 'none';
+
+            if (activeCameraFilter.type === 'ar' && cameraOverlayCanvasRef.current) {
+                ctx.drawImage(cameraOverlayCanvasRef.current, 0, 0, canvas.width, canvas.height);
+            }
+            
+            cameraAnimationRef.current = requestAnimationFrame(drawFrame);
+        };
+        drawFrame();
+
+        // Check if captureStream is available (standards compliance)
+        const stream = canvas.captureStream ? canvas.captureStream(30) : null;
+        if (!stream) {
+            console.error('canvas.captureStream is not supported by this browser.');
+            setIsCameraRecording(false);
+            isCameraRecordingRef.current = false;
+            return;
+        }
+
+        cameraStreamRef.current = stream;
+        cameraChunksRef.current = [];
+
+        try {
+            const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) cameraChunksRef.current.push(e.data);
+            };
+            recorder.onstop = () => {
+                const blob = new Blob(cameraChunksRef.current, { type: 'video/webm' });
+                const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
+                const url = URL.createObjectURL(file);
+                setIsCameraRecording(false);
+                isCameraRecordingRef.current = false;
+                if (cameraAnimationRef.current) cancelAnimationFrame(cameraAnimationRef.current);
+                setCameraPreview({ file, url, type: 'video', name: file.name });
+            };
+            cameraRecorderRef.current = recorder;
+            recorder.start();
+        } catch (err) {
+            console.error("MediaRecorder error", err);
+            setIsCameraRecording(false);
+            isCameraRecordingRef.current = false;
+        }
+    };
+
+    const stopVideoRecording = () => {
+        setIsCameraRecording(false);
+        isCameraRecordingRef.current = false;
+        if (cameraRecorderRef.current && cameraRecorderRef.current.state === 'recording') {
+            cameraRecorderRef.current.stop();
+        }
+        if (cameraStreamRef.current) {
+             cameraStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+        if (cameraAnimationRef.current) cancelAnimationFrame(cameraAnimationRef.current);
     };
 
     // Wallpaper Logic
@@ -1360,16 +1567,103 @@ const Home = () => {
 
         {/* Camera Modal */}
         {
-            isCameraOpen && (<div className="fixed inset-0 z-100 bg-black/90 flex flex-col items-center justify-center p-4">
-                <div className="relative w-full max-w-lg aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl">
-                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                    <button onClick={() => setIsCameraOpen(false)} className="absolute top-4 right-4 p-2 bg-black/40 text-white rounded-full"><X size={24} /></button>
+            isCameraOpen && (<div className="fixed inset-0 z-100 bg-black/95 flex flex-col items-center justify-center p-4">
+                <div className="relative w-full max-w-md aspect-[3/4] bg-black rounded-[40px] overflow-hidden shadow-2xl">
+                    {cameraPreview ? (
+                        cameraPreview.type === 'video' ? (
+                            <video src={cameraPreview.url} autoPlay loop playsInline className="w-full h-full object-cover" />
+                        ) : (
+                            <img src={cameraPreview.url} alt="Preview" className="w-full h-full object-cover" />
+                        )
+                    ) : (
+                        <>
+                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" style={{ filter: activeCameraFilter.type === 'css' ? activeCameraFilter.css : 'none' }} />
+                            <canvas ref={cameraOverlayCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+                        </>
+                    )}
+                    
+                    <button onClick={() => {
+                        if (cameraPreview) setCameraPreview(null);
+                        else setIsCameraOpen(false);
+                    }} className="absolute top-4 right-4 p-2.5 bg-black/40 text-white rounded-full hover:bg-black/60 transition-colors z-10"><X size={20} /></button>
+                    
+                    {/* Recording Indicator */}
+                    {isCameraRecording && !cameraPreview && (
+                        <div className="absolute top-6 left-6 flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-full z-10">
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+                            <span className="text-white text-xs font-bold tracking-wider">REC</span>
+                        </div>
+                    )}
                 </div>
-                <div className="mt-8 flex gap-8 items-center">
-                    <button onClick={() => setIsCameraOpen(false)} className="text-white opacity-60 hover:opacity-100 font-medium">Cancel</button>
-                    <button onClick={capturePhoto} className="w-16 h-16 rounded-full bg-white border-4 border-gray-400 hover:scale-110 active:scale-95 transition-all flex items-center justify-center shadow-lg"><div className="w-12 h-12 rounded-full border-2 border-slate-900"></div></button>
-                    <div className="w-12"></div>
-                </div>
+
+                {!cameraPreview ? (
+                    <>
+                        {/* Filter Carousel */}
+                        <div className="w-full max-w-md mt-6 overflow-x-auto custom-scrollbar pb-2 px-2 flex gap-4 snap-x">
+                            {CAMERA_FILTERS.map((f, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => setActiveCameraFilter(f)}
+                                    className={`flex flex-col items-center gap-2 shrink-0 snap-center transition-all ${activeCameraFilter.name === f.name ? 'scale-110' : 'scale-90 opacity-70 hover:opacity-100'}`}
+                                >
+                                    <div className={`w-14 h-14 rounded-full border-4 overflow-hidden relative flex items-center justify-center ${activeCameraFilter.name === f.name ? 'border-indigo-500' : 'border-white/20'}`}>
+                                        <div className="absolute inset-0 w-full h-full bg-linear-to-br from-indigo-400 to-purple-500" style={{ filter: f.type === 'css' ? f.css : 'none' }}></div>
+                                        {f.type === 'ar' && <span className="relative z-10 text-2xl">{f.element === 'blur' ? '✨' : f.element}</span>}
+                                    </div>
+                                    <span className="text-[10px] text-white font-bold tracking-wider uppercase">{f.name}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Capture Controls */}
+                        <div className="mt-8 flex gap-8 items-center cursor-default shrink-0">
+                            <button onClick={() => setIsCameraOpen(false)} className="text-white opacity-60 hover:opacity-100 font-medium text-sm tracking-wider w-16 text-right">CANCEL</button>
+                            
+                            <div className="relative w-20 h-20 flex items-center justify-center">
+                                <button 
+                                    onPointerDown={(e) => {
+                                        e.currentTarget.recordTimeout = setTimeout(() => {
+                                            startVideoRecording();
+                                        }, 300);
+                                    }}
+                                    onPointerUp={(e) => {
+                                        clearTimeout(e.currentTarget.recordTimeout);
+                                        if (isCameraRecordingRef.current) {
+                                            stopVideoRecording();
+                                        } else {
+                                            capturePhoto();
+                                        }
+                                    }}
+                                    onPointerLeave={(e) => {
+                                        clearTimeout(e.currentTarget.recordTimeout);
+                                        if (isCameraRecordingRef.current) stopVideoRecording();
+                                    }}
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    className={`absolute inset-0 rounded-full border-4 transition-all flex items-center justify-center shadow-[0_0_20px_rgba(0,0,0,0.3)] touch-none cursor-pointer ${isCameraRecording ? 'border-red-500 scale-125 bg-white/20' : 'border-white hover:scale-105 active:scale-95 bg-white/20'}`}
+                                >
+                                    <div className={`rounded-full transition-all pointer-events-none ${isCameraRecording ? 'w-8 h-8 bg-red-500 rounded-lg' : 'w-16 h-16 bg-white border-2 border-slate-900 rounded-full'}`}></div>
+                                </button>
+                            </div>
+                            
+                            <div className="w-16"></div>
+                        </div>
+                        <p className="mt-6 text-white/50 text-xs font-medium tracking-wide">Tap for photo, hold for video</p>
+                    </>
+                ) : (
+                    <div className="mt-8 flex gap-8 items-center shrink-0 w-full max-w-md justify-between px-6">
+                        <button onClick={() => setCameraPreview(null)} className="flex items-center gap-2 px-4 py-3 bg-white/10 text-white rounded-2xl hover:bg-white/20 transition-all font-bold">
+                            <Trash2 size={20} /> Discard
+                        </button>
+                        
+                        <button onClick={() => {
+                            setAttachPreview(cameraPreview);
+                            setCameraPreview(null);
+                            setIsCameraOpen(false);
+                        }} className="flex items-center gap-2 px-6 py-3 bg-yellow-400 text-black rounded-2xl hover:bg-yellow-500 transition-all font-black shadow-lg shadow-yellow-400/20 active:scale-95">
+                            Send To Chat <Send size={20} />
+                        </button>
+                    </div>
+                )}
             </div>)
         }
 
