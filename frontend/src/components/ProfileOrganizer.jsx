@@ -32,7 +32,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
     ];
 
     const renderProfile = () => (
-        <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar">
             {/* Minimal Header for Profile */}
             <div className="relative group">
                 <div className="h-64 md:h-80 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
@@ -40,6 +40,8 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                         src={activeChat.avatar_url} 
                         alt={activeChat.username} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                        width="128"
+                        height="128"
                     />
                     <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent"></div>
                 </div>
@@ -110,6 +112,8 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                                         src={msg.file_url} 
                                         alt="" 
                                         className="w-full h-full object-cover" 
+                                        width="80"
+                                        height="80"
                                     />
                                 </div>
                             ))}
@@ -153,7 +157,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
     );
 
     const renderMediaView = () => (
-        <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className="flex-1 flex flex-col overflow-hidden">
             {/* Tabs */}
             <div className="flex px-4 pt-4 border-b border-gray-100 dark:border-slate-800">
                 {tabs.map(tab => (
@@ -176,12 +180,12 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 {activeTab === 'media' && (
                     <div className="grid grid-cols-3 gap-2">
                         {media.length > 0 ? media.map(msg => (
-                            <a key={msg.id} href={msg.file_url} target="_blank" rel="noreferrer" className="aspect-square relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-sm">
+                            <a key={msg.id} href={msg.file_url} target="_blank" rel="noreferrer" className="aspect-square relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-sm min-h-[100px]">
                                 {msg.message_type === 'image' ? (
                                     <img src={msg.file_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                 ) : (
                                     <div className="w-full h-full relative flex items-center justify-center">
-                                        <video src={msg.file_url} className="w-full h-full object-cover" />
+                                        <video src={msg.file_url} className="w-full h-full object-cover" preload="metadata" />
                                         <div className="absolute inset-0 bg-black/30 flex items-center justify-center transition-opacity group-hover:bg-black/40">
                                             <Video className="text-white drop-shadow-lg" size={24} />
                                         </div>

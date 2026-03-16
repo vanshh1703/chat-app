@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Home from './pages/Home'
-import Settings from './pages/Settings'
-import Profile from './pages/Profile'
-import CallLogs from './pages/CallLogs'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+
+const Login = lazy(() => import('./pages/Login'))
+const Register = lazy(() => import('./pages/Register'))
+const Home = lazy(() => import('./pages/Home'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Profile = lazy(() => import('./pages/Profile'))
+const CallLogs = lazy(() => import('./pages/CallLogs'))
 
 function App() {
   useEffect(() => {
@@ -44,14 +45,18 @@ function App() {
   return (
     <>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/calls" element={<CallLogs />} />
-        </Routes>
+        <Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-white dark:bg-slate-950 text-slate-800 dark:text-white font-medium text-lg">Loading...</div>}>
+          <main>
+            <Routes>
+              <Route path="/" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/calls" element={<CallLogs />} />
+            </Routes>
+          </main>
+        </Suspense>
       </BrowserRouter>
     </>
   )

@@ -237,7 +237,7 @@ const CallLogs = () => {
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-12 h-12 rounded-[18px] overflow-hidden ring-4 ring-slate-100/50 dark:ring-slate-800/50 group-hover:ring-blue-500/20 transition-all duration-500">
-                                                            <img src={otherAvatar} alt={otherName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                                            <img src={otherAvatar} alt={otherName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" width="48" height="48" loading="lazy" />
                                                         </div>
                                                         <span className="font-black text-sm uppercase tracking-tight group-hover:text-blue-500 transition-colors">{otherName}</span>
                                                     </div>

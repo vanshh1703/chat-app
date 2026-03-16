@@ -105,11 +105,11 @@ const KeyVerification = ({ isOpen, onClose, user, friend }) => {
           <div className="flex justify-center mb-8">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col items-center">
-                <img src={user.avatar_url} alt="" className="w-16 h-16 rounded-full border-2 border-emerald-500 p-0.5" />
+                <img src={user.avatar_url} alt="" className="w-16 h-16 rounded-full border-2 border-emerald-500 p-0.5" width="64" height="64" loading="lazy" />
                 <span className="text-xs font-bold mt-2 text-gray-500 uppercase tracking-tighter">You</span>
               </div>
               <div className="flex flex-col items-center">
-                <img src={friend.avatar_url} alt="" className="w-16 h-16 rounded-full border-2 border-emerald-500 p-0.5" />
+                <img src={friend.avatar_url} alt="" className="w-16 h-16 rounded-full border-2 border-emerald-500 p-0.5" width="64" height="64" loading="lazy" />
                 <span className="text-xs font-bold mt-2 text-gray-500 uppercase tracking-tighter">{friend.username}</span>
               </div>
             </div>

@@ -80,7 +80,7 @@ const CallUI = ({
                 <div className="flex flex-col items-center gap-4 text-center">
                     <div className="relative">
                         <div className="w-20 h-20 rounded-full border-4 border-blue-500/20 overflow-hidden ring-4 ring-blue-500/10 animate-pulse">
-                            <img src={incomingCall.avatar} alt={incomingCall.name} className="w-full h-full object-cover" />
+                            <img src={incomingCall.avatar} alt={incomingCall.name} className="w-full h-full object-cover" width="80" height="80" loading="lazy" />
                         </div>
                         <div className="absolute -bottom-1 -right-1 p-2 bg-blue-500 rounded-full text-white shadow-lg">
                             {incomingCall.type === 'video' ? <Video size={16} /> : <Phone size={16} />}
@@ -135,7 +135,7 @@ const CallUI = ({
                     <div className="bg-slate-900/90 dark:bg-black/90 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-[24px] shadow-2xl flex items-center gap-4 transition-all duration-500 hover:scale-105 group ring-1 ring-white/5">
                         <div className="relative">
                             <div className="w-10 h-10 rounded-full border-2 border-green-500/50 overflow-hidden shadow-inner">
-                                <img src={incomingCall?.avatar || activeCall.avatar} alt="Call" className="w-full h-full object-cover" />
+                                <img src={incomingCall?.avatar || activeCall.avatar} alt="Call" className="w-full h-full object-cover" width="96" height="96" loading="lazy" />
                             </div>
                             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-slate-900 rounded-full flex items-center justify-center">
                                 <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>

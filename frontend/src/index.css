@@ -12,6 +12,14 @@
   .slide-in-from-bottom-4 {
     animation-name: slide-in-from-bottom;
   }
+  
+  .slide-in-from-right-4 {
+    animation-name: slide-in-from-right;
+  }
+
+  .fade-in {
+    animation-name: fade-in;
+  }
 
   @keyframes slide-in-from-bottom {
     from {
@@ -20,6 +28,26 @@
     }
     to {
       transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-from-right {
+    from {
+      transform: translateX(1rem);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
       opacity: 1;
     }
   }

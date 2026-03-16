@@ -4,16 +4,12 @@ import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
-import EmojiPicker from 'emoji-picker-react';
-import CallUI from '../components/CallUI';
-import DrawingModal from '../components/DrawingModal';
-import OfflineChatManager from '../components/OfflineChatManager';
-import ProfileOrganizer from '../components/ProfileOrganizer';
+import { Suspense } from 'react';
+import { EmojiPicker, CallUI, DrawingModal, OfflineChatManager, ProfileOrganizer, KeyVerification } from '../components/lazyComponents';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
-import * as faceapi from '@vladmandic/face-api';
+// face-api is loaded dynamically only when camera+face recognition is used (see useFaceapi hook)
 import { useEncryption } from '../hooks/useEncryption';
-import KeyVerification from '../components/KeyVerification';
 import * as keyManager from '../utils/keyManager';
 import { encryptFile, decryptFile } from '../utils/mediaCrypto';
 
@@ -483,22 +479,32 @@ const Home = () => {
         };
     }, [user, activeChat, sidebarUsers, encryptionReady, decrypt]);
 
-    // Batch Decrypt Messages when they change
+    // Batch Decrypt Messages when they change (including sidebar last messages)
     useEffect(() => {
-        if (!encryptionReady || messages.length === 0) return;
+        if (!encryptionReady) return;
 
-        const decryptNeeded = messages.filter(m => m.encrypted_key && !decryptedMessages[m.id]);
-        if (decryptNeeded.length === 0) return;
+        const decryptBatch = async () => {
+            const decryptNeededMessages = messages.filter(m => m.encrypted_key && !decryptedMessages[m.id]);
+            const decryptNeededSidebar = sidebarUsers
+                .filter(u => u.lastMsgData?.encrypted_key && !decryptedMessages[u.lastMsgData.id])
+                .map(u => u.lastMsgData);
 
-        const decryptAll = async () => {
+            const allNeeded = [...decryptNeededMessages, ...decryptNeededSidebar];
+            if (allNeeded.length === 0) return;
+
             const newDecrypted = { ...decryptedMessages };
-            for (const msg of decryptNeeded) {
-                newDecrypted[msg.id] = await decrypt(msg);
+            let changed = false;
+            for (const msg of allNeeded) {
+                if (!newDecrypted[msg.id]) {
+                    newDecrypted[msg.id] = await decrypt(msg);
+                    changed = true;
+                }
             }
-            setDecryptedMessages(newDecrypted);
+            if (changed) setDecryptedMessages(newDecrypted);
         };
-        decryptAll();
-    }, [messages, encryptionReady, decrypt]);
+        
+        decryptBatch();
+    }, [messages, sidebarUsers, encryptionReady, decrypt, decryptedMessages]);
 
     // --- WebRTC Signaling Listeners ---
     useEffect(() => {
@@ -1645,8 +1651,8 @@ const Home = () => {
         <div className={`w-full md:w-[350px] flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
             <div className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Link to="/profile" className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm hover:scale-105 transition-transform">
-                        <img src={user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} alt="Profile" className="w-full h-full object-cover" />
+                    <Link to="/profile" aria-label="Go to your profile" className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm hover:scale-105 transition-transform">
+                        <img src={user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} alt="Profile" className="w-full h-full object-cover" width="40" height="40" />
                     </Link >
                     <div>
                         <h3 className="font-bold text-gray-800 dark:text-white text-sm">{user?.username}</h3>
@@ -1657,10 +1663,10 @@ const Home = () => {
                     <button onClick={() => setIsOfflineChatOpen(true)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors" title="Offline Mesh Chat (Bluetooth/Wi-Fi)">
                         <Wifi size={20} />
                     </button>
-                    <Link to="/calls" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" title="Call History">
+                    <Link to="/calls" aria-label="Call History" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" title="Call History">
                         <Clock size={20} />
                     </Link>
-                    <Link to="/settings" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                    <Link to="/settings" aria-label="Settings" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
                         <SettingsIcon size={20} />
                     </Link>
                 </div>
@@ -1672,7 +1678,7 @@ const Home = () => {
                 </div>
                 {searchResults.length > 0 && (<div className="absolute left-4 right-4 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden">
                     {searchResults.map((res) => (<div key={res.id} onClick={() => handleSelectChat(res)} className="flex items-center gap-3 p-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0">
-                        <img src={res.avatar_url} className="w-8 h-8 rounded-full" alt="" />
+                        <img src={res.avatar_url} className="w-8 h-8 rounded-full" alt="" width="32" height="32" />
                         <span className="text-sm font-bold text-slate-700">{res.username}</span>
                     </div>))}
                 </div>)}
@@ -1683,7 +1689,7 @@ const Home = () => {
                     {sidebarUsers.map(chat => (<div key={chat.id} onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)} onMouseLeave={() => setHoveredMsgId(null)} onClick={() => handleSelectChat(chat)} className={`group flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all duration-200 ${activeChat?.id === chat.id ? 'bg-white shadow-[0_10px_25px_rgba(0,0,0,0.05)]' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80' : 'hover:bg-white/50'}`}>
                         <div className="relative">
                             <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm">
-                                <img src={chat.avatar_url} alt={chat.username} />
+                                <img src={chat.avatar_url} alt={chat.username} width="48" height="48" />
                             </div>
                             {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
                             {chat.is_pinned && (<div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-900 rounded-full shadow-md text-blue-500 border border-blue-100">
@@ -1697,7 +1703,7 @@ const Home = () => {
                                 </h4>
                                 <span className="text-[10px] text-gray-400">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                             </div>
-                            <p className="text-xs truncate text-gray-500">{typingUsers[chat.id] ? <span className="text-blue-500 italic">typing...</span> : chat.lastmsg || 'No messages yet'}</p>
+                            <p className="text-xs truncate text-gray-500">{typingUsers[chat.id] ? <span className="text-blue-500 italic">typing...</span> : (decryptedMessages[chat.lastMsgData?.id] || chat.lastmsg || 'No messages yet')}</p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                             {Number(chat.unreadcount) > 0 && <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">{chat.unreadcount}</div>}
@@ -1727,7 +1733,7 @@ const Home = () => {
                         <div className="flex items-center gap-2 md:gap-4 flex-1">
                             <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-gray-500"><ArrowLeft size={20} /></button>
                             <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform" onClick={() => handleViewProfile(activeChat)}>
-                                <img src={activeChat.avatar_url} alt="Active" />
+                                <img src={activeChat.avatar_url} alt="Active" width="40" height="40" />
                             </div>
                             {!showChatSearch ? (<div>
                                 {isEditingAlias ? (<form onSubmit={handleSetAlias} className="flex items-center gap-2">
@@ -1989,7 +1995,7 @@ const Home = () => {
                                     </div>
                                 </>)}
                             </form>
-                            {showEmojiPicker && <div className="absolute bottom-full mb-2 right-0 z-50"><EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} /></div>}
+                            {showEmojiPicker && <div className="absolute bottom-full mb-2 right-0 z-50"><Suspense fallback={<div className="w-[300px] h-[350px] flex items-center justify-center bg-white shadow-lg rounded-lg"><div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div></div>}><EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} /></Suspense></div>}
 
                             {/* Mobile Attachment Popover */}
                             {isAttachmentOpen && (
@@ -2176,18 +2182,20 @@ const Home = () => {
             </div>)}
 
         {/* Profile View Modal */}
-        <ProfileOrganizer
-            isOpen={!!viewingProfile}
-            onClose={() => setViewingProfile(null)}
-            activeChat={viewingProfile}
-            messages={messages}
-            isMuted={activeChat?.is_muted}
-            onToggleMute={() => handleToggleMute(activeChat?.id)}
-            onStartCall={handleStartCall}
-            onStartSearch={() => setShowChatSearch(true)}
-            isSharingScreen={isSharingScreen}
-            onToggleScreenShare={handleToggleScreenShare}
-        />
+        <Suspense fallback={null}>
+            <ProfileOrganizer
+                isOpen={!!viewingProfile}
+                onClose={() => setViewingProfile(null)}
+                activeChat={viewingProfile}
+                messages={messages}
+                isMuted={activeChat?.is_muted}
+                onToggleMute={() => handleToggleMute(activeChat?.id)}
+                onStartCall={handleStartCall}
+                onStartSearch={() => setShowChatSearch(true)}
+                isSharingScreen={isSharingScreen}
+                onToggleScreenShare={handleToggleScreenShare}
+            />
+        </Suspense>
 
         {/* Power Up Modal */}
         {
@@ -2257,31 +2265,37 @@ const Home = () => {
 
 
 
-        <CallUI
-            incomingCall={incomingCall}
-            activeCall={activeCall}
-            localStream={localStream}
-            remoteStream={remoteStream}
-            onAccept={handleAcceptCall}
-            onReject={handleRejectCall}
-            onEnd={handleEndCall}
-        />
+        <Suspense fallback={null}>
+            <CallUI
+                incomingCall={incomingCall}
+                activeCall={activeCall}
+                localStream={localStream}
+                remoteStream={remoteStream}
+                onAccept={handleAcceptCall}
+                onReject={handleRejectCall}
+                onEnd={handleEndCall}
+            />
+        </Suspense>
 
-        <DrawingModal
-            isOpen={isDrawingOpen}
-            onClose={() => { setIsDrawingOpen(false); setDrawingInitialImage(null); }}
-            initialImage={drawingInitialImage}
-            onSend={(file) => {
-                const url = URL.createObjectURL(file);
-                setAttachPreview({ file, url, type: 'image', name: 'Drawing.png' });
-            }}
-        />
+        <Suspense fallback={null}>
+            <DrawingModal
+                isOpen={isDrawingOpen}
+                onClose={() => { setIsDrawingOpen(false); setDrawingInitialImage(null); }}
+                initialImage={drawingInitialImage}
+                onSend={(file) => {
+                    const url = URL.createObjectURL(file);
+                    setAttachPreview({ file, url, type: 'image', name: 'Drawing.png' });
+                }}
+            />
+        </Suspense>
 
-        <OfflineChatManager
-            isOpen={isOfflineChatOpen}
-            onClose={() => setIsOfflineChatOpen(false)}
-            currentUser={user}
-        />
+        <Suspense fallback={null}>
+            <OfflineChatManager
+                isOpen={isOfflineChatOpen}
+                onClose={() => setIsOfflineChatOpen(false)}
+                currentUser={user}
+            />
+        </Suspense>
 
         {/* Edit History Modal */}
         {historyMsg && (
@@ -2346,12 +2360,14 @@ const Home = () => {
             </div>
         )}
 
-        <KeyVerification 
-            isOpen={isKeyVerificationOpen}
-            onClose={() => setIsKeyVerificationOpen(false)}
-            user={user}
-            friend={activeChat}
-        />
+        <Suspense fallback={null}>
+            <KeyVerification 
+                isOpen={isKeyVerificationOpen}
+                onClose={() => setIsKeyVerificationOpen(false)}
+                user={user}
+                friend={activeChat}
+            />
+        </Suspense>
     </div >);
 };
 

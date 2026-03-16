@@ -295,6 +295,30 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
                  ORDER BY created_at DESC LIMIT 1) as lastMsg,
+                (SELECT id FROM messages 
+                 WHERE (sender_id = u.id AND receiver_id = $1) 
+                    OR (sender_id = $1 AND receiver_id = u.id) 
+                 ORDER BY created_at DESC LIMIT 1) as lastMsgId,
+                (SELECT encrypted_key FROM messages 
+                 WHERE (sender_id = u.id AND receiver_id = $1) 
+                    OR (sender_id = $1 AND receiver_id = u.id) 
+                 ORDER BY created_at DESC LIMIT 1) as lastMsgEncKey,
+                (SELECT sender_encrypted_key FROM messages 
+                 WHERE (sender_id = u.id AND receiver_id = $1) 
+                    OR (sender_id = $1 AND receiver_id = u.id) 
+                 ORDER BY created_at DESC LIMIT 1) as lastMsgSenderEncKey,
+                (SELECT iv FROM messages 
+                 WHERE (sender_id = u.id AND receiver_id = $1) 
+                    OR (sender_id = $1 AND receiver_id = u.id) 
+                 ORDER BY created_at DESC LIMIT 1) as lastMsgIv,
+                (SELECT encrypted_content FROM messages 
+                 WHERE (sender_id = u.id AND receiver_id = $1) 
+                    OR (sender_id = $1 AND receiver_id = u.id) 
+                 ORDER BY created_at DESC LIMIT 1) as lastMsgEncContent,
+                (SELECT sender_id FROM messages 
+                 WHERE (sender_id = u.id AND receiver_id = $1) 
+                    OR (sender_id = $1 AND receiver_id = u.id) 
+                 ORDER BY created_at DESC LIMIT 1) as lastMsgSenderId,
                 (SELECT message_type FROM messages 
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
@@ -328,7 +352,20 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
             else if (row.lastmsgtype === 'file') displayMsg = '📁 File';
             else if (row.lastmsgtype === 'call') displayMsg = '📞 Call';
 
-            return { ...row, lastmsg: displayMsg };
+            return { 
+                ...row, 
+                lastmsg: displayMsg,
+                // Pass along E2EE data for frontend decryption
+                lastMsgData: {
+                    id: row.lastmsgid,
+                    content: row.lastmsg,
+                    encrypted_key: row.lastmsgenckey,
+                    sender_encrypted_key: row.lastmsgsenderenckey,
+                    iv: row.lastmsgiv,
+                    encrypted_content: row.lastmsgenccontent,
+                    sender_id: row.lastmsgsenderid
+                }
+            };
         });
 
         res.json(formattedRows);
