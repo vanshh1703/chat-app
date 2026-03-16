@@ -414,7 +414,7 @@ app.get('/api/messages/:otherId', authenticateToken, async (req, res) => {
             ORDER BY m.created_at DESC
             LIMIT $3 OFFSET $4
         `, [req.user.id, req.params.otherId, limit, offset]);
-        
+
         // Reverse because we fetch the latest (DESC) for pagination, but frontend expects ASC for chat flow
         res.json(result.rows.reverse());
     } catch (err) {

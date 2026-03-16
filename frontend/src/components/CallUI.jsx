@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Maximize2, Minimize2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Maximize2, Minimize2, ChevronUp, ChevronDown, Monitor } from 'lucide-react';
 
 const CallUI = ({
     onAccept,
@@ -9,7 +9,9 @@ const CallUI = ({
     activeCall,
     localStream,
     remoteStream,
-    isAudioOnly
+    isAudioOnly,
+    isSharingScreen,
+    onToggleScreenShare
 }) => {
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
@@ -245,6 +247,14 @@ const CallUI = ({
                             className={`p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                         >
                             {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
+                        </button>
+
+                        <button
+                            onClick={onToggleScreenShare}
+                            className={`p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isSharingScreen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                            title={isSharingScreen ? "Stop Sharing" : "Share Screen"}
+                        >
+                            <Monitor size={24} />
                         </button>
 
                         <button
