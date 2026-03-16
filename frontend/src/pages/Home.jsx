@@ -94,6 +94,10 @@ const Home = () => {
     const [isOfflineChatOpen, setIsOfflineChatOpen] = useState(false);
     const [showMediaGallery, setShowMediaGallery] = useState(false);
     const [historyMsg, setHistoryMsg] = useState(null);
+    const [messageOffset, setMessageOffset] = useState(0);
+    const [hasMoreMessages, setHasMoreMessages] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const messageContainerRef = useRef(null);
     const navigate = useNavigate();
 
     // WebRTC & Calling State
@@ -758,8 +762,14 @@ const Home = () => {
     }, [user]);
 
     // Scroll to bottom on new messages
+    const shouldScrollToBottomRef = useRef(true);
+
     useEffect(() => {
-        scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (shouldScrollToBottomRef.current) {
+            scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+        // Reset after scroll or if it was skipped
+        shouldScrollToBottomRef.current = true;
     }, [messages]);
 
     // Handle Search
@@ -789,17 +799,58 @@ const Home = () => {
         setActiveChat(selectedUser);
         setSearchTerm('');
         setSearchResults([]);
+        setMessageOffset(0);
+        setHasMoreMessages(true);
         if (selectedUser.id === ashPersona.id) {
             setMessages([]); // Or keep local messages if we implemented persistence
             return;
         }
         try {
             await api.markAsRead({ senderId: selectedUser.id });
-            const { data } = await api.getMessages(selectedUser.id);
+            const { data } = await api.getMessages(selectedUser.id, 20, 0);
             setMessages(data);
+            setMessageOffset(data.length);
+            if (data.length < 20) setHasMoreMessages(false);
             fetchSidebar();
         } catch (err) {
             console.error('Fetch messages error', err);
+        }
+    };
+
+    const loadMoreMessages = async () => {
+        if (!activeChat || !hasMoreMessages || isLoadingMore || activeChat.id === ashPersona.id) return;
+        
+        setIsLoadingMore(true);
+        const container = messageContainerRef.current;
+        const scrollHeightBefore = container.scrollHeight;
+
+        try {
+            const { data } = await api.getMessages(activeChat.id, 20, messageOffset);
+            if (data.length === 0) {
+                setHasMoreMessages(false);
+            } else {
+                shouldScrollToBottomRef.current = false;
+                setMessages(prev => [...data, ...prev]);
+                setMessageOffset(prev => prev + data.length);
+                if (data.length < 20) setHasMoreMessages(false);
+                
+                // Preserve scroll position
+                setTimeout(() => {
+                    if (container) {
+                        container.scrollTop = container.scrollHeight - scrollHeightBefore;
+                    }
+                }, 0);
+            }
+        } catch (err) {
+            console.error('Load more messages error', err);
+        } finally {
+            setIsLoadingMore(false);
+        }
+    };
+
+    const handleScroll = (e) => {
+        if (e.target.scrollTop === 0 && !isLoadingMore && hasMoreMessages) {
+            loadMoreMessages();
         }
     };
 
@@ -1439,8 +1490,17 @@ const Home = () => {
                         <button onClick={() => scrollToMessage(messages.filter(m => m.is_pinned).reverse()[0].id)} className="text-[10px] font-bold text-amber-600 hover:scale-105 transition-transform px-3 py-1 bg-white dark:bg-slate-800 rounded-lg border border-amber-200">View</button>
                     </div>)}
 
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-                        {messages.filter(m => !chatSearchTerm || (m.content && m.content.toLowerCase().includes(chatSearchTerm.toLowerCase()))).map((msg, i) => (<div key={i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : msg.sender_id === user.id ? 'justify-end' : 'justify-start'}`}>
+                    <div 
+                        ref={messageContainerRef}
+                        onScroll={handleScroll}
+                        className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4"
+                    >
+                        {isLoadingMore && (
+                            <div className="flex justify-center p-2">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                            </div>
+                        )}
+                        {messages.filter(m => !chatSearchTerm || (m.content && m.content.toLowerCase().includes(chatSearchTerm.toLowerCase()))).map((msg, i) => (<div key={msg.id || i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : msg.sender_id === user.id ? 'justify-end' : 'justify-start'}`}>
                             {msg.message_type === 'system' ? (<div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>) : (<div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'items-end' : 'items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
                                 <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : msg.sender_id === ashPersona.id ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : msg.sender_id === user.id ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
                                     {msg.is_deleted ? 'This message was deleted' : (<>

@@ -356,6 +356,7 @@ app.post('/api/messages/mark-read', authenticateToken, async (req, res) => {
 
 // Message history between two users
 app.get('/api/messages/:otherId', authenticateToken, async (req, res) => {
+    const { limit = 20, offset = 0 } = req.query;
     try {
         const result = await pool.query(`
             SELECT m.*,
@@ -363,9 +364,12 @@ app.get('/api/messages/:otherId', authenticateToken, async (req, res) => {
             FROM messages m
             LEFT JOIN messages r ON r.id = m.reply_to_id
             WHERE (m.sender_id = $1 AND m.receiver_id = $2) OR (m.sender_id = $2 AND m.receiver_id = $1)
-            ORDER BY m.created_at ASC
-        `, [req.user.id, req.params.otherId]);
-        res.json(result.rows);
+            ORDER BY m.created_at DESC
+            LIMIT $3 OFFSET $4
+        `, [req.user.id, req.params.otherId, limit, offset]);
+        
+        // Reverse because we fetch the latest (DESC) for pagination, but frontend expects ASC for chat flow
+        res.json(result.rows.reverse());
     } catch (err) {
         console.error(err);
         res.status(500).send('Message history error');

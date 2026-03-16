@@ -15,7 +15,7 @@ export const signIn = (formData) => API.post('/auth/login', formData);
 export const signUp = (formData) => API.post('/auth/register', formData);
 export const searchUsers = (query) => API.get(`/users/search?q=${query}`);
 export const getSidebar = () => API.get('/users/sidebar');
-export const getMessages = (otherId) => API.get(`/messages/${otherId}`);
+export const getMessages = (otherId, limit = 20, offset = 0) => API.get(`/messages/${otherId}?limit=${limit}&offset=${offset}`);
 export const markAsRead = (data) => API.post('/messages/mark-read', data);
 export const uploadFile = (formData) => API.post('/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
