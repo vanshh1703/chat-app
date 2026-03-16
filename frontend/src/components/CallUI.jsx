@@ -127,7 +127,7 @@ const CallUI = ({
             // Dynamic Island Mode
             return (
                 <div 
-                    className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] cursor-pointer"
+                    className="fixed top-6 left-1/2 -translate-x-1/2 z-1000 cursor-pointer"
                     onClick={() => setIsMinimized(false)}
                 >
                     <div className="bg-slate-900/90 dark:bg-black/90 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-[24px] shadow-2xl flex items-center gap-4 transition-all duration-500 hover:scale-105 group ring-1 ring-white/5">

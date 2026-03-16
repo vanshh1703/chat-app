@@ -8,7 +8,7 @@ import EmojiPicker from 'emoji-picker-react';
 import CallUI from '../components/CallUI';
 import DrawingModal from '../components/DrawingModal';
 import OfflineChatManager from '../components/OfflineChatManager';
-import MediaGallery from '../components/MediaGallery';
+import ProfileOrganizer from '../components/ProfileOrganizer';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
 import * as faceapi from '@vladmandic/face-api';
@@ -1571,7 +1571,7 @@ const Home = () => {
                             </div>)}
                         </div>
                         <div className="flex items-center gap-1 md:gap-2">
-                            <button onClick={() => setShowMediaGallery(p => !p)} className={`p-2 rounded-xl transition-all ${showMediaGallery ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`} title="Shared Media"><ImageIcon size={18} /></button>
+                            <button onClick={() => handleViewProfile(activeChat)} className={`hidden md:flex p-2 rounded-xl transition-all ${viewingProfile ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`} title="Shared Media"><ImageIcon size={18} /></button>
                             <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl transition-all ${showChatSearch ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}><Search size={18} /></button>
                             <button
                                 onClick={() => handleToggleMute(activeChat.id)}
@@ -1762,7 +1762,7 @@ const Home = () => {
         {/* Camera Modal */}
         {
             isCameraOpen && (<div className="fixed inset-0 z-100 bg-black/95 flex flex-col items-center justify-center p-4">
-                <div className="relative w-full max-w-md aspect-[3/4] bg-black rounded-[40px] overflow-hidden shadow-2xl">
+                <div className="relative w-full max-w-md aspect-3/4 bg-black rounded-[40px] overflow-hidden shadow-2xl">
                     {cameraPreview ? (
                         cameraPreview.type === 'video' ? (
                             <video src={cameraPreview.url} autoPlay loop playsInline className="w-full h-full object-cover" />
@@ -1862,71 +1862,16 @@ const Home = () => {
         }
 
         {/* Profile View Modal */}
-        {
-            viewingProfile && (<div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60  transition-all animate-in fade-in duration-300">
-                <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[42px] shadow-2xl overflow-hidden border border-white/20 dark:border-slate-700/50">
-                    <div className="h-40 bg-linear-to-br from-blue-500 via-indigo-600 to-violet-700 relative">
-                        <div className="absolute inset-0 bg-white/10 -[2px]"></div>
-                        <button
-                            onClick={() => setViewingProfile(null)}
-                            className="absolute top-6 right-6 p-2.5 bg-black/20 hover:bg-black/40 text-white rounded-full transition-all hover:rotate-90"
-                        >
-                            <X size={20} />
-                        </button>
-                    </div>
-                    <div className="px-8 pb-10 text-center -mt-20 relative z-10">
-                        <div className="w-36 h-36 rounded-full border-10 border-white dark:border-slate-800 shadow-2xl overflow-hidden bg-white dark:bg-slate-900 mx-auto">
-                            <img src={viewingProfile.avatar_url} alt={viewingProfile.username} className="w-full h-full object-cover" />
-                        </div>
-                        <h2 className="mt-6 text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">
-                            {viewingProfile.alias || viewingProfile.username}
-                        </h2>
-                        {viewingProfile.alias && (<p className="text-xs font-black text-blue-500 dark:text-blue-400 uppercase tracking-[0.2em] mt-2 opacity-80">@{viewingProfile.username}</p>)}
-
-                        <div className="mt-8 space-y-4">
-                            <div className="flex items-center gap-4 p-4.5 bg-gray-50/80 dark:bg-slate-900/40 rounded-[28px] border border-gray-100/50 dark:border-slate-700/30 transition-colors hover:bg-white dark:hover:bg-slate-900/60">
-                                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded-2xl flex items-center justify-center shadow-inner">
-                                    <Mail size={22} />
-                                </div>
-                                <div className="text-left overflow-hidden">
-                                    <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Email Address</p>
-                                    <p className="text-[14px] font-bold text-gray-700 dark:text-slate-200 truncate">{viewingProfile.email}</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 p-4.5 bg-gray-50/80 dark:bg-slate-900/40 rounded-[28px] border border-gray-100/50 dark:border-slate-700/30 transition-colors hover:bg-white dark:hover:bg-slate-900/60">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${viewingProfile.is_online ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 dark:text-emerald-400' : 'bg-gray-100 dark:bg-slate-800 text-gray-400'}`}>
-                                    <Activity size={22} />
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Global Status</p>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${viewingProfile.is_online ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></div>
-                                        <p className={`text-[14px] font-black ${viewingProfile.is_online ? 'text-emerald-500' : 'text-gray-500'}`}>
-                                            {viewingProfile.is_online ? 'Available Now' : 'Currently Offline'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {viewingProfile.bio && (<div className="p-4.5 bg-gray-50/80 dark:bg-slate-900/40 rounded-[28px] border border-gray-100/50 dark:border-slate-700/30 text-left">
-                                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">About</p>
-                                <p className="text-[14px] font-medium text-gray-700 dark:text-slate-200 line-clamp-3">
-                                    {viewingProfile.bio}
-                                </p>
-                            </div>)}
-
-                            <button
-                                onClick={() => setViewingProfile(null)}
-                                className="w-full mt-10 py-5 bg-linear-to-r from-gray-800 to-gray-900 dark:from-slate-700 dark:to-slate-800 hover:from-black hover:to-black text-white font-black text-sm uppercase tracking-widest rounded-[24px] transition-all shadow-xl active:scale-95 border-b-4 border-black/20"
-                            >
-                                Close Profile
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>)
-        }
+        <ProfileOrganizer
+            isOpen={!!viewingProfile}
+            onClose={() => setViewingProfile(null)}
+            activeChat={viewingProfile}
+            messages={messages}
+            isMuted={activeChat?.is_muted}
+            onToggleMute={() => handleToggleMute(activeChat?.id)}
+            onStartCall={handleStartCall}
+            onStartSearch={() => setShowChatSearch(true)}
+        />
 
         {/* Power Up Modal */}
         {
@@ -1995,12 +1940,7 @@ const Home = () => {
 
         {renderSorryBlast()}
 
-        <MediaGallery
-            isOpen={showMediaGallery}
-            onClose={() => setShowMediaGallery(false)}
-            messages={messages}
-            activeChat={activeChat}
-        />
+
 
         <CallUI
             incomingCall={incomingCall}
