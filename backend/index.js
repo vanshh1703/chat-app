@@ -464,6 +464,27 @@ app.post('/api/messages/mark-read', authenticateToken, async (req, res) => {
     }
 });
 
+// Shared media/docs/links between two users
+app.get('/api/messages/shared/:otherId', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT * FROM messages 
+            WHERE ((sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1))
+            AND (
+                message_type IN ('image', 'video', 'file', 'audio')
+                OR (message_type = 'text' AND content ~ 'https?://')
+            )
+            AND is_deleted = false
+            ORDER BY created_at DESC
+        `, [req.user.id, req.params.otherId]);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Shared content error');
+    }
+});
+
 // Message history between two users
 app.get('/api/messages/:otherId', authenticateToken, async (req, res) => {
     const { limit = 20, offset = 0 } = req.query;

@@ -1,21 +1,41 @@
-import React, { useState, useMemo } from 'react';
-import { X, Image as ImageIcon, Video, Music, FileText, Download, Link as LinkIcon, Calendar, ArrowUpRight, Phone, Mail, Activity, Bell, BellOff, ChevronRight, Share2, Shield } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, Image as ImageIcon, Video, Music, FileText, Download, Link as LinkIcon, Calendar, ArrowUpRight, Phone, Mail, Activity, Bell, BellOff, ChevronRight, Share2, Shield, Loader2 } from 'lucide-react';
+import * as api from '../api/api';
 
 const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onToggleMute, onStartCall, onStartSearch }) => {
     const [subView, setSubView] = useState('profile'); // 'profile' or 'media'
     const [activeTab, setActiveTab] = useState('media'); // 'media', 'docs', 'audio', 'links'
+    const [sharedMedia, setSharedMedia] = useState([]);
+    const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && activeChat?.id) {
+            const fetchSharedMedia = async () => {
+                setIsLoadingMedia(true);
+                try {
+                    const { data } = await api.getSharedMedia(activeChat.id);
+                    setSharedMedia(data);
+                } catch (err) {
+                    console.error('Failed to fetch shared media:', err);
+                } finally {
+                    setIsLoadingMedia(false);
+                }
+            };
+            fetchSharedMedia();
+        }
+    }, [isOpen, activeChat?.id]);
 
     const { media, docs, audio, links } = useMemo(() => {
-        const validMessages = messages.filter(m => !m.is_deleted);
+        const validMessages = sharedMedia.filter(m => !m.is_deleted);
         const urlRegex = /(https?:\/\/[^\s]+)/g;
 
         return {
-            media: validMessages.filter(m => m.message_type === 'image' || m.message_type === 'video').reverse(),
-            docs: validMessages.filter(m => m.message_type === 'file').reverse(),
-            audio: validMessages.filter(m => m.message_type === 'audio').reverse(),
-            links: validMessages.filter(m => m.message_type === 'text' && m.content && m.content.match(urlRegex)).reverse()
+            media: validMessages.filter(m => m.message_type === 'image' || m.message_type === 'video'),
+            docs: validMessages.filter(m => m.message_type === 'file'),
+            audio: validMessages.filter(m => m.message_type === 'audio'),
+            links: validMessages.filter(m => m.message_type === 'text' && m.content && m.content.match(urlRegex))
         };
-    }, [messages]);
+    }, [sharedMedia]);
 
     if (!isOpen || !activeChat) return null;
 
