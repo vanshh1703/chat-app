@@ -47,7 +47,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB limit
 
 // Initialize Database
-initializeDB();
+// initializeDB(); // Handled at bottom to ensure sync startup
 
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
@@ -131,6 +131,32 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Login error');
+    }
+});
+
+// E2EE Public Key Routes
+app.get('/api/keys/:userId', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT public_key FROM public_keys WHERE user_id = $1', [req.params.userId]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Key not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch public key' });
+    }
+});
+
+app.post('/api/keys', authenticateToken, async (req, res) => {
+    const { publicKey } = req.body;
+    try {
+        await pool.query(
+            'INSERT INTO public_keys (user_id, public_key) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET public_key = $2',
+            [req.user.id, publicKey]
+        );
+        res.json({ message: 'Public key updated' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to upload public key' });
     }
 });
 
@@ -472,11 +498,11 @@ io.on('connection', (socket) => {
     }
 
     socket.on('send_message', async (data) => {
-        const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName } = data;
+        const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName, encryptedKey, senderEncryptedKey, iv, encryptedContent } = data;
         try {
             const result = await pool.query(
-                'INSERT INTO messages (sender_id, receiver_id, content, message_type, reply_to_id, file_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-                [senderId, receiverId, content, messageType || 'text', replyToId || null, fileUrl || null]
+                'INSERT INTO messages (sender_id, receiver_id, content, message_type, reply_to_id, file_url, encrypted_key, sender_encrypted_key, iv, encrypted_content) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+                [senderId, receiverId, content, messageType || 'text', replyToId || null, fileUrl || null, encryptedKey || null, senderEncryptedKey || null, iv || null, encryptedContent || null]
             );
             const newMessage = result.rows[0];
 
@@ -605,6 +631,10 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+initializeDB().then(() => {
+    server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}).catch(err => {
+    console.error('CRITICAL: Database initialization failed. Server not started.', err);
 });

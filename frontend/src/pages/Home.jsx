@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Lock, Key, Info } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useNavigate } from 'react-router-dom';
@@ -12,6 +12,117 @@ import ProfileOrganizer from '../components/ProfileOrganizer';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
 import * as faceapi from '@vladmandic/face-api';
+import { useEncryption } from '../hooks/useEncryption';
+import KeyVerification from '../components/KeyVerification';
+import * as keyManager from '../utils/keyManager';
+import { encryptFile, decryptFile } from '../utils/mediaCrypto';
+
+const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDrawingInitialImage }) => {
+    const isMine = msg.sender_id === user.id;
+    const [decryptedUrl, setDecryptedUrl] = useState(null);
+    const [decrypting, setDecrypting] = useState(false);
+
+    useEffect(() => {
+        if (msg.is_media_encrypted && msg.file_url && !decryptedUrl && !decrypting) {
+            const performDecryption = async () => {
+                setDecrypting(true);
+                try {
+                    const blob = await decryptFile(msg.file_url, msg.encrypted_key, msg.iv);
+                    const url = URL.createObjectURL(blob);
+                    setDecryptedUrl(url);
+                } catch (err) {
+                    console.error("Media decryption failed:", err);
+                } finally {
+                    setDecrypting(false);
+                }
+            };
+            performDecryption();
+        }
+    }, [msg, decryptedUrl, decrypting]);
+
+    const fileUrl = msg.is_media_encrypted ? (decryptedUrl || null) : msg.file_url;
+
+    if (decrypting) {
+        return (
+            <div className="flex items-center gap-2 p-3 bg-gray-100/50 dark:bg-slate-800/50 rounded-xl">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                <span className="text-[10px] font-bold text-gray-500">Decrypting Media...</span>
+            </div>
+        );
+    }
+
+    if (msg.message_type === 'image') {
+        return (
+            <div className="relative group/image">
+                {fileUrl ? (
+                    <a href={fileUrl} target="_blank" rel="noreferrer">
+                        <img src={fileUrl} alt={msg.content}
+                            className="max-w-[240px] max-h-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" />
+                    </a>
+                ) : (
+                    <div className="w-48 h-48 bg-gray-200 dark:bg-slate-800 rounded-xl flex items-center justify-center">
+                        <Shield size={32} className="text-gray-400 animate-pulse" />
+                    </div>
+                )}
+                <button
+                    onClick={(e) => {
+                        e.preventDefault();
+                        setDrawingInitialImage(fileUrl);
+                        setIsDrawingOpen(true);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover/image:opacity-100 transition-opacity backdrop-blur-sm shadow-lg"
+                    title="Draw on Image"
+                >
+                    <PenTool size={16} />
+                </button>
+                {msg.is_media_encrypted && (
+                    <div className="absolute bottom-2 right-2 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
+                        <Lock size={10} />
+                    </div>
+                )}
+            </div>
+        );
+    }
+    if (msg.message_type === 'video') {
+        return (
+            <div className="relative">
+                <video controls className="max-w-[280px] rounded-xl" src={fileUrl}>
+                    Your browser does not support video.
+                </video>
+                {msg.is_media_encrypted && (
+                    <div className="absolute top-2 right-2 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
+                        <Lock size={10} />
+                    </div>
+                )}
+            </div>
+        );
+    }
+    if (msg.message_type === 'audio') {
+        return (
+            <div className="relative flex items-center gap-2">
+                <audio controls className="max-w-[240px] h-10" src={fileUrl}>
+                    Your browser does not support audio.
+                </audio>
+                {msg.is_media_encrypted && <Lock size={12} className="text-emerald-500" />}
+            </div>
+        );
+    }
+    return (
+        <a href={fileUrl} download={msg.content} target="_blank" rel="noreferrer"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}>
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isMine ? 'bg-white/30' : 'bg-blue-100'}`}>
+                <FileText size={18} className={isMine ? 'text-white' : 'text-blue-500'} />
+            </div>
+            <div className="min-w-0">
+                <p className={`text-xs font-semibold truncate max-w-[160px] ${isMine ? 'text-white' : 'text-gray-800'}`}>{msg.content}</p>
+                <p className={`text-[10px] ${isMine ? 'text-white/70' : 'text-gray-400'}`}>
+                    {msg.is_media_encrypted ? 'Encrypted File' : 'Tap to download'}
+                </p>
+            </div>
+            {msg.is_media_encrypted ? <Lock size={14} className="text-emerald-500" /> : <Download size={14} className={isMine ? 'text-white/80' : 'text-blue-400'} />}
+        </a>
+    );
+};
 
 // --- Link Preview Storage Cache ---
 const linkPreviewCache = {};
@@ -182,6 +293,7 @@ const Home = () => {
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const messageContainerRef = useRef(null);
+    const [isKeyVerificationOpen, setIsKeyVerificationOpen] = useState(false);
     const navigate = useNavigate();
 
     // WebRTC & Calling State
@@ -195,6 +307,10 @@ const Home = () => {
     const [isSharingScreen, setIsSharingScreen] = useState(false);
     const screenStreamRef = useRef(null);
 
+    // E2EE Encryption Hook
+    const { encrypt, decrypt, isReady: encryptionReady } = useEncryption(user?.id);
+    const [decryptedMessages, setDecryptedMessages] = useState({}); // { msgId: text }
+
     useEffect(() => {
         if (user) {
             setChatWallpaper(localStorage.getItem(`chatWallpaper_${user.id} `) || 'default');
@@ -203,7 +319,8 @@ const Home = () => {
 
     // Separate useEffect for socket connection to avoid reconnecting on chat switch
     useEffect(() => {
-        socket.current = io('http://localhost:5000');
+        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+        socket.current = io(socketUrl);
         return () => socket.current.disconnect();
     }, []);
 
@@ -241,6 +358,12 @@ const Home = () => {
                 }
                 return prev;
             });
+
+            // Handle Decryption for new messages
+            if (newMessage.encrypted_key && encryptionReady) {
+                const text = await decrypt(newMessage);
+                setDecryptedMessages(prev => ({ ...prev, [newMessage.id]: text }));
+            }
 
             if (newMessage.sender_id !== user.id) {
                 // Determine if we should show a notification
@@ -358,7 +481,24 @@ const Home = () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [user, activeChat]);
+    }, [user, activeChat, sidebarUsers, encryptionReady, decrypt]);
+
+    // Batch Decrypt Messages when they change
+    useEffect(() => {
+        if (!encryptionReady || messages.length === 0) return;
+
+        const decryptNeeded = messages.filter(m => m.encrypted_key && !decryptedMessages[m.id]);
+        if (decryptNeeded.length === 0) return;
+
+        const decryptAll = async () => {
+            const newDecrypted = { ...decryptedMessages };
+            for (const msg of decryptNeeded) {
+                newDecrypted[msg.id] = await decrypt(msg);
+            }
+            setDecryptedMessages(newDecrypted);
+        };
+        decryptAll();
+    }, [messages, encryptionReady, decrypt]);
 
     // --- WebRTC Signaling Listeners ---
     useEffect(() => {
@@ -1080,15 +1220,35 @@ const Home = () => {
             });
             setEditingMsg(null);
         } else {
-            const msgData = {
-                senderId: user.id,
-                receiverId: activeChat.id,
-                content: messageText,
-                messageType: 'text',
-                replyToId: replyingTo ? replyingTo.id : null,
-                senderName: user.username
+            const sendFlow = async () => {
+                let msgData = {
+                    senderId: user.id,
+                    receiverId: activeChat.id,
+                    content: messageText,
+                    messageType: 'text',
+                    replyToId: replyingTo ? replyingTo.id : null,
+                    senderName: user.username
+                };
+
+                // Apply E2EE
+                if (activeChat.id !== ashPersona.id) {
+                    console.log('Sending message to', activeChat.username, 'via E2EE...');
+                    const encrypted = await encrypt(messageText, activeChat.id);
+                    if (encrypted.isEncrypted) {
+                        console.log('Encryption successful for', activeChat.username);
+                        msgData.content = encrypted.content; // "[Encrypted Message]"
+                        msgData.encryptedContent = encrypted.encryptedContent;
+                        msgData.encryptedKey = encrypted.encryptedKey;
+                        msgData.senderEncryptedKey = encrypted.senderEncryptedKey;
+                        msgData.iv = encrypted.iv;
+                    } else {
+                        console.warn('Encryption skipped or failed for', activeChat.username, '. Sending plaintext.');
+                    }
+                }
+
+                socket.current.emit('send_message', msgData);
             };
-            socket.current.emit('send_message', msgData);
+            sendFlow();
         }
 
         setMessageText('');
@@ -1156,9 +1316,27 @@ const Home = () => {
         if (!attachPreview || !activeChat) return;
         setUploading(true);
         try {
+            let fileToUpload = attachPreview.file;
+            let encryptionFields = {};
+
+            // Encrypt if not Ash (bot)
+            if (activeChat.id !== ashPersona.id) {
+                const recipientPubKey = await keyManager.fetchFriendPublicKey(activeChat.id);
+                if (recipientPubKey) {
+                    const encrypted = await encryptFile(attachPreview.file, recipientPubKey);
+                    fileToUpload = new File([encrypted.encryptedBlob], attachPreview.file.name, { type: attachPreview.file.type });
+                    encryptionFields = {
+                        encryptedKey: encrypted.encryptedKey,
+                        iv: encrypted.iv,
+                        isMediaEncrypted: true
+                    };
+                }
+            }
+
             const formData = new FormData();
-            formData.append('file', attachPreview.file);
+            formData.append('file', fileToUpload);
             const { data } = await api.uploadFile(formData);
+            
             socket.current.emit('send_message', {
                 senderId: user.id,
                 receiverId: activeChat.id,
@@ -1166,7 +1344,8 @@ const Home = () => {
                 messageType: data.messageType,
                 fileUrl: data.fileUrl,
                 replyToId: replyingTo ? replyingTo.id : null,
-                senderName: user.username
+                senderName: user.username,
+                ...encryptionFields
             });
             setAttachPreview(null);
             setReplyingTo(null);
@@ -1179,49 +1358,7 @@ const Home = () => {
     };
 
     const renderFileMessage = (msg) => {
-        const isMine = msg.sender_id === user.id;
-        if (msg.message_type === 'image') {
-            return (
-                <div className="relative group/image">
-                    <a href={msg.file_url} target="_blank" rel="noreferrer">
-                        <img src={msg.file_url} alt={msg.content}
-                            className="max-w-[240px] max-h-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" />
-                    </a>
-                    <button
-                        onClick={(e) => {
-                            e.preventDefault();
-                            setDrawingInitialImage(msg.file_url);
-                            setIsDrawingOpen(true);
-                        }}
-                        className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover/image:opacity-100 transition-opacity backdrop-blur-sm shadow-lg"
-                        title="Draw on Image"
-                    >
-                        <PenTool size={16} />
-                    </button>
-                </div>
-            );
-        }
-        if (msg.message_type === 'video') {
-            return (<video controls className="max-w-[280px] rounded-xl" src={msg.file_url}>
-                Your browser does not support video.
-            </video>);
-        }
-        if (msg.message_type === 'audio') {
-            return (<audio controls className="max-w-[240px] h-10" src={msg.file_url}>
-                Your browser does not support audio.
-            </audio>);
-        }
-        return (<a href={msg.file_url} download={msg.content} target="_blank" rel="noreferrer"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}>
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isMine ? 'bg-white/30' : 'bg-blue-100'}`}>
-                <FileText size={18} className={isMine ? 'text-white' : 'text-blue-500'} />
-            </div>
-            <div className="min-w-0">
-                <p className={`text-xs font-semibold truncate max-w-[160px] ${isMine ? 'text-white' : 'text-gray-800'}`}>{msg.content}</p>
-                <p className={`text-[10px] ${isMine ? 'text-white/70' : 'text-gray-400'}`}>Tap to download</p>
-            </div>
-            <Download size={14} className={isMine ? 'text-white/80' : 'text-blue-400'} />
-        </a>);
+        return <DecryptedFileMessage msg={msg} user={user} activeChat={activeChat} setIsDrawingOpen={setIsDrawingOpen} setDrawingInitialImage={setDrawingInitialImage} />;
     };
 
     const startRecording = async () => {
@@ -1606,8 +1743,16 @@ const Home = () => {
                                     <button type="submit" className="text-blue-600 font-bold text-xs">Save</button>
                                     <button type="button" onClick={() => setIsEditingAlias(false)} className="text-gray-400 text-xs">Cancel</button>
                                 </form>) : (<div className="flex items-center gap-2">
-                                    <h3 className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer" onClick={() => handleViewProfile(activeChat)}>
+                                    <h3 className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer flex items-center gap-1.5" onClick={() => handleViewProfile(activeChat)}>
                                         {activeChat.alias || activeChat.username}
+                                        {encryptionReady && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); setIsKeyVerificationOpen(true); }}
+                                                className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors"
+                                            >
+                                                <Lock size={12} className="text-emerald-500" />
+                                            </button>
+                                        )}
                                     </h3>
                                     <button
                                         onClick={() => { setIsEditingAlias(true); setNewAlias(activeChat.alias || activeChat.username); }}
@@ -1665,86 +1810,116 @@ const Home = () => {
                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                             </div>
                         )}
-                        {messages.filter(m => !chatSearchTerm || (m.content && m.content.toLowerCase().includes(chatSearchTerm.toLowerCase()))).map((msg, i) => (<div key={msg.id || i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : msg.sender_id === user.id ? 'justify-end' : 'justify-start'}`}>
-                            {msg.message_type === 'system' ? (<div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>) : (<div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'items-end' : 'items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
-                                <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : msg.sender_id === ashPersona.id ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : msg.sender_id === user.id ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
-                                    {msg.is_deleted ? 'This message was deleted' : (<>
-                                        {msg.reply_to_msg && (<div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/20 border-white' : 'bg-gray-50 border-blue-500 text-gray-500'}`}>
-                                            <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
-                                            <p className="truncate">{msg.reply_to_msg.content}</p>
-                                        </div>)}
-                                        {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
-                                        {msg.message_type === 'call' && msg.content ? (<div className="flex items-center gap-3 py-1">
-                                            <div className={`p-2.5 rounded-xl ${msg.content.includes('Missed') ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                                {msg.content.includes('video') ? <Video size={18} /> : <Phone size={18} />}
-                                            </div>
-                                            <div>
-                                                <p className="font-black text-sm tracking-tight">{msg.content.split(' • ')[0]}</p>
-                                                {msg.content.includes(' • ') && <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-0.5">{msg.content.split(' • ')[1]}</p>}
-                                            </div>
-                                        </div>) : msg.message_type === 'text' ? (<>
-                                            <div className="flex flex-col">
-                                                <span>{msg.content}</span>
-                                                {msg.is_edited && (
-                                                    <button
-                                                        onClick={() => setHistoryMsg(msg)}
-                                                        className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}
-                                                    >
-                                                        <History size={10} /> (edited)
-                                                    </button>
-                                                )}
-                                            </div>
-                                            {(() => {
-                                                const urlRegex = /(https?:\/\/[^\s]+)/g;
-                                                const urls = msg.content.match(urlRegex);
-                                                if (urls && urls.length > 0) {
-                                                    const firstUrl = urls[0];
-                                                    const isYouTube = firstUrl.includes('youtube.com') || firstUrl.includes('youtu.be');
-                                                    if (isYouTube) {
-                                                        return <YouTubePlayer url={firstUrl} />;
-                                                    }
-                                                    return <LinkPreviewCard url={firstUrl} />;
-                                                }
-                                                return null;
-                                            })()}
-                                        </>) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
+                        {messages.filter(m => !chatSearchTerm || (m.content && m.content.toLowerCase().includes(chatSearchTerm.toLowerCase()))).map((msg, i) => (
+                            <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : msg.sender_id === user.id ? 'justify-end' : 'justify-start'}`}>
+                                {msg.message_type === 'system' ? (
+                                    <div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>
+                                ) : (
+                                    <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'items-end' : 'items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
+                                        <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : msg.sender_id === ashPersona.id ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : msg.sender_id === user.id ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
+                                            {msg.is_deleted ? 'This message was deleted' : (
+                                                <>
+                                                    {msg.reply_to_msg && (
+                                                        <div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/20 border-white' : 'bg-gray-50 border-blue-500 text-gray-500'}`}>
+                                                            <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
+                                                            <p className="truncate">{msg.reply_to_msg.content}</p>
+                                                        </div>
+                                                    )}
+                                                    {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
+                                                    {msg.message_type === 'call' && msg.content ? (
+                                                        <div className="flex items-center gap-3 py-1">
+                                                            <div className={`p-2.5 rounded-xl ${msg.content.includes('Missed') ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                                                {msg.content.includes('video') ? <Video size={18} /> : <Phone size={18} />}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-black text-sm tracking-tight">{msg.content.split(' • ')[0]}</p>
+                                                                {msg.content.includes(' • ') && <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-0.5">{msg.content.split(' • ')[1]}</p>}
+                                                            </div>
+                                                        </div>
+                                                    ) : msg.message_type === 'text' ? (
+                                                        <>
+                                                            <div className="flex flex-col">
+                                                                <span>{decryptedMessages[msg.id] || msg.content}</span>
+                                                                {msg.encrypted_key && (
+                                                                    <span className="text-[8px] opacity-70 flex items-center gap-1 mt-1">
+                                                                        <Shield size={10} className={decryptedMessages[msg.id]?.startsWith('⚠️') ? 'text-rose-500' : 'text-emerald-500'} />
+                                                                        {decryptedMessages[msg.id]?.startsWith('⚠️') ? 'Decryption Failed' : 'End-to-End Encrypted'}
+                                                                    </span>
+                                                                )}
+                                                                {msg.is_edited && (
+                                                                    <button
+                                                                        onClick={() => setHistoryMsg(msg)}
+                                                                        className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}
+                                                                    >
+                                                                        <History size={10} /> (edited)
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            {(() => {
+                                                                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                                                                const urls = msg.content.match(urlRegex);
+                                                                if (urls && urls.length > 0) {
+                                                                    const firstUrl = urls[0];
+                                                                    const isYouTube = firstUrl.includes('youtube.com') || firstUrl.includes('youtu.be');
+                                                                    if (isYouTube) {
+                                                                        return <YouTubePlayer url={firstUrl} />;
+                                                                    }
+                                                                    return <LinkPreviewCard url={firstUrl} />;
+                                                                }
+                                                                return null;
+                                                            })()}
+                                                        </>
+                                                    ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
 
-                                    </>)}
-                                    {hoveredMsgId === msg.id && !msg.is_deleted && (<div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
-                                        <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded" title="React">😊</button>
-                                        <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500" title="Reply"><CornerUpLeft size={14} /></button>
-                                        <button onClick={() => handlePinMessage(msg.id)} className={`p-1 hover:bg-gray-100 rounded ${msg.is_pinned ? 'text-amber-500' : 'text-gray-500'}`} title={msg.is_pinned ? 'Unpin' : 'Pin'}>
-                                            {msg.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
-                                        </button>
-                                        {msg.sender_id === user.id && msg.message_type === 'text' && (<button
-                                            onClick={() => {
-                                                setEditingMsg(msg);
-                                                setMessageText(msg.content);
-                                                inputRef.current?.focus();
-                                            }}
-                                            className="p-1 hover:bg-gray-100 rounded text-blue-500"
-                                            title="Edit"
-                                        >
-                                            <Edit2 size={14} />
-                                        </button>)}
-                                        <button onClick={() => handleCopyMessage(msg)} className="p-1 hover:bg-gray-100 rounded text-blue-500" title="Copy">
-                                            <Copy size={14} />
-                                        </button>
-                                        {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
-                                    </div>)}
-                                    {reactionPickerMsgId === msg.id && (<div className="absolute top-0 -translate-y-full flex gap-1 p-2 bg-white rounded-2xl shadow-2xl z-30 border border-gray-100">
-                                        {QUICK_REACTIONS.map(e => <button key={e} onClick={() => handleReact(msg.id, e)} className="text-xl hover:scale-125 transition-transform">{e}</button>)}
-                                    </div>)}
-                                </div>
-                                {msg.reactions && Object.keys(msg.reactions).length > 0 && (<div className="flex gap-1 mt-1">
-                                    {Object.entries(Object.values(msg.reactions).reduce((acc, e) => { acc[e] = (acc[e] || 0) + 1; return acc; }, {})).map(([e, c]) => (<span key={e} className="text-[10px] bg-white rounded-full px-1.5 py-0.5 border shadow-sm">{e} {c > 1 ? c : ''}</span>))}
-                                </div>)}
-                                <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
-                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    {msg.sender_id === user.id && (msg.is_read ? <CheckCheck size={12} className="text-blue-500" /> : <Check size={12} />)}
-                                </div>
-                            </div>)}
-                        </div>))}
+                                                    {hoveredMsgId === msg.id && !msg.is_deleted && (
+                                                        <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
+                                                            <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded" title="React">😊</button>
+                                                            <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500" title="Reply"><CornerUpLeft size={14} /></button>
+                                                            <button onClick={() => handlePinMessage(msg.id)} className={`p-1 hover:bg-gray-100 rounded ${msg.is_pinned ? 'text-amber-500' : 'text-gray-500'}`} title={msg.is_pinned ? 'Unpin' : 'Pin'}>
+                                                                {msg.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                                                            </button>
+                                                            {msg.sender_id === user.id && msg.message_type === 'text' && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingMsg(msg);
+                                                                        setMessageText(msg.content);
+                                                                        inputRef.current?.focus();
+                                                                    }}
+                                                                    className="p-1 hover:bg-gray-100 rounded text-blue-500"
+                                                                    title="Edit"
+                                                                >
+                                                                    <Edit2 size={14} />
+                                                                </button>
+                                                            )}
+                                                            <button onClick={() => handleCopyMessage(msg)} className="p-1 hover:bg-gray-100 rounded text-blue-500" title="Copy">
+                                                                <Copy size={14} />
+                                                            </button>
+                                                            {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
+                                                        </div>
+                                                    )}
+                                                    {reactionPickerMsgId === msg.id && (
+                                                        <div className="absolute top-0 -translate-y-full flex gap-1 p-2 bg-white rounded-2xl shadow-2xl z-30 border border-gray-100">
+                                                            {QUICK_REACTIONS.map(e => <button key={e} onClick={() => handleReact(msg.id, e)} className="text-xl hover:scale-125 transition-transform">{e}</button>)}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                            <div className="flex gap-1 mt-1">
+                                                {Object.entries(Object.values(msg.reactions).reduce((acc, e) => { acc[e] = (acc[e] || 0) + 1; return acc; }, {})).map(([e, c]) => (
+                                                    <span key={e} className="text-[10px] bg-white rounded-full px-1.5 py-0.5 border shadow-sm">{e} {c > 1 ? c : ''}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {msg.sender_id === user.id && (msg.is_read ? <CheckCheck size={12} className="text-blue-500" /> : <Check size={12} />)}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                         <div ref={scrollRef} />
                     </div>
 
@@ -1998,8 +2173,7 @@ const Home = () => {
                         </button>
                     </div>
                 )}
-            </div>)
-        }
+            </div>)}
 
         {/* Profile View Modal */}
         <ProfileOrganizer
@@ -2077,8 +2251,7 @@ const Home = () => {
                         </button>
                     </div>
                 </div>
-            </div>)
-        }
+            </div>)}
 
         {renderSorryBlast()}
 
@@ -2172,6 +2345,13 @@ const Home = () => {
                 </div>
             </div>
         )}
+
+        <KeyVerification 
+            isOpen={isKeyVerificationOpen}
+            onClose={() => setIsKeyVerificationOpen(false)}
+            user={user}
+            friend={activeChat}
+        />
     </div >);
 };
 

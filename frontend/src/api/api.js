@@ -28,3 +28,7 @@ export const setAlias = (data) => API.post('/users/set-alias', data);
 export const getUserProfile = (userId) => API.get(`/users/profile/${userId}`);
 export const getCallHistory = () => API.get('/calls/history');
 export const getLoginActivity = () => API.get('/users/login-activity');
+
+// E2EE Public Key APIs
+export const uploadPublicKey = (publicKey) => API.post('/keys', { publicKey });
+export const getPublicKey = (userId) => API.get(`/keys/${userId}`);
