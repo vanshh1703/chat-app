@@ -67,6 +67,34 @@ const LinkPreviewCard = ({ url }) => {
     );
 };
 
+const YouTubePlayer = ({ url }) => {
+    const getYouTubeID = (url) => {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+
+    const videoId = getYouTubeID(url);
+    if (!videoId) return null;
+
+    return (
+        <div className="mt-3 rounded-[24px] overflow-hidden border border-white/10 shadow-2xl bg-black aspect-video group relative">
+            <iframe
+                src={`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="w-full h-full"
+            ></iframe>
+            <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
+                <span className="text-[8px] font-black text-white uppercase tracking-tighter">YouTube Player</span>
+            </div>
+        </div>
+    );
+};
+
 
 const telepathySignals = [{ icon: '⚡', label: 'Thinking of you', color: 'text-yellow-500', bg: 'bg-yellow-50', glow: 'shadow-yellow-500/20' },
 { icon: '💭', label: 'Call me later', color: 'text-blue-500', bg: 'bg-blue-50', glow: 'shadow-blue-500/20' },
@@ -857,6 +885,8 @@ const Home = () => {
     // Handle clicking a user (from sidebar or search)
     const handleSelectChat = async (selectedUser) => {
         setActiveChat(selectedUser);
+        setShowEmojiPicker(false);
+        setShowTelepathyPicker(false);
         setSearchTerm('');
         setSearchResults([]);
         setMessageOffset(0);
@@ -926,6 +956,8 @@ const Home = () => {
     // Send logic
     const handleSendMessage = (e) => {
         if (e) e.preventDefault();
+        setShowEmojiPicker(false);
+        setShowTelepathyPicker(false);
         if (!messageText.trim() || !activeChat) return;
 
         if (activeChat.id === ashPersona.id) {
@@ -1612,7 +1644,12 @@ const Home = () => {
                                                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                                                 const urls = msg.content.match(urlRegex);
                                                 if (urls && urls.length > 0) {
-                                                    return <LinkPreviewCard url={urls[0]} />;
+                                                    const firstUrl = urls[0];
+                                                    const isYouTube = firstUrl.includes('youtube.com') || firstUrl.includes('youtu.be');
+                                                    if (isYouTube) {
+                                                        return <YouTubePlayer url={firstUrl} />;
+                                                    }
+                                                    return <LinkPreviewCard url={firstUrl} />;
                                                 }
                                                 return null;
                                             })()}
