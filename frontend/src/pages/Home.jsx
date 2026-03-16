@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useNavigate } from 'react-router-dom';
@@ -159,7 +159,12 @@ const Home = () => {
             if (newMessage.sender_id !== user.id) {
                 // Determine if we should show a notification
                 const isDifferentChat = !activeChat || activeChat.id !== newMessage.sender_id;
-                if (isDifferentChat || document.hidden) {
+                
+                // Get sender's mute status from sidebarUsers or activeChat
+                const senderInSidebar = sidebarUsers.find(u => u.id === newMessage.sender_id);
+                const isMuted = senderInSidebar ? senderInSidebar.is_muted : (activeChat && activeChat.id === newMessage.sender_id ? activeChat.is_muted : false);
+
+                if ((isDifferentChat || document.hidden) && !isMuted) {
                     const notifSettings = JSON.parse(localStorage.getItem('notifSettings') || '{"individual": true, "all": true, "sound": true}');
                     const shouldNotify = notifSettings.all && (isDifferentChat ? notifSettings.individual : true);
 
@@ -1163,6 +1168,18 @@ const Home = () => {
         }
     };
 
+    const handleToggleMute = async (mutedUserId) => {
+        try {
+            const { data } = await api.muteChat({ mutedUserId });
+            setSidebarUsers(prev => prev.map(u => u.id === mutedUserId ? { ...u, is_muted: data.muted } : u));
+            if (activeChat && activeChat.id === mutedUserId) {
+                setActiveChat(prev => ({ ...prev, is_muted: data.muted }));
+            }
+        } catch (err) {
+            console.error('Mute chat error', err);
+        }
+    };
+
     const handlePinMessage = async (messageId) => {
         try {
             const { data } = await api.pinMessage({ messageId });
@@ -1467,8 +1484,15 @@ const Home = () => {
                             </div>)}
                         </div>
                         <div className="flex items-center gap-1 md:gap-2">
-                            <button onClick={() => setShowMediaGallery(p => !p)} className={`p-2 rounded-xl ${showMediaGallery ? 'text-blue-600' : 'text-gray-500'}`} title="Shared Media"><ImageIcon size={18} /></button>
-                            <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl ${showChatSearch ? 'text-blue-600' : 'text-gray-500'}`}><Search size={18} /></button>
+                            <button onClick={() => setShowMediaGallery(p => !p)} className={`p-2 rounded-xl transition-all ${showMediaGallery ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`} title="Shared Media"><ImageIcon size={18} /></button>
+                            <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl transition-all ${showChatSearch ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}><Search size={18} /></button>
+                            <button
+                                onClick={() => handleToggleMute(activeChat.id)}
+                                className={`p-2 rounded-xl transition-all ${activeChat.is_muted ? 'text-rose-600 bg-rose-50 dark:bg-rose-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                                title={activeChat.is_muted ? "Unmute notifications" : "Mute notifications"}
+                            >
+                                {activeChat.is_muted ? <BellOff size={18} /> : <Bell size={18} />}
+                            </button>
                             <button onClick={() => handleStartCall('voice')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Phone size={18} /></button>
                             <button onClick={() => handleStartCall('video')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Video size={18} /></button>
                         </div>

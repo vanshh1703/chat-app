@@ -12,6 +12,15 @@ const pool = new Pool({
 const initializeDB = async () => {
     try {
         await pool.query(`
+            CREATE TABLE IF NOT EXISTS muted_chats (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                muted_user_id INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, muted_user_id)
+            );
+        `);
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 username VARCHAR(50) UNIQUE NOT NULL,

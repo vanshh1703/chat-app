@@ -252,7 +252,8 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
                  ORDER BY created_at DESC LIMIT 1) as lastMsgTime,
                 (SELECT COUNT(*) FROM messages 
                  WHERE sender_id = u.id AND receiver_id = $1 AND is_read = false) as unreadCount,
-                EXISTS (SELECT 1 FROM pinned_chats WHERE user_id = $1 AND pinned_user_id = u.id) as is_pinned
+                EXISTS (SELECT 1 FROM pinned_chats WHERE user_id = $1 AND pinned_user_id = u.id) as is_pinned,
+                EXISTS (SELECT 1 FROM muted_chats WHERE user_id = $1 AND muted_user_id = u.id) as is_muted
             FROM users u
             JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = $1) OR (m.sender_id = $1 AND m.receiver_id = u.id)
             LEFT JOIN contact_aliases a ON a.contact_id = u.id AND a.user_id = $1
@@ -300,6 +301,25 @@ app.post('/api/users/pin-chat', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Pin chat failed' });
+    }
+});
+
+// Mute/Unmute a chat
+app.post('/api/users/mute-chat', authenticateToken, async (req, res) => {
+    const { mutedUserId } = req.body;
+    try {
+        // Toggle mute
+        const check = await pool.query('SELECT id FROM muted_chats WHERE user_id = $1 AND muted_user_id = $2', [req.user.id, mutedUserId]);
+        if (check.rows.length > 0) {
+            await pool.query('DELETE FROM muted_chats WHERE user_id = $1 AND muted_user_id = $2', [req.user.id, mutedUserId]);
+            res.json({ muted: false });
+        } else {
+            await pool.query('INSERT INTO muted_chats (user_id, muted_user_id) VALUES ($1, $2)', [req.user.id, mutedUserId]);
+            res.json({ muted: true });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Mute chat failed' });
     }
 });
 
