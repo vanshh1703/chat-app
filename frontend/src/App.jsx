@@ -7,6 +7,8 @@ const Home = lazy(() => import('./pages/Home'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Profile = lazy(() => import('./pages/Profile'))
 const CallLogs = lazy(() => import('./pages/CallLogs'))
+const { DecoySettings, DecoyCalculator, DecoyClock, DecoyCamera } = lazy(() => import('./pages/DecoyApps'))
+
 
 function App() {
   useEffect(() => {
@@ -54,6 +56,10 @@ function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/calls" element={<CallLogs />} />
+              <Route path="/decoy/settings" element={<DecoySettings />} />
+              <Route path="/decoy/calc" element={<DecoyCalculator />} />
+              <Route path="/decoy/clock" element={<DecoyClock />} />
+              <Route path="/decoy/camera" element={<DecoyCamera />} />
             </Routes>
           </main>
         </Suspense>

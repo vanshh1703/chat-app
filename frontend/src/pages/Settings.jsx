@@ -8,6 +8,16 @@ const Settings = () => {
     const user = JSON.parse(localStorage.getItem('profile'))?.user;
     const [themePreference, setThemePreference] = useState(localStorage.getItem('themePreference') || 'light');
     const [notifs, setNotifs] = useState(JSON.parse(localStorage.getItem('notifSettings') || '{"individual": true, "all": true, "sound": true}'));
+    const [stealthNotifs, setStealthNotifs] = useState(JSON.parse(localStorage.getItem('stealthNotifSettings') || JSON.stringify({
+        enabled: false,
+        titleOption: 'Software Update Ready',
+        customTitle: '',
+        bodyOption: 'Default',
+        customBody: '',
+        leftTapApp: '/decoy/settings',
+        senderVisibility: 'Hidden', // Hidden, Initials, Full
+        sound: 'Default'
+    })));
     const [chatWallpaper, setChatWallpaper] = useState('default');
     const [loginActivities, setLoginActivities] = useState([]);
     const [isLoadingActivities, setIsLoadingActivities] = useState(false);
@@ -66,6 +76,10 @@ const Settings = () => {
         localStorage.setItem('notifSettings', JSON.stringify(notifs));
     }, [notifs]);
 
+    useEffect(() => {
+        localStorage.setItem('stealthNotifSettings', JSON.stringify(stealthNotifs));
+    }, [stealthNotifs]);
+
     const handleToggleNotif = (key) => {
         setNotifs(prev => ({ ...prev, [key]: !prev[key] }));
     };
@@ -86,6 +100,26 @@ const Settings = () => {
             Notification.requestPermission();
         }
     };
+
+    const handleToggleStealth = (key) => {
+        setStealthNotifs(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const stealthTitles = [
+        "Software Update Ready",
+        "Battery Optimization Tip",
+        "Storage Cleanup Suggested",
+        "System Maintenance Required",
+        "Security Scan Complete",
+        "Custom"
+    ];
+
+    const decoyApps = [
+        { name: 'Settings', path: '/decoy/settings' },
+        { name: 'Calculator', path: '/decoy/calc' },
+        { name: 'Clock', path: '/decoy/clock' },
+        { name: 'Camera', path: '/decoy/camera' }
+    ];
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] transition-colors duration-300 font-sans">
@@ -263,6 +297,165 @@ const Settings = () => {
                                     Send Test Notification
                                 </button>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Stealth Notifications Section */}
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-rose-500 dark:text-rose-400">
+                                <Shield size={20} />
+                            </div>
+                            <h2 className="font-bold text-gray-800 dark:text-white">Stealth Notifications</h2>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Enable Stealth Mode</p>
+                                    <p className="text-xs text-gray-400 dark:text-slate-400">Mask real chat alerts with fake ones</p>
+                                </div>
+                                <button
+                                    onClick={() => handleToggleStealth('enabled')}
+                                    className={`w-12 h-6 rounded-full transition-colors relative ${stealthNotifs.enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${stealthNotifs.enabled ? 'right-1' : 'left-1'}`}></div>
+                                </button>
+                            </div>
+
+                            {stealthNotifs.enabled && (
+                                <div className="space-y-6 pt-4 border-t border-gray-50 dark:border-slate-700 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    {/* Fake Title */}
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-3">Fake Title Option</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {stealthTitles.map(title => (
+                                                <button
+                                                    key={title}
+                                                    onClick={() => setStealthNotifs(prev => ({ ...prev, titleOption: title }))}
+                                                    className={`px-3 py-2 text-left text-xs font-semibold rounded-xl border transition-all ${stealthNotifs.titleOption === title
+                                                        ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400'
+                                                        : 'bg-gray-50 border-gray-100 text-gray-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
+                                                        }`}
+                                                >
+                                                    {title}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {stealthNotifs.titleOption === 'Custom' && (
+                                            <input
+                                                type="text"
+                                                placeholder="Enter custom title..."
+                                                value={stealthNotifs.customTitle}
+                                                onChange={(e) => setStealthNotifs(prev => ({ ...prev, customTitle: e.target.value }))}
+                                                className="mt-3 w-full px-4 py-2 text-xs bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-sans"
+                                            />
+                                        )}
+                                    </div>
+
+                                    {/* Fake Body */}
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-3">Fake Body Text</p>
+                                        <div className="flex gap-2 mb-3">
+                                            {['Default', 'Custom'].map(opt => (
+                                                <button
+                                                    key={opt}
+                                                    onClick={() => setStealthNotifs(prev => ({ ...prev, bodyOption: opt }))}
+                                                    className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${stealthNotifs.bodyOption === opt
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-gray-100 dark:bg-slate-900 text-gray-500'
+                                                        }`}
+                                                >
+                                                    {opt === 'Default' ? 'Tap to learn more' : 'Custom Body'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {stealthNotifs.bodyOption === 'Custom' && (
+                                            <input
+                                                type="text"
+                                                placeholder="Enter custom body text..."
+                                                value={stealthNotifs.customBody}
+                                                onChange={(e) => setStealthNotifs(prev => ({ ...prev, customBody: e.target.value }))}
+                                                className="w-full px-4 py-2 text-xs bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-sans"
+                                            />
+                                        )}
+                                    </div>
+
+                                    {/* Tap Behavior */}
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-3">Tap LEFT opens decoy app</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {decoyApps.map(app => (
+                                                <button
+                                                    key={app.path}
+                                                    onClick={() => setStealthNotifs(prev => ({ ...prev, leftTapApp: app.path }))}
+                                                    className={`px-3 py-2 text-center text-xs font-semibold rounded-xl border transition-all ${stealthNotifs.leftTapApp === app.path
+                                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
+                                                        : 'bg-gray-50 border-gray-100 text-gray-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
+                                                        }`}
+                                                >
+                                                    {app.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-2 italic">* Tap RIGHT always opens the real chat.</p>
+                                    </div>
+
+                                    {/* Sender Visibility */}
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-3">Real Sender Name</p>
+                                        <div className="flex bg-gray-100 dark:bg-slate-900 p-1 rounded-xl">
+                                            {['Hidden', 'Initials', 'Full'].map((v) => (
+                                                <button
+                                                    key={v}
+                                                    onClick={() => setStealthNotifs(prev => ({ ...prev, senderVisibility: v }))}
+                                                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${stealthNotifs.senderVisibility === v
+                                                        ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                                        : 'text-gray-500 dark:text-slate-500'
+                                                        }`}
+                                                >
+                                                    {v}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Preview Card */}
+                                    <div className="p-4 bg-gray-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-gray-200 dark:border-slate-700">
+                                        <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-tighter">Preview</p>
+                                        <div className="relative group overflow-hidden bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-100 dark:border-slate-700 p-3 max-w-sm mx-auto">
+                                            <div className="flex gap-3">
+                                                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-500">
+                                                    <Smartphone size={20} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-xs font-bold text-gray-800 dark:text-white truncate font-sans">
+                                                        {stealthNotifs.titleOption === 'Custom' ? (stealthNotifs.customTitle || 'Fake Title') : stealthNotifs.titleOption}
+                                                    </h4>
+                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1 font-sans">
+                                                        {stealthNotifs.bodyOption === 'Custom' ? (stealthNotifs.customBody || 'Fake body...') : 'Tap to learn more'}
+                                                    </p>
+                                                    {stealthNotifs.senderVisibility !== 'Hidden' && (
+                                                        <p className="text-[9px] text-blue-500 font-bold mt-1 font-sans">
+                                                            {stealthNotifs.senderVisibility === 'Initials' ? 'From: J.D.' : 'From: John Doe'}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Visual helper for tap zones */}
+                                            <div className="absolute inset-0 flex opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                                <div className="flex-1 bg-red-500/10 flex items-center justify-center border-r border-white/20">
+                                                    <span className="text-[8px] font-black text-red-500/50 uppercase font-sans">Decoy</span>
+                                                </div>
+                                                <div className="flex-1 bg-emerald-500/10 flex items-center justify-center">
+                                                    <span className="text-[8px] font-black text-emerald-500/50 uppercase font-sans">Real Chat</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

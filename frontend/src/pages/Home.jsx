@@ -8,6 +8,8 @@ import { Suspense } from 'react';
 import { EmojiPicker, CallUI, DrawingModal, OfflineChatManager, ProfileOrganizer, KeyVerification } from '../components/lazyComponents';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
+import StealthNotificationToast from '../components/StealthNotificationToast';
+
 // face-api is loaded dynamically only when camera+face recognition is used (see useFaceapi hook)
 import { useEncryption } from '../hooks/useEncryption';
 import * as keyManager from '../utils/keyManager';
@@ -251,6 +253,7 @@ const Home = () => {
     const [lastAshIntent, setLastAshIntent] = useState(null);
     const [isDrawingOpen, setIsDrawingOpen] = useState(false);
     const [drawingInitialImage, setDrawingInitialImage] = useState(null);
+    const [stealthNotif, setStealthNotif] = useState(null); // { message, settings }
 
     // Audio recording state
     const [isRecording, setIsRecording] = useState(false);
@@ -379,7 +382,10 @@ const Home = () => {
                             audio.play().catch(e => console.error("Sound play failed", e));
                         }
 
-                        if ('Notification' in window && Notification.permission === 'granted') {
+                        const stealthSettings = JSON.parse(localStorage.getItem('stealthNotifSettings') || '{"enabled": false}');
+                        if (stealthSettings.enabled) {
+                            setStealthNotif({ message: newMessage, settings: stealthSettings });
+                        } else if ('Notification' in window && Notification.permission === 'granted') {
                             const title = `New message from ${newMessage.senderName || 'a user'} `;
                             const options = {
                                 body: newMessage.message_type === 'text' ? newMessage.content : `Sent an ${newMessage.message_type} `,
@@ -1646,7 +1652,16 @@ const Home = () => {
         }
     };
 
-    return (<div className="flex h-screen w-full bg-[#f0f2f5] dark:bg-[#0f172a] overflow-hidden font-sans relative transition-colors duration-300">
+    return (
+        <>
+            {stealthNotif && (
+                <StealthNotificationToast 
+                    message={stealthNotif.message} 
+                    settings={stealthNotif.settings} 
+                    onDismiss={() => setStealthNotif(null)} 
+                />
+            )}
+            <div className="flex h-screen w-full bg-[#f0f2f5] dark:bg-[#0f172a] overflow-hidden font-sans relative transition-colors duration-300">
         {/* Sidebar */}
         <div className={`w-full md:w-[350px] flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
             <div className="p-4 flex items-center justify-between">
@@ -2368,7 +2383,9 @@ const Home = () => {
                 friend={activeChat}
             />
         </Suspense>
-    </div >);
+    </div>
+        </>
+    );
 };
 
 export default Home;
