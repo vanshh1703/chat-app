@@ -13,6 +13,61 @@ import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
 import * as faceapi from '@vladmandic/face-api';
 
+// --- Link Preview Storage Cache ---
+const linkPreviewCache = {};
+
+const LinkPreviewCard = ({ url }) => {
+    const [preview, setPreview] = useState(linkPreviewCache[url] || null);
+    const [loading, setLoading] = useState(!linkPreviewCache[url]);
+
+    useEffect(() => {
+        if (preview) return;
+        let isMounted = true;
+        
+        const fetchPreview = async () => {
+            try {
+                const { data } = await api.getLinkPreview(url);
+                if (isMounted) {
+                    setPreview(data);
+                    linkPreviewCache[url] = data;
+                }
+            } catch (err) {
+                console.error('Failed to fetch link preview', err);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
+
+        fetchPreview();
+        return () => { isMounted = false; };
+    }, [url, preview]);
+
+    if (loading || !preview || (!preview.title && !preview.description)) return null;
+
+    return (
+        <a 
+            href={url} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="mt-2 block bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-700 hover:border-blue-400 transition-colors no-underline group shadow-sm"
+        >
+            {preview.image && (
+                <div className="h-32 w-full overflow-hidden bg-gray-100 dark:bg-slate-900 border-b border-gray-50 dark:border-slate-800">
+                    <img src={preview.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                </div>
+            )}
+            <div className="p-3">
+                <h4 className="text-xs font-black text-gray-900 dark:text-white line-clamp-1 group-hover:text-blue-500 transition-colors uppercase tracking-tight">{preview.title || url}</h4>
+                {preview.description && <p className="text-[10px] text-gray-500 dark:text-slate-400 line-clamp-2 mt-1 font-medium">{preview.description}</p>}
+                <p className="text-[9px] text-blue-500/70 font-bold uppercase tracking-widest mt-2 flex items-center gap-1">
+                    {new URL(url).hostname}
+                </p>
+            </div>
+        </a>
+    );
+};
+
+
 const telepathySignals = [{ icon: '⚡', label: 'Thinking of you', color: 'text-yellow-500', bg: 'bg-yellow-50', glow: 'shadow-yellow-500/20' },
 { icon: '💭', label: 'Call me later', color: 'text-blue-500', bg: 'bg-blue-50', glow: 'shadow-blue-500/20' },
 { icon: '🙏', label: 'Thank you', color: 'text-emerald-500', bg: 'bg-emerald-50', glow: 'shadow-emerald-500/20' },
@@ -1541,17 +1596,27 @@ const Home = () => {
                                                 <p className="font-black text-sm tracking-tight">{msg.content.split(' • ')[0]}</p>
                                                 {msg.content.includes(' • ') && <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-0.5">{msg.content.split(' • ')[1]}</p>}
                                             </div>
-                                        </div>) : msg.message_type === 'text' ? (<div className="flex flex-col">
-                                            <span>{msg.content}</span>
-                                            {msg.is_edited && (
-                                                <button 
-                                                    onClick={() => setHistoryMsg(msg)}
-                                                    className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}
-                                                >
-                                                    <History size={10} /> (edited)
-                                                </button>
-                                            )}
-                                        </div>) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
+                                        </div>) : msg.message_type === 'text' ? (<>
+                                            <div className="flex flex-col">
+                                                <span>{msg.content}</span>
+                                                {msg.is_edited && (
+                                                    <button 
+                                                        onClick={() => setHistoryMsg(msg)}
+                                                        className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}
+                                                    >
+                                                        <History size={10} /> (edited)
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {(() => {
+                                                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                                                const urls = msg.content.match(urlRegex);
+                                                if (urls && urls.length > 0) {
+                                                    return <LinkPreviewCard url={urls[0]} />;
+                                                }
+                                                return null;
+                                            })()}
+                                        </>) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
 
                                     </>)}
                                     {hoveredMsgId === msg.id && !msg.is_deleted && (<div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>

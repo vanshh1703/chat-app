@@ -12,6 +12,7 @@ const WebRTCSignaling = require('./socketServer');
 require('dotenv').config();
 const { pool, initializeDB } = require('./db');
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -130,6 +131,32 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Login error');
+    }
+});
+
+// Utility: Link Preview
+app.get('/api/utils/link-preview', authenticateToken, async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'URL is required' });
+
+    try {
+        const response = await axios.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' },
+            timeout: 5000
+        });
+
+        const $ = cheerio.load(response.data);
+        const metadata = {
+            title: $('meta[property="og:title"]').attr('content') || $('title').text() || '',
+            description: $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '',
+            image: $('meta[property="og:image"]').attr('content') || '',
+            url: url
+        };
+
+        res.json(metadata);
+    } catch (err) {
+        console.error('Link preview error:', err.message);
+        res.status(500).json({ error: 'Failed to fetch preview' });
     }
 });
 

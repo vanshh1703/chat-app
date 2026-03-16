@@ -22,6 +22,7 @@ export const uploadFile = (formData) => API.post('/upload', formData, {
 });
 export const pinChat = (data) => API.post('/users/pin-chat', data);
 export const muteChat = (data) => API.post('/users/mute-chat', data);
+export const getLinkPreview = (url) => API.get(`/utils/link-preview?url=${encodeURIComponent(url)}`);
 export const pinMessage = (data) => API.post('/messages/pin', data);
 export const setAlias = (data) => API.post('/users/set-alias', data);
 export const getUserProfile = (userId) => API.get(`/users/profile/${userId}`);
