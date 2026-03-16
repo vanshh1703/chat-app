@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useNavigate } from 'react-router-dom';
@@ -93,6 +93,7 @@ const Home = () => {
     const [showTelepathyPicker, setShowTelepathyPicker] = useState(false);
     const [isOfflineChatOpen, setIsOfflineChatOpen] = useState(false);
     const [showMediaGallery, setShowMediaGallery] = useState(false);
+    const [historyMsg, setHistoryMsg] = useState(null);
     const navigate = useNavigate();
 
     // WebRTC & Calling State
@@ -1458,7 +1459,14 @@ const Home = () => {
                                             </div>
                                         </div>) : msg.message_type === 'text' ? (<div className="flex flex-col">
                                             <span>{msg.content}</span>
-                                            {msg.is_edited && (<span className={`text-[9px] mt-0.5 opacity-60 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}>(edited)</span>)}
+                                            {msg.is_edited && (
+                                                <button 
+                                                    onClick={() => setHistoryMsg(msg)}
+                                                    className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}
+                                                >
+                                                    <History size={10} /> (edited)
+                                                </button>
+                                            )}
                                         </div>) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
 
                                     </>)}
@@ -1833,6 +1841,69 @@ const Home = () => {
             onClose={() => setIsOfflineChatOpen(false)} 
             currentUser={user} 
         />
+
+        {/* Edit History Modal */}
+        {historyMsg && (
+            <div className="fixed inset-0 z-200 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                    <div className="p-6 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                                <History size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-black text-gray-800 dark:text-white uppercase tracking-tighter">Edit History</h3>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Full audit log</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setHistoryMsg(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors text-gray-400">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    
+                    <div className="max-h-[60vh] overflow-y-auto p-6 space-y-6">
+                        {/* Current Version */}
+                        <div className="relative pl-6 border-l-2 border-blue-500 pb-2">
+                            <div className="absolute -left-[9px] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white dark:border-slate-900 ring-4 ring-blue-500/10"></div>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">Current Version</span>
+                                <span className="text-[10px] text-gray-400 font-bold">Latest</span>
+                            </div>
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800/50">
+                                <p className="text-sm text-gray-800 dark:text-slate-200 leading-relaxed font-medium">{historyMsg.content}</p>
+                            </div>
+                        </div>
+
+                        {/* Previous Edits */}
+                        {historyMsg.edit_history && [...historyMsg.edit_history].reverse().map((edit, idx) => (
+                            <div key={idx} className="relative pl-6 border-l-2 border-gray-200 dark:border-slate-800 pb-2">
+                                <div className="absolute -left-[9px] top-0 w-4 h-4 bg-gray-200 dark:bg-slate-800 rounded-full border-4 border-white dark:border-slate-900"></div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                        {idx === (historyMsg.edit_history.length - 1) ? 'Original Version' : `Revision ${historyMsg.edit_history.length - idx}`}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400 font-bold">
+                                        {new Date(edit.edited_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-gray-100 dark:border-slate-800/50">
+                                    <p className="text-sm text-gray-600 dark:text-slate-400 leading-relaxed">{edit.content}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-slate-800">
+                        <button 
+                            onClick={() => setHistoryMsg(null)}
+                            className="w-full py-4 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors shadow-sm"
+                        >
+                            Close Audit Log
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div >);
 };
 

@@ -493,9 +493,16 @@ io.on('connection', (socket) => {
     socket.on('edit_message', async (data) => {
         const { messageId, senderId, receiverId, newContent } = data;
         try {
+            // Fetch current content and edit history
+            const currentMsgResult = await pool.query('SELECT content, created_at, edit_history FROM messages WHERE id = $1 AND sender_id = $2', [messageId, senderId]);
+            if (currentMsgResult.rows.length === 0) return; // not authorised
+
+            const { content: oldContent, created_at: oldTimestamp, edit_history: currentHistory } = currentMsgResult.rows[0];
+            const newHistory = [...(currentHistory || []), { content: oldContent, edited_at: oldTimestamp }];
+
             const result = await pool.query(
-                'UPDATE messages SET content = $1, is_edited = true WHERE id = $2 AND sender_id = $3 RETURNING *',
-                [newContent, messageId, senderId]
+                'UPDATE messages SET content = $1, is_edited = true, edit_history = $2 WHERE id = $3 AND sender_id = $4 RETURNING *',
+                [newContent, JSON.stringify(newHistory), messageId, senderId]
             );
             if (result.rows.length === 0) return; // not authorised
 

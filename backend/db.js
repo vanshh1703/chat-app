@@ -105,6 +105,10 @@ const initializeDB = async () => {
             await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE;');
         } catch (e) { }
 
+        try {
+            await pool.query("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edit_history JSONB DEFAULT '[]'::jsonb;");
+        } catch (e) { }
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS login_activities (
                 id SERIAL PRIMARY KEY,
