@@ -176,6 +176,7 @@ const Home = () => {
     const [showTelepathyPicker, setShowTelepathyPicker] = useState(false);
     const [isOfflineChatOpen, setIsOfflineChatOpen] = useState(false);
     const [showMediaGallery, setShowMediaGallery] = useState(false);
+    const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
     const [historyMsg, setHistoryMsg] = useState(null);
     const [messageOffset, setMessageOffset] = useState(0);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -1720,17 +1721,103 @@ const Home = () => {
                                     </div>
                                 </div>) : (<>
                                     <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
-                                    <button type="button" onClick={() => fileInputRef.current.click()} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Plus size={20} /></button>
-                                    <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Camera size={20} /></button>
-                                    <button type="button" onClick={() => { setDrawingInitialImage(null); setIsDrawingOpen(true); }} className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Draw Message"><PenTool size={20} /></button>
+                                    
+                                    {/* Mobile Responsive Input Bar */}
+                                    <div className="flex items-center gap-1">
+                                        {/* Plus button - Desktop: File upload, Mobile: Popover */}
+                                        <button 
+                                            type="button" 
+                                            onClick={() => {
+                                                if (window.innerWidth < 768) {
+                                                    setIsAttachmentOpen(!isAttachmentOpen);
+                                                } else {
+                                                    fileInputRef.current.click();
+                                                }
+                                            }} 
+                                            className={`p-2 transition-colors ${isAttachmentOpen ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-full' : 'text-gray-400 hover:text-blue-600'}`}
+                                        >
+                                            <Plus size={20} />
+                                        </button>
+
+                                        <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Camera size={20} /></button>
+                                        
+                                        {/* Desktop Only Icons */}
+                                        <div className="hidden md:flex items-center">
+                                            <button type="button" onClick={() => { setDrawingInitialImage(null); setIsDrawingOpen(true); }} className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Draw Message"><PenTool size={20} /></button>
+                                            <button type="button" onClick={() => setShowTelepathyPicker(!showTelepathyPicker)} className={`p-2 transition-colors ${showTelepathyPicker ? 'text-blue-500' : 'text-gray-400 hover:text-blue-600'}`} title="Telepathy Mode"><Brain size={20} /></button>
+                                            <button type="button" onClick={() => setIsPowerModalOpen(true)} className="p-2 text-gray-400 hover:text-rose-500 transition-colors" title="Send Sorry Power"><Zap size={20} /></button>
+                                        </div>
+                                    </div>
+
                                     <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type a message..." className="flex-1 bg-transparent outline-none text-sm" />
-                                    <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"><Smile size={20} /></button>
-                                    <button type="button" onClick={() => setShowTelepathyPicker(!showTelepathyPicker)} className={`p-2 transition-colors ${showTelepathyPicker ? 'text-blue-500' : 'text-gray-400 hover:text-blue-600'}`} title="Telepathy Mode"><Brain size={20} /></button>
-                                    <button type="button" onClick={() => setIsPowerModalOpen(true)} className="p-2 text-gray-400 hover:text-rose-500 transition-colors" title="Send Sorry Power"><Zap size={20} /></button>
-                                    {messageText.trim() || attachPreview ? (<button type="submit" className="p-2 bg-blue-600 text-white rounded-xl"><Send size={18} /></button>) : (<button type="button" onClick={startRecording} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Mic size={20} /></button>)}
+                                    
+                                    <div className="flex items-center">
+                                        <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"><Smile size={20} /></button>
+                                        {messageText.trim() || attachPreview ? (
+                                            <button type="submit" className="p-2 bg-blue-600 text-white rounded-xl"><Send size={18} /></button>
+                                        ) : (
+                                            <button type="button" onClick={startRecording} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Mic size={20} /></button>
+                                        )}
+                                    </div>
                                 </>)}
                             </form>
                             {showEmojiPicker && <div className="absolute bottom-full mb-2 right-0 z-50"><EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} /></div>}
+                            
+                            {/* Mobile Attachment Popover */}
+                            {isAttachmentOpen && (
+                                <>
+                                    <div 
+                                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-45 md:hidden" 
+                                        onClick={() => setIsAttachmentOpen(false)}
+                                    ></div>
+                                    <div className="absolute bottom-full mb-4 left-0 z-50 md:hidden w-72 animate-in slide-in-from-bottom-4 duration-300">
+                                        <div className="bg-white/95 dark:bg-slate-900/95  border border-white/20 dark:border-slate-700/50 p-5 rounded-[32px] shadow-2xl">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {[
+                                                    { 
+                                                        icon: ImageIcon, 
+                                                        label: 'Media', 
+                                                        color: 'bg-blue-500', 
+                                                        onClick: () => { setIsAttachmentOpen(false); fileInputRef.current.click(); } 
+                                                    },
+                                                    { 
+                                                        icon: PenTool, 
+                                                        label: 'Drawing', 
+                                                        color: 'bg-purple-500', 
+                                                        onClick: () => { setIsAttachmentOpen(false); setDrawingInitialImage(null); setIsDrawingOpen(true); } 
+                                                    },
+                                                    { 
+                                                        icon: Brain, 
+                                                        label: 'Telepathy', 
+                                                        color: 'bg-cyan-500', 
+                                                        onClick: () => { setIsAttachmentOpen(false); setShowTelepathyPicker(true); } 
+                                                    },
+                                                    { 
+                                                        icon: Zap, 
+                                                        label: 'Sorry Power', 
+                                                        color: 'bg-rose-500', 
+                                                        onClick: () => { setIsAttachmentOpen(false); setIsPowerModalOpen(true); } 
+                                                    }
+                                                ].map((item, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={item.onClick}
+                                                        className="flex flex-col items-center gap-2 group p-2 hover:bg-gray-50 dark:hover:bg-slate-800 rounded-2xl transition-all"
+                                                    >
+                                                        <div className={`w-12 h-12 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110 active:scale-95`}>
+                                                            <item.icon size={22} />
+                                                        </div>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                                                            {item.label}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
                             {showTelepathyPicker && (<div className="absolute bottom-full mb-4 right-0 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
                                 <div className="bg-white/95 dark:bg-slate-900/95  border border-white/20 dark:border-slate-700/50 p-4 rounded-[32px] shadow-2xl w-72">
                                     <div className="flex items-center justify-between mb-4 px-2">
