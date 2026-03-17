@@ -1223,7 +1223,7 @@ const Home = () => {
 
     useEffect(() => {
         if (shouldScrollToBottomRef.current) {
-            scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+            scrollRef.current?.scrollIntoView({ behavior: 'auto' });
         }
         // Reset after scroll or if it was skipped
         shouldScrollToBottomRef.current = true;
@@ -1308,7 +1308,8 @@ const Home = () => {
     };
 
     const handleScroll = (e) => {
-        if (e.target.scrollTop === 0 && !isLoadingMore && hasMoreMessages) {
+        // Detect if scrolled near top (within 20px threshold)
+        if (e.target.scrollTop <= 20 && !isLoadingMore && hasMoreMessages) {
             loadMoreMessages();
         }
     };
