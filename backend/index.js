@@ -23,7 +23,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: ['http://localhost:5173', 'https://chat-app-six-jet.vercel.app'],
+        origin: [process.env.FRONTEND_URL, 'http://localhost:5173'],
         methods: ['GET', 'POST'],
     },
 });
@@ -65,7 +65,7 @@ const authenticateToken = (req, res, next) => {
 // File Upload endpoint
 app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const fileUrl = `http://localhost:5000/uploads/${req.file.filename}`;
+    const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${req.file.filename}`;
     const originalName = req.file.originalname;
     const mimeType = req.file.mimetype;
     let messageType = 'file';

@@ -318,7 +318,7 @@ const Home = () => {
 
     // Separate useEffect for socket connection to avoid reconnecting on chat switch
     useEffect(() => {
-        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
         socket.current = io(socketUrl);
         return () => socket.current.disconnect();
     }, []);

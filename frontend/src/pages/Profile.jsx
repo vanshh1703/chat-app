@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, User, Mail, Lock, Camera, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import * as api from '../api/api';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -28,29 +29,14 @@ const Profile = () => {
         setMessage({ type: '', text: '' });
 
         try {
-            const token = localStorage.getItem('profile') ? JSON.parse(localStorage.getItem('profile')).token : null;
-            const response = await fetch('http://localhost:5000/api/users/update-profile', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ username, avatar_url: avatarUrl, bio })
-            });
-
-            if (response.ok) {
-                const updatedUser = await response.json();
-                const profile = JSON.parse(localStorage.getItem('profile'));
-                profile.user = updatedUser;
-                localStorage.setItem('profile', JSON.stringify(profile));
-                setUser(updatedUser);
-                setMessage({ type: 'success', text: 'Profile updated successfully!' });
-            } else {
-                const error = await response.json();
-                setMessage({ type: 'error', text: error.error || 'Update failed' });
-            }
+            const { data } = await api.updateProfile({ username, avatar_url: avatarUrl, bio });
+            const profile = JSON.parse(localStorage.getItem('profile'));
+            profile.user = data;
+            localStorage.setItem('profile', JSON.stringify(profile));
+            setUser(data);
+            setMessage({ type: 'success', text: 'Profile updated successfully!' });
         } catch (err) {
-            setMessage({ type: 'error', text: 'Server error' });
+            setMessage({ type: 'error', text: err.response?.data?.error || 'Update failed' });
         } finally {
             setLoading(false);
         }
@@ -66,27 +52,13 @@ const Profile = () => {
         setMessage({ type: '', text: '' });
 
         try {
-            const token = localStorage.getItem('profile') ? JSON.parse(localStorage.getItem('profile')).token : null;
-            const response = await fetch('http://localhost:5000/api/users/change-password', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ oldPassword, newPassword })
-            });
-
-            if (response.ok) {
-                setMessage({ type: 'success', text: 'Password changed successfully!' });
-                setOldPassword('');
-                setNewPassword('');
-                setConfirmPassword('');
-            } else {
-                const error = await response.json();
-                setMessage({ type: 'error', text: error.error || 'Password change failed' });
-            }
+            await api.changePassword({ oldPassword, newPassword });
+            setMessage({ type: 'success', text: 'Password changed successfully!' });
+            setOldPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
         } catch (err) {
-            setMessage({ type: 'error', text: 'Server error' });
+            setMessage({ type: 'error', text: err.response?.data?.error || 'Password change failed' });
         } finally {
             setLoading(false);
         }
@@ -101,24 +73,11 @@ const Profile = () => {
 
         setLoading(true);
         try {
-            const token = localStorage.getItem('profile') ? JSON.parse(localStorage.getItem('profile')).token : null;
-            const response = await fetch('http://localhost:5000/api/upload', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setAvatarUrl(data.fileUrl);
-                setMessage({ type: 'success', text: 'Photo uploaded! Don\'t forget to save changes.' });
-            } else {
-                setMessage({ type: 'error', text: 'Upload failed' });
-            }
+            const { data } = await api.uploadFile(formData);
+            setAvatarUrl(data.fileUrl);
+            setMessage({ type: 'success', text: 'Photo uploaded! Don\'t forget to save changes.' });
         } catch (err) {
-            setMessage({ type: 'error', text: 'Upload error' });
+            setMessage({ type: 'error', text: 'Upload failed' });
         } finally {
             setLoading(false);
         }

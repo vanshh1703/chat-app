@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api' });
+const API = axios.create({ baseURL: import.meta.env.VITE_API_URL });
 
 // Add JWT to requests
 API.interceptors.request.use((req) => {
@@ -29,6 +29,8 @@ export const setAlias = (data) => API.post('/users/set-alias', data);
 export const getUserProfile = (userId) => API.get(`/users/profile/${userId}`);
 export const getCallHistory = () => API.get('/calls/history');
 export const getLoginActivity = () => API.get('/users/login-activity');
+export const updateProfile = (data) => API.post('/users/update-profile', data);
+export const changePassword = (data) => API.post('/users/change-password', data);
 
 // E2EE Public Key APIs
 export const uploadPublicKey = (publicKey) => API.post('/keys', { publicKey });
