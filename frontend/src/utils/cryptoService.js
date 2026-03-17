@@ -144,7 +144,7 @@ export async function importPublicKey(base64Key) {
   return await window.crypto.subtle.importKey(
     "spki",
     buffer,
-    RSA_ALGO,
+    { name: "RSA-OAEP", hash: "SHA-256" },
     true,
     ["encrypt"]
   );
@@ -165,7 +165,7 @@ export async function importPrivateKey(base64Key) {
   return await window.crypto.subtle.importKey(
     "pkcs8",
     buffer,
-    RSA_ALGO,
+    { name: "RSA-OAEP", hash: "SHA-256" },
     true,
     ["decrypt"]
   );

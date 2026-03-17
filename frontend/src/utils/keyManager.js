@@ -24,31 +24,70 @@ class KeyManager {
     const db = await this.dbPromise;
     let keys = await db.get(STORE_NAME, `keys_${userId}`);
 
-    if (!keys) {
+    const generateAndStore = async () => {
       console.log('Generating new E2EE key pair...');
       const keyPair = await crypto.generateKeyPair();
       const publicKeyPem = await crypto.exportPublicKey(keyPair.publicKey);
       const privateKeyPem = await crypto.exportPrivateKey(keyPair.privateKey);
 
-      keys = {
+      const record = {
         publicKey: publicKeyPem,
         privateKey: privateKeyPem,
         userId
       };
 
-      await db.put(STORE_NAME, keys, `keys_${userId}`);
+      await db.put(STORE_NAME, record, `keys_${userId}`);
       await this.uploadPublicKey(publicKeyPem);
+      return { publicKey: keyPair.publicKey, privateKey: keyPair.privateKey };
+    };
+
+    let importedKeys;
+    if (!keys) {
+      importedKeys = await generateAndStore();
     } else {
-      // PROACTIVE SYNC: Ensure the server has our public key even if we already have it locally
-      // This handles cases where the initial upload might have failed or the server was reset.
-      this.uploadPublicKey(keys.publicKey);
+      try {
+        importedKeys = {
+          publicKey: await crypto.importPublicKey(keys.publicKey),
+          privateKey: await crypto.importPrivateKey(keys.privateKey)
+        };
+        // Proactive sync
+        this.uploadPublicKey(keys.publicKey);
+      } catch (err) {
+        console.error('Failed to import existing keys, regenerating...', err);
+        importedKeys = await generateAndStore();
+      }
     }
 
-    // Convert PEM strings back to CryptoKey objects for active use
-    return {
-      publicKey: await crypto.importPublicKey(keys.publicKey),
-      privateKey: await crypto.importPrivateKey(keys.privateKey)
-    };
+    // VERIFY keys work before returning
+    const works = await this.testKeys(importedKeys.publicKey, importedKeys.privateKey);
+    if (!works) {
+      console.error('KEY SELF-TEST FAILED! The generated/loaded keys are unusable. Clearing storage.');
+      await db.delete(STORE_NAME, `keys_${userId}`);
+      // Try one more time
+      const freshKeys = await generateAndStore();
+      const worksAgain = await this.testKeys(freshKeys.publicKey, freshKeys.privateKey);
+      if (!worksAgain) {
+        console.error('CRITICAL: Even fresh keys failed self-test. E2EE is broken in this environment.');
+      }
+      return freshKeys;
+    }
+
+    return importedKeys;
+  }
+
+  /**
+   * Verifies that a key pair actually works for encrypt/decrypt
+   */
+  async testKeys(publicKey, privateKey) {
+    try {
+      const testMsg = "Self-test " + Date.now();
+      const encrypted = await crypto.encryptMessage(testMsg, publicKey);
+      const decrypted = await crypto.decryptMessage(encrypted, privateKey);
+      return decrypted === testMsg;
+    } catch (err) {
+      console.error('Key self-test encountered error:', err);
+      return false;
+    }
   }
 
   async uploadPublicKey(publicKeyPem) {
