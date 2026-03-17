@@ -19,8 +19,8 @@ export default defineConfig({
         type: 'module'
       },
       manifest: {
-        name: 'OrgChat App',
-        short_name: 'OrgChat',
+        name: 'Ash Chat',
+        short_name: 'Ash Chat',
         description: 'A modern chat application',
         theme_color: '#3b82f6',
         background_color: '#ffffff',
