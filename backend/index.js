@@ -516,6 +516,22 @@ app.post('/api/messages/mark-read', authenticateToken, async (req, res) => {
     }
 });
 
+// Pin/Unpin message
+app.post('/api/messages/pin', authenticateToken, async (req, res) => {
+    const { messageId } = req.body;
+    try {
+        const check = await pool.query('SELECT is_pinned FROM messages WHERE id = $1', [messageId]);
+        if (check.rows.length === 0) return res.status(404).send('Message not found');
+
+        const newPinned = !check.rows[0].is_pinned;
+        await pool.query('UPDATE messages SET is_pinned = $1 WHERE id = $2', [newPinned, messageId]);
+        res.json({ is_pinned: newPinned });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Pin message error');
+    }
+});
+
 // Shared media/docs/links between two users
 app.get('/api/messages/shared/:otherId', authenticateToken, async (req, res) => {
     try {

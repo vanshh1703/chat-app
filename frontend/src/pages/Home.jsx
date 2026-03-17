@@ -1176,7 +1176,8 @@ const Home = () => {
 
     // --- Copy Logic ---
     const handleCopyMessage = (msg) => {
-        const textToCopy = msg.message_type === 'telepathy' ? msg.content.split(' • ')[0] : msg.content;
+        const baseContent = decryptedMessages[msg.id] || msg.content;
+        const textToCopy = msg.message_type === 'telepathy' ? baseContent.split(' • ')[0] : baseContent;
         navigator.clipboard.writeText(textToCopy).then(() => {
             // Optional: Show a brief toast or change icon state
             setHoveredMsgId(null);
@@ -1255,6 +1256,7 @@ const Home = () => {
                 newContent: messageText
             });
             setEditingMsg(null);
+            setMessageText(''); // Clear text after edit
         } else {
             const sendFlow = async () => {
                 let msgData = {
@@ -1850,7 +1852,7 @@ const Home = () => {
                             <div className="flex-1 truncate">
                                 <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Pinned Message</p>
                                 <p className="text-xs text-gray-700 dark:text-slate-300 truncate font-medium">
-                                    {messages.filter(m => m.is_pinned).reverse()[0].content || "Attachment"}
+                                    {(decryptedMessages[messages.filter(m => m.is_pinned).reverse()[0].id] || messages.filter(m => m.is_pinned).reverse()[0].content) || "Attachment"}
                                 </p>
                             </div>
                         </div>
@@ -1879,7 +1881,7 @@ const Home = () => {
                                                     {msg.reply_to_msg && (
                                                         <div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/20 border-white' : 'bg-gray-50 border-blue-500 text-gray-500'}`}>
                                                             <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
-                                                            <p className="truncate">{msg.reply_to_msg.content}</p>
+                                                            <p className="truncate">{decryptedMessages[msg.reply_to_msg.id] || msg.reply_to_msg.content}</p>
                                                         </div>
                                                     )}
                                                     {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
@@ -1939,7 +1941,7 @@ const Home = () => {
                                                                 <button
                                                                     onClick={() => {
                                                                         setEditingMsg(msg);
-                                                                        setMessageText(msg.content);
+                                                                        setMessageText(decryptedMessages[msg.id] || msg.content);
                                                                         inputRef.current?.focus();
                                                                     }}
                                                                     className="p-1 hover:bg-gray-100 rounded text-blue-500"
@@ -1990,11 +1992,11 @@ const Home = () => {
                     <div className="p-3 md:p-4 bg-white/80 backdrop-blur-md border-t border-gray-100 dark:border-slate-700/30">
                         <div className="w-full">
                             {replyingTo && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
-                                <div className="truncate"><span className="font-bold text-blue-600">Reply to: </span>{replyingTo.content}</div>
+                                <div className="truncate"><span className="font-bold text-blue-600">Reply to: </span>{decryptedMessages[replyingTo.id] || replyingTo.content}</div>
                                 <button onClick={() => setReplyingTo(null)}><X size={14} /></button>
                             </div>)}
                             {editingMsg && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
-                                <div className="truncate"><span className="font-bold text-blue-600">Editing: </span>{editingMsg.content}</div>
+                                <div className="truncate"><span className="font-bold text-blue-600">Editing: </span>{decryptedMessages[editingMsg.id] || editingMsg.content}</div>
                                 <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                             </div>)}
                             <form onSubmit={handleSendMessage} className="flex gap-2 items-center bg-white p-2 rounded-2xl shadow-sm border">
