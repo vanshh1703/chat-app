@@ -16,11 +16,15 @@ const cheerio = require('cheerio');
 const webpush = require('web-push');
 
 // Config Web Push
-webpush.setVapidDetails(
-    'mailto:you@example.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-);
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(
+        'mailto:you@example.com',
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+    );
+} else {
+    console.warn('VAPID keys are missing. Push notifications will not work.');
+}
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
