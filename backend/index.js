@@ -57,6 +57,11 @@ const io = new Server(server, {
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
+// Keep-Alive / Health Check Endpoint for Render/UptimeRobot
+app.get('/api/ping', (req, res) => {
+    res.status(200).send('pong');
+});
+
 // Serve uploaded files statically
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
