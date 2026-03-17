@@ -10,6 +10,7 @@ const fs = require('fs');
 const uuidv4 = require('uuid').v4;
 const WebRTCSignaling = require('./socketServer');
 require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
 const { pool, initializeDB } = require('./db');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -28,7 +29,12 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-
+// Initialize Supabase
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+);
+const BUCKET_NAME = 'chat-media';
 
 
 const allowedOrigins = [
@@ -55,14 +61,8 @@ const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 app.use('/uploads', express.static(uploadsDir));
 
-// Multer storage config
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadsDir),
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname);
-        cb(null, `${uuidv4()}${ext}`);
-    }
-});
+// Multer storage config - Switch to Memory Storage for Supabase uploads
+const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB limit
 
 // Initialize Database
@@ -81,17 +81,48 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// File Upload endpoint
-app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => {
+// File Upload endpoint using Supabase Storage
+app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${req.file.filename}`;
-    const originalName = req.file.originalname;
-    const mimeType = req.file.mimetype;
-    let messageType = 'file';
-    if (mimeType.startsWith('image/')) messageType = 'image';
-    else if (mimeType.startsWith('video/')) messageType = 'video';
-    else if (mimeType.startsWith('audio/')) messageType = 'audio';
-    res.json({ fileUrl, originalName, messageType, fileName: originalName });
+
+    try {
+        const file = req.file;
+        const fileExt = path.extname(file.originalname);
+        const fileName = `${uuidv4()}${fileExt}`;
+        const filePath = `uploads/${fileName}`;
+
+        const { data, error } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(filePath, file.buffer, {
+                contentType: file.mimetype,
+                upsert: false
+            });
+
+        if (error) {
+            console.error('Supabase upload error:', error);
+            return res.status(500).json({ error: 'Upload to storage failed' });
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+            .from(BUCKET_NAME)
+            .getPublicUrl(filePath);
+
+        const mimeType = file.mimetype;
+        let messageType = 'file';
+        if (mimeType.startsWith('image/')) messageType = 'image';
+        else if (mimeType.startsWith('video/')) messageType = 'video';
+        else if (mimeType.startsWith('audio/')) messageType = 'audio';
+
+        res.json({ 
+            fileUrl: publicUrl, 
+            originalName: file.originalname, 
+            messageType, 
+            fileName: fileName 
+        });
+    } catch (err) {
+        console.error('Upload handler error:', err);
+        res.status(500).send('Upload error');
+    }
 });
 
 // Auth Routes
