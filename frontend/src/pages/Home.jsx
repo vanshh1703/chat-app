@@ -1297,8 +1297,9 @@ const Home = () => {
         setSearchResults([]);
         setMessageOffset(0);
         setHasMoreMessages(true);
-        if (selectedUser.id === ashPersona.id) {
-            setMessages([]); // Or keep local messages if we implemented persistence
+        if (String(selectedUser.id) === String(ashPersona.id)) {
+            const saved = localStorage.getItem('ash_messages');
+            setMessages(saved ? JSON.parse(saved) : []);
             return;
         }
         try {
@@ -1382,7 +1383,11 @@ const Home = () => {
                 created_at: new Date().toISOString()
             };
 
-            setMessages(prev => [...prev, botMsg]);
+            setMessages(prev => {
+                const newMsgs = [...prev, botMsg];
+                localStorage.setItem('ash_messages', JSON.stringify(newMsgs));
+                return newMsgs;
+            });
 
             // Simulate typing
             setTypingUsers(prev => ({ ...prev, [ashPersona.id]: true }));
@@ -1414,7 +1419,11 @@ const Home = () => {
                         created_at: new Date().toISOString()
                     };
 
-                    setMessages(prev => [...prev, replyMsg]);
+                    setMessages(prev => {
+                        const newMsgs = [...prev, replyMsg];
+                        localStorage.setItem('ash_messages', JSON.stringify(newMsgs));
+                        return newMsgs;
+                    });
                 } catch (err) {
                     console.error("ASH Response Error:", err);
                 } finally {
@@ -1752,6 +1761,7 @@ const Home = () => {
 
     const getStatusText = (userId) => {
         if (typingUsers[userId]) return <span className="text-blue-500 italic">typing...</span>;
+        if (String(userId) === String(ashPersona.id)) return <span className="text-green-500 font-bold">System Online</span>;
         const status = onlineUsers[userId];
         if (!status) return 'Offline';
         if (status.isOnline) return 'Active now';
@@ -2007,7 +2017,13 @@ const Home = () => {
                             <div className="p-3 md:p-4 flex items-center justify-between bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-700/30 z-10 sticky top-0">
                                 <div className="flex items-center gap-2 md:gap-4 flex-1">
                                     <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-gray-500"><ArrowLeft size={20} /></button>
-                                    <SafeAvatar src={activeChat.avatar_url} alt="Active" size="w-9 h-9 md:w-10 md:h-10" className="cursor-pointer hover:scale-105 transition-transform" />
+                                    {String(activeChat.id) === String(ashPersona.id) ? (
+                                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
+                                            <img src={activeChat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
+                                        </div>
+                                    ) : (
+                                        <SafeAvatar src={activeChat.avatar_url} alt="Active" size="w-9 h-9 md:w-10 md:h-10" className="cursor-pointer hover:scale-105 transition-transform" />
+                                    )}
                                     {!showChatSearch ? (<div>
                                         {isEditingAlias ? (<form onSubmit={handleSetAlias} className="flex items-center gap-2">
                                             <input
