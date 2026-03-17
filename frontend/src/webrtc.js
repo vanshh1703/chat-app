@@ -38,9 +38,15 @@ export const createPeerConnection = (onIceCandidate, onTrack) => {
     return pc;
 };
 
-export const getMediaStream = async (type = 'video') => {
+export const getMediaStream = async (type = 'video', facingMode = 'user') => {
     try {
-        const constraints = type === 'video' ? MEDIA_CONSTRAINTS : { video: false, audio: true };
+        const constraints = type === 'video' ? {
+            ...MEDIA_CONSTRAINTS,
+            video: {
+                ...MEDIA_CONSTRAINTS.video,
+                facingMode: facingMode
+            }
+        } : { video: false, audio: true };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         return stream;
     } catch (error) {

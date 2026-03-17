@@ -436,6 +436,7 @@ const Home = () => {
     const currentCallIdRef = useRef(null);
     const [isSharingScreen, setIsSharingScreen] = useState(false);
     const screenStreamRef = useRef(null);
+    const [facingMode, setFacingMode] = useState('user'); // For mobile camera flipping
 
     // E2EE Encryption Hook
     const { encrypt, decrypt, isReady: encryptionReady } = useEncryption(user?.id);
@@ -923,6 +924,24 @@ const Home = () => {
             } catch (err) {
                 console.error("Error starting screen share", err);
             }
+        }
+    };
+
+    const handleSwitchCamera = async () => {
+        if (!activeCall || !localStream || !peerConnection.current) return;
+        const newMode = facingMode === 'user' ? 'environment' : 'user';
+        try {
+            const newStream = await webrtc.getMediaStream('video', newMode);
+            const videoTrack = newStream.getVideoTracks()[0];
+            const sender = peerConnection.current.getSenders().find(s => s.track.kind === 'video');
+            if (sender) {
+                await sender.replaceTrack(videoTrack);
+            }
+            localStream.getTracks().forEach(track => track.stop());
+            setLocalStream(newStream);
+            setFacingMode(newMode);
+        } catch (err) {
+            console.error("Switch camera error", err);
         }
     };
 
@@ -2563,6 +2582,7 @@ const Home = () => {
                         onAccept={handleAcceptCall}
                         onReject={handleRejectCall}
                         onEnd={handleEndCall}
+                        onSwitchCamera={handleSwitchCamera}
                     />
                 </Suspense>
 

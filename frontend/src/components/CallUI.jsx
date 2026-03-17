@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Maximize2, Minimize2, ChevronUp, ChevronDown, Monitor } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Maximize2, Minimize2, ChevronUp, ChevronDown, Monitor, RefreshCw } from 'lucide-react';
 
 const CallUI = ({
     onAccept,
@@ -11,7 +11,8 @@ const CallUI = ({
     remoteStream,
     isAudioOnly,
     isSharingScreen,
-    onToggleScreenShare
+    onToggleScreenShare,
+    onSwitchCamera
 }) => {
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
@@ -20,6 +21,7 @@ const CallUI = ({
     const [callDuration, setCallDuration] = useState(0);
     const [isMaximized, setIsMaximized] = useState(false);
     const [isMinimized, setIsMinimized] = useState(true);
+    const [isSwapped, setIsSwapped] = useState(false); // Track PIP swap
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -132,7 +134,7 @@ const CallUI = ({
                     className="fixed top-6 left-1/2 -translate-x-1/2 z-1000 cursor-pointer"
                     onClick={() => setIsMinimized(false)}
                 >
-                    <div className="bg-slate-900/90 dark:bg-black/90 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-[24px] shadow-2xl flex items-center gap-4 transition-all duration-500 hover:scale-105 group ring-1 ring-white/5">
+                    <div className="bg-slate-900/95 dark:bg-black/95 backdrop-blur-2xl border border-white/10 px-4 py-2.5 rounded-[32px] shadow-2xl flex items-center gap-4 transition-all duration-500 hover:scale-105 group ring-1 ring-white/10">
                         <div className="relative">
                             <div className="w-10 h-10 rounded-full border-2 border-green-500/50 overflow-hidden shadow-inner">
                                 <img src={incomingCall?.avatar || activeCall.avatar} alt="Call" className="w-full h-full object-cover" width="96" height="96" loading="lazy" />
@@ -143,7 +145,7 @@ const CallUI = ({
                         </div>
 
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
                                 {isAudioOnly ? 'Voice Call' : 'Video Call'}
                             </span>
                             <div className="flex items-center gap-2">
@@ -154,13 +156,39 @@ const CallUI = ({
                         </div>
 
                         <div className="flex items-center gap-2 ml-2 pl-4 border-l border-white/10">
+                            {/* Mobile Controls in Minimized Mode */}
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+                                className={`p-2 rounded-full transition-all ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                            >
+                                {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
+                            </button>
+                            
+                            {!isAudioOnly && (
+                                <>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); toggleVideo(); }}
+                                        className={`p-2 rounded-full transition-all ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                    >
+                                        {isVideoOff ? <VideoOff size={14} /> : <Video size={14} />}
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); onSwitchCamera?.(); }}
+                                        className="p-2 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all"
+                                        title="Flip Camera"
+                                    >
+                                        <RefreshCw size={14} />
+                                    </button>
+                                </>
+                            )}
+
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onEnd(); }}
                                 className="p-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-all shadow-lg active:scale-90"
                             >
                                 <PhoneOff size={16} />
                             </button>
-                            <div className="p-2 text-white/40 group-hover:text-white/70 transition-colors">
+                            <div className="hidden md:block p-2 text-white/40 group-hover:text-white/70 transition-colors">
                                 <ChevronDown size={18} />
                             </div>
                         </div>
@@ -176,38 +204,46 @@ const CallUI = ({
 
                 <div className={`relative w-full h-full max-w-5xl aspect-video bg-black rounded-[40px] overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center group ${isMaximized ? 'rounded-none border-none' : ''}`}>
                     {/* Remote Video (Main) */}
-                    {remoteStream ? (
-                        <video
-                            ref={remoteVideoRef}
-                            autoPlay
-                            playsInline
-                            className="w-full h-full object-cover"
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center gap-6">
-                            <div className="w-32 h-32 rounded-full bg-slate-800 flex items-center justify-center border-4 border-slate-700 animate-pulse">
-                                <Phone size={48} className="text-slate-600" />
-                            </div>
-                            <p className="text-slate-400 font-black uppercase tracking-[0.2em]">Connecting...</p>
-                        </div>
-                    )}
-
-                    {/* Local Video (Preview) */}
-                    <div className="absolute top-8 right-8 w-40 md:w-56 aspect-video bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border-2 border-white/20 z-10 transition-transform hover:scale-105">
-                        {isVideoOff ? (
-                            <div className="w-full h-full flex items-center justify-center bg-slate-800">
-                                <VideoOff size={24} className="text-slate-600" />
-                            </div>
-                        ) : (
+                    <div className="w-full h-full relative" onClick={() => !isAudioOnly && setIsSwapped(!isSwapped)}>
+                        {remoteStream ? (
                             <video
-                                ref={localVideoRef}
+                                ref={isSwapped ? localVideoRef : remoteVideoRef}
                                 autoPlay
-                                muted
                                 playsInline
-                                className="w-full h-full object-cover -scale-x-100"
+                                muted={isSwapped}
+                                className={`w-full h-full object-cover ${isSwapped ? '-scale-x-100' : ''}`}
                             />
+                        ) : (
+                            <div className="flex flex-col items-center gap-6">
+                                <div className="w-32 h-32 rounded-full bg-slate-800 flex items-center justify-center border-4 border-slate-700 animate-pulse">
+                                    <Phone size={48} className="text-slate-600" />
+                                </div>
+                                <p className="text-slate-400 font-black uppercase tracking-[0.2em]">Connecting...</p>
+                            </div>
                         )}
                     </div>
+
+                    {/* Local Video (Preview/PIP) */}
+                    {!isAudioOnly && (
+                        <div 
+                            onClick={(e) => { e.stopPropagation(); setIsSwapped(!isSwapped); }}
+                            className="absolute top-8 right-8 w-32 md:w-56 aspect-video bg-slate-900 rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl border-2 border-white/20 z-10 transition-transform cursor-pointer hover:scale-105 active:scale-95"
+                        >
+                            {isVideoOff && !isSwapped ? (
+                                <div className="w-full h-full flex items-center justify-center bg-slate-800">
+                                    <VideoOff size={24} className="text-slate-600" />
+                                </div>
+                            ) : (
+                                <video
+                                    ref={isSwapped ? remoteVideoRef : localVideoRef}
+                                    autoPlay
+                                    muted={!isSwapped}
+                                    playsInline
+                                    className={`w-full h-full object-cover ${!isSwapped ? '-scale-x-100' : ''}`}
+                                />
+                            )}
+                        </div>
+                    )}
 
                     {/* Minimize Button */}
                     <button
@@ -234,32 +270,46 @@ const CallUI = ({
                     </button>
 
                     {/* Bottom Controls */}
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 px-10 py-6 bg-black/40  rounded-[40px] border border-white/10 shadow-2xl transform translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 z-20">
+                    <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 md:gap-6 px-6 md:px-10 py-4 md:py-6 bg-black/60 rounded-[32px] md:rounded-[40px] border border-white/10 shadow-2xl transition-all duration-500 z-20 ${isMaximized ? 'bottom-16' : ''} md:opacity-0 md:group-hover:opacity-100 md:translate-y-12 md:group-hover:translate-y-0 opacity-100 translate-y-0`}>
                         <button
                             onClick={toggleMute}
-                            className={`p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                            className={`p-4 md:p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                         >
                             {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
                         </button>
 
-                        <button
-                            onClick={toggleVideo}
-                            className={`p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                        >
-                            {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
-                        </button>
+                        {!isAudioOnly && (
+                            <>
+                                <button
+                                    onClick={toggleVideo}
+                                    className={`p-4 md:p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                >
+                                    {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
+                                </button>
+                                
+                                <button
+                                    onClick={onSwitchCamera}
+                                    className="p-4 md:p-5 bg-white/10 text-white rounded-full transition-all hover:scale-110 active:scale-90 hover:bg-white/20"
+                                    title="Flip Camera"
+                                >
+                                    <RefreshCw size={24} />
+                                </button>
+                            </>
+                        )}
 
-                        <button
-                            onClick={onToggleScreenShare}
-                            className={`p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isSharingScreen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                            title={isSharingScreen ? "Stop Sharing" : "Share Screen"}
-                        >
-                            <Monitor size={24} />
-                        </button>
+                        {!isAudioOnly && (
+                            <button
+                                onClick={onToggleScreenShare}
+                                className={`p-4 md:p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isSharingScreen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                title={isSharingScreen ? "Stop Sharing" : "Share Screen"}
+                            >
+                                <Monitor size={24} />
+                            </button>
+                        )}
 
                         <button
                             onClick={onEnd}
-                            className="p-7 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-all hover:scale-110 active:scale-90 shadow-2xl shadow-rose-500/40"
+                            className="p-5 md:p-7 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-all hover:scale-110 active:scale-90 shadow-2xl shadow-rose-500/40"
                         >
                             <PhoneOff size={32} />
                         </button>
