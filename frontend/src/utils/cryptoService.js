@@ -52,7 +52,7 @@ export async function encryptMessage(content, recipientPublicKey, senderPublicKe
   // 3. Encrypt the AES key with the recipient's RSA public key
   const exportedAesKey = await window.crypto.subtle.exportKey("raw", aesKey);
   const encryptedAesKeyBuffer = await window.crypto.subtle.encrypt(
-    RSA_ALGO,
+    { name: "RSA-OAEP" },
     recipientPublicKey,
     exportedAesKey
   );
@@ -61,7 +61,7 @@ export async function encryptMessage(content, recipientPublicKey, senderPublicKe
   let senderEncryptedKeyBase64 = null;
   if (senderPublicKey) {
     const senderAesKeyBuffer = await window.crypto.subtle.encrypt(
-      RSA_ALGO,
+      { name: "RSA-OAEP" },
       senderPublicKey,
       exportedAesKey
     );
@@ -88,7 +88,7 @@ export async function decryptMessage(payload, myPrivateKey) {
 
   // 1. Decrypt the AES key using RSA private key
   const decryptedAesKeyBuffer = await window.crypto.subtle.decrypt(
-    RSA_ALGO,
+    { name: "RSA-OAEP" },
     myPrivateKey,
     encryptedKeyBuffer
   );

@@ -28,7 +28,7 @@ export async function encryptFile(file, recipientPublicKey, senderPublicKey = nu
   // 3. Encrypt AES key with recipient's RSA public key
   const exportedAesKey = await window.crypto.subtle.exportKey("raw", aesKey);
   const encryptedKey = await window.crypto.subtle.encrypt(
-    RSA_ALGO,
+    { name: "RSA-OAEP" },
     recipientPublicKey,
     exportedAesKey
   );
@@ -37,7 +37,7 @@ export async function encryptFile(file, recipientPublicKey, senderPublicKey = nu
   let senderEncryptedKeyBase64 = null;
   if (senderPublicKey) {
     const senderKeyBuffer = await window.crypto.subtle.encrypt(
-      RSA_ALGO,
+      { name: "RSA-OAEP" },
       senderPublicKey,
       exportedAesKey
     );
@@ -65,7 +65,7 @@ export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, m
 
   // 1. Decrypt AES key
   const decryptedAesKeyBuffer = await window.crypto.subtle.decrypt(
-    RSA_ALGO,
+    { name: "RSA-OAEP" },
     myPrivateKey,
     encryptedKey
   );
