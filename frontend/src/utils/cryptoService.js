@@ -16,6 +16,19 @@ export const AES_ALGO = {
 };
 
 /**
+ * Helper: Get a short fingerprint for a public key (for debugging)
+ */
+export async function getKeyFingerprint(publicKey) {
+  try {
+    const exported = await window.crypto.subtle.exportKey("spki", publicKey);
+    const hash = await window.crypto.subtle.digest("SHA-256", exported);
+    return arrayBufferToBase64(hash).slice(0, 12);
+  } catch (e) {
+    return "error";
+  }
+}
+
+/**
  * Generates a new RSA-2048 key pair
  */
 export async function generateKeyPair() {
@@ -52,7 +65,7 @@ export async function encryptMessage(content, recipientPublicKey, senderPublicKe
   // 3. Encrypt the AES key with the recipient's RSA public key
   const exportedAesKey = await window.crypto.subtle.exportKey("raw", aesKey);
   const encryptedAesKeyBuffer = await window.crypto.subtle.encrypt(
-    { name: "RSA-OAEP" },
+    { name: "RSA-OAEP", hash: "SHA-256" },
     recipientPublicKey,
     exportedAesKey
   );
@@ -61,7 +74,7 @@ export async function encryptMessage(content, recipientPublicKey, senderPublicKe
   let senderEncryptedKeyBase64 = null;
   if (senderPublicKey) {
     const senderAesKeyBuffer = await window.crypto.subtle.encrypt(
-      { name: "RSA-OAEP" },
+      { name: "RSA-OAEP", hash: "SHA-256" },
       senderPublicKey,
       exportedAesKey
     );
@@ -90,7 +103,7 @@ export async function decryptMessage(payload, myPrivateKey) {
   let decryptedAesKeyBuffer;
   try {
     decryptedAesKeyBuffer = await window.crypto.subtle.decrypt(
-      { name: "RSA-OAEP" },
+      { name: "RSA-OAEP", hash: "SHA-256" },
       myPrivateKey,
       encryptedKeyBuffer
     );

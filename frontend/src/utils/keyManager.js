@@ -60,6 +60,9 @@ class KeyManager {
 
     // VERIFY keys work before returning
     const works = await this.testKeys(importedKeys.publicKey, importedKeys.privateKey);
+    const fingerprint = await crypto.getKeyFingerprint(importedKeys.publicKey);
+    console.log(`[KeyManager] Keys initialized. Fingerprint: ${fingerprint}, Valid: ${works}`);
+
     if (!works) {
       console.error('KEY SELF-TEST FAILED! The generated/loaded keys are unusable. Clearing storage.');
       await db.delete(STORE_NAME, `keys_${userId}`);
@@ -142,6 +145,14 @@ class KeyManager {
     const db = await this.dbPromise;
     await db.delete(STORE_NAME, `friend_key_${friendId}`);
     console.log(`Cleared E2EE key cache for friend ${friendId}`);
+  }
+
+  async getFingerprint(userId) {
+    const db = await this.dbPromise;
+    const keys = await db.get(STORE_NAME, `keys_${userId}`);
+    if (!keys) return 'missing';
+    const pub = await crypto.importPublicKey(keys.publicKey);
+    return await crypto.getKeyFingerprint(pub);
   }
 }
 
