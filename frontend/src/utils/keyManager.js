@@ -58,21 +58,41 @@ class KeyManager {
       }
     }
 
+    // 3. SERVER SYNC CHECK: Ensure server public key matches our local one
+    try {
+      const { data } = await api.getPublicKey(userId);
+      if (data && data.public_key) {
+        const serverFingerprint = await crypto.getKeyFingerprint(await crypto.importPublicKey(data.public_key));
+        const localFingerprint = await crypto.getKeyFingerprint(importedKeys.publicKey);
+        
+        if (serverFingerprint !== localFingerprint) {
+          console.warn(`[KeyManager] Key mismatch detected! Server: ${serverFingerprint}, Local: ${localFingerprint}. Re-uploading local key...`);
+          const publicKeyPem = await crypto.exportPublicKey(importedKeys.publicKey);
+          await this.uploadPublicKey(publicKeyPem);
+        }
+      } else {
+        // No key on server, upload current one
+        console.log('[KeyManager] No key on server, uploading current local key...');
+        const publicKeyPem = await crypto.exportPublicKey(importedKeys.publicKey);
+        await this.uploadPublicKey(publicKeyPem);
+      }
+    } catch (err) {
+      console.warn('[KeyManager] Server sync check failed (maybe new user?), attempting upload anyway.', err);
+      try {
+        const publicKeyPem = await crypto.exportPublicKey(importedKeys.publicKey);
+        await this.uploadPublicKey(publicKeyPem);
+      } catch (e) {}
+    }
+
     // VERIFY keys work before returning
     const works = await this.testKeys(importedKeys.publicKey, importedKeys.privateKey);
-    const fingerprint = await crypto.getKeyFingerprint(importedKeys.publicKey);
-    console.log(`[KeyManager] Keys initialized. Fingerprint: ${fingerprint}, Valid: ${works}`);
+    const finalFingerprint = await crypto.getKeyFingerprint(importedKeys.publicKey);
+    console.log(`[KeyManager] Keys initialized. Fingerprint: ${finalFingerprint}, Valid: ${works}`);
 
     if (!works) {
-      console.error('KEY SELF-TEST FAILED! The generated/loaded keys are unusable. Clearing storage.');
+      console.error('KEY SELF-TEST FAILED! Clearing storage.');
       await db.delete(STORE_NAME, `keys_${userId}`);
-      // Try one more time
-      const freshKeys = await generateAndStore();
-      const worksAgain = await this.testKeys(freshKeys.publicKey, freshKeys.privateKey);
-      if (!worksAgain) {
-        console.error('CRITICAL: Even fresh keys failed self-test. E2EE is broken in this environment.');
-      }
-      return freshKeys;
+      return await generateAndStore();
     }
 
     return importedKeys;

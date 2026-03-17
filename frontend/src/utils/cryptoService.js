@@ -196,7 +196,8 @@ export function arrayBufferToBase64(buffer) {
 }
 
 export function base64ToArrayBuffer(base64) {
-  const binaryString = atob(base64);
+  if (typeof base64 !== 'string' || !base64) return new ArrayBuffer(0);
+  const binaryString = atob(base64.trim());
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
