@@ -13,7 +13,7 @@ import { subscribeToPush } from '../utils/pushManager';
 
 // face-api is loaded dynamically only when camera+face recognition is used (see useFaceapi hook)
 import { useEncryption } from '../hooks/useEncryption';
-import * as keyManager from '../utils/keyManager';
+import { keyManager } from '../utils/keyManager';
 import { encryptFile, decryptFile } from '../utils/mediaCrypto';
 
 const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDrawingInitialImage }) => {
@@ -26,7 +26,22 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
             const performDecryption = async () => {
                 setDecrypting(true);
                 try {
-                    const blob = await decryptFile(msg.file_url, msg.encrypted_key, msg.iv);
+                    // Fetch the encrypted file as a blob
+                    const response = await fetch(msg.file_url);
+                    const encryptedBlob = await response.blob();
+                    
+                    // Get private key from keyManager
+                    const myKeys = await keyManager.getMyKeys(user.id);
+                    if (!myKeys || !myKeys.privateKey) {
+                        console.error("No private key found for decryption");
+                        return;
+                    }
+
+                    // Use sender_encrypted_key if we are the sender
+                    const isMine = msg.sender_id === user.id;
+                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
+
+                    const blob = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey);
                     const url = URL.createObjectURL(blob);
                     setDecryptedUrl(url);
                 } catch (err) {
@@ -37,7 +52,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
             };
             performDecryption();
         }
-    }, [msg, decryptedUrl, decrypting]);
+    }, [msg, decryptedUrl, decrypting, user.id]);
 
     const fileUrl = msg.is_media_encrypted ? (decryptedUrl || null) : msg.file_url;
 
@@ -1354,17 +1369,36 @@ const Home = () => {
         if (!attachPreview || !activeChat) return;
         setUploading(true);
         try {
+            console.log('--- Media Send Debug ---');
+            console.log('Active Chat:', activeChat.id);
+            console.log('keyManager present:', !!keyManager);
+            if (keyManager) console.log('fetchFriendPublicKey type:', typeof keyManager.fetchFriendPublicKey);
+            console.log('encryptFile type:', typeof encryptFile);
+            console.log('api present:', !!api);
+            if (api) console.log('uploadFile type:', typeof api.uploadFile);
+            console.log('socket current:', !!socket.current);
+
             let fileToUpload = attachPreview.file;
             let encryptionFields = {};
 
             // Encrypt if not Ash (bot)
             if (activeChat.id !== ashPersona.id) {
-                const recipientPubKey = await keyManager.fetchFriendPublicKey(activeChat.id);
-                if (recipientPubKey) {
-                    const encrypted = await encryptFile(attachPreview.file, recipientPubKey);
+                console.log('Fetching keys for encryption...');
+                const [recipientPubKey, myKeys] = await Promise.all([
+                    keyManager.fetchFriendPublicKey(activeChat.id),
+                    keyManager.getMyKeys(user.id)
+                ]);
+
+                console.log('Keys check:', { hasRecipient: !!recipientPubKey, hasMe: !!myKeys });
+                
+                if (recipientPubKey && myKeys) {
+                    console.log('Encrypting file...');
+                    const encrypted = await encryptFile(attachPreview.file, recipientPubKey, myKeys.publicKey);
+                    console.log('File encrypted success');
                     fileToUpload = new File([encrypted.encryptedBlob], attachPreview.file.name, { type: attachPreview.file.type });
                     encryptionFields = {
                         encryptedKey: encrypted.encryptedKey,
+                        senderEncryptedKey: encrypted.senderEncryptedKey,
                         iv: encrypted.iv,
                         isMediaEncrypted: true
                     };
