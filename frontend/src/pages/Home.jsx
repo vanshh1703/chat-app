@@ -114,14 +114,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
         );
     }
     if (msg.message_type === 'audio') {
-        return (
-            <div className="relative flex items-center gap-2">
-                <audio controls className="max-w-[240px] h-10" src={fileUrl}>
-                    Your browser does not support audio.
-                </audio>
-                {isEncrypted && <Lock size={12} className="text-emerald-500" />}
-            </div>
-        );
+        return <ModernAudioPlayer src={fileUrl} isMine={isMine} />;
     }
     return (
         <a href={fileUrl} download={msg.content} target="_blank" rel="noreferrer"
@@ -132,11 +125,109 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
             <div className="min-w-0">
                 <p className={`text-xs font-semibold truncate max-w-[160px] ${isMine ? 'text-white' : 'text-gray-800'}`}>{msg.content}</p>
                 <p className={`text-[10px] ${isMine ? 'text-white/70' : 'text-gray-400'}`}>
-                    {msg.is_media_encrypted ? 'Encrypted File' : 'Tap to download'}
+                    {isEncrypted ? 'Encrypted File' : 'Tap to download'}
                 </p>
             </div>
             {isEncrypted ? <Lock size={14} className="text-emerald-500" /> : <Download size={14} className={isMine ? 'text-white/80' : 'text-blue-400'} />}
         </a>
+    );
+};
+
+// --- Modern Premium Audio Player ---
+const ModernAudioPlayer = ({ src, isMine }) => {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [duration, setDuration] = useState(0);
+    const [currentTime, setCurrentTime] = useState(0);
+    const audioRef = useRef(null);
+
+    const togglePlay = () => {
+        if (isPlaying) {
+            audioRef.current.pause();
+        } else {
+            audioRef.current.play();
+        }
+        setIsPlaying(!isPlaying);
+    };
+
+    const onLoadedMetadata = () => {
+        setDuration(audioRef.current.duration);
+    };
+
+    const onTimeUpdate = () => {
+        setCurrentTime(audioRef.current.currentTime);
+    };
+
+    const formatTime = (time) => {
+        if (isNaN(time)) return "0:00";
+        const mins = Math.floor(time / 60);
+        const secs = Math.floor(time % 60);
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    const progress = (currentTime / duration) * 100 || 0;
+
+    return (
+        <div className={`flex items-center gap-3 p-3 rounded-[24px] min-w-[220px] max-w-full shadow-sm border ${isMine ? 'bg-white/20 border-white/10' : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700'}`}>
+            <audio ref={audioRef} src={src} onLoadedMetadata={onLoadedMetadata} onTimeUpdate={onTimeUpdate} onEnded={() => setIsPlaying(false)} className="hidden" />
+            
+            <button 
+                onClick={togglePlay} 
+                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95 ${isMine ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}`}
+            >
+                {isPlaying ? <Square size={16} fill="currentColor" /> : <Send size={16} fill="currentColor" className="ml-0.5 rotate-90" />}
+            </button>
+
+            <div className="flex-1 flex flex-col gap-1.5">
+                {/* Waveform Visualization Mockup */}
+                <div className="flex items-end gap-[2px] h-6 px-1">
+                    {[...Array(20)].map((_, i) => {
+                        const h = Math.random() * 80 + 20;
+                        const isActive = (i / 20) * 100 <= progress;
+                        return (
+                            <div 
+                                key={i} 
+                                className={`w-[3px] rounded-full transition-all duration-300 ${isActive ? (isMine ? 'bg-white' : 'bg-blue-500') : (isMine ? 'bg-white/30' : 'bg-gray-200 dark:bg-slate-700')}`}
+                                style={{ height: `${h}%` }}
+                            />
+                        );
+                    })}
+                </div>
+                
+                <div className="flex justify-between items-center">
+                    <div className="h-1 flex-1 bg-current opacity-10 rounded-full mr-3 overflow-hidden relative">
+                         <div className={`absolute top-0 left-0 h-full rounded-full ${isMine ? 'bg-white' : 'bg-blue-500'}`} style={{ width: `${progress}%` }}></div>
+                    </div>
+                    <span className={`text-[10px] font-bold ${isMine ? 'text-white/90' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Profile Avatar with Error Handling ---
+const SafeAvatar = ({ src, alt, size = "w-10 h-10", className = "" }) => {
+    const [error, setError] = useState(false);
+    const [loading, setLoading] = useState(true);
+    
+    useEffect(() => {
+        setError(false);
+        setLoading(true);
+    }, [src]);
+
+    const fallbackUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${alt || 'user'}`;
+
+    return (
+        <div className={`${size} rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800 flex items-center justify-center border-2 border-white shadow-sm shrink-0 ${className}`}>
+            <img 
+                src={error || !src ? fallbackUrl : src} 
+                alt={alt} 
+                className={`w-full h-full object-cover transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
+                onError={() => setError(true)}
+                onLoad={() => setLoading(false)}
+            />
+        </div>
     );
 };
 
@@ -817,8 +908,39 @@ const Home = () => {
     const fetchSidebar = async () => {
         try {
             const { data } = await api.getSidebar();
+            
+            // Standardize property names for Sidebar messages
+            const normalizedData = data.map(u => ({
+                ...u,
+                lastMsgData: {
+                    id: u.lastmsgid,
+                    content: u.lastmsg,
+                    sender_id: u.lastmsgsenderid,
+                    encrypted_key: u.lastmsgenckey,
+                    sender_encrypted_key: u.lastmsgsenderenckey,
+                    iv: u.lastmsgiv,
+                    encrypted_content: u.lastmsgenccontent,
+                    message_type: u.lastmsgtype
+                }
+            }));
+
+            // Handle background decryption for sidebar messages
+            if (encryptionReady) {
+                normalizedData.forEach(async (chat) => {
+                    const msg = chat.lastMsgData;
+                    if (msg.encrypted_key && !decryptedMessages[msg.id]) {
+                        try {
+                            const text = await decrypt(msg);
+                            setDecryptedMessages(prev => ({ ...prev, [msg.id]: text }));
+                        } catch (e) {
+                            console.error(`Sidebar decryption failed for user ${chat.id}`, e);
+                        }
+                    }
+                });
+            }
+
             // Ensure ASH is always in the sidebar
-            let updatedSidebarUsers = [...data];
+            let updatedSidebarUsers = [...normalizedData];
             const hasAsh = updatedSidebarUsers.some(u => u.id === ashPersona.id);
 
             if (!hasAsh) {
@@ -1786,10 +1908,8 @@ const Home = () => {
                 <div className="space-y-1">
                     {sidebarUsers.map(chat => (<div key={chat.id} onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)} onMouseLeave={() => setHoveredMsgId(null)} onClick={() => handleSelectChat(chat)} className={`group flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all duration-200 ${activeChat?.id === chat.id ? 'bg-white shadow-[0_10px_25px_rgba(0,0,0,0.05)]' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80' : 'hover:bg-white/50'}`}>
                         <div className="relative">
-                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm">
-                                <img src={chat.avatar_url} alt={chat.username} width="48" height="48" />
-                            </div>
-                            {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
+                            <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-12 h-12" />
+                    {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full z-10"></div>}
                             {chat.is_pinned && (<div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-900 rounded-full shadow-md text-blue-500 border border-blue-100">
                                 <Pin size={8} fill="currentColor" />
                             </div>)}
@@ -1801,7 +1921,17 @@ const Home = () => {
                                 </h4>
                                 <span className="text-[10px] text-gray-400">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                             </div>
-                            <p className="text-xs truncate text-gray-500">{typingUsers[chat.id] ? <span className="text-blue-500 italic">typing...</span> : (decryptedMessages[chat.lastMsgData?.id] || chat.lastmsg || 'No messages yet')}</p>
+                            <p className="text-xs truncate text-gray-500">
+                                {typingUsers[chat.id] ? (
+                                    <span className="text-blue-500 italic">typing...</span>
+                                ) : (
+                                    decryptedMessages[chat.lastMsgData?.id] || (
+                                        chat.lastmsgtype === 'text' || !chat.lastmsgtype 
+                                            ? (chat.lastmsg || 'No messages yet') 
+                                            : `[${chat.lastmsgtype.charAt(0).toUpperCase() + chat.lastmsgtype.slice(1)}]`
+                                    )
+                                )}
+                            </p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                             {Number(chat.unreadcount) > 0 && <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">{chat.unreadcount}</div>}
@@ -1830,9 +1960,7 @@ const Home = () => {
                     <div className="p-3 md:p-4 flex items-center justify-between bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-700/30 z-10 sticky top-0">
                         <div className="flex items-center gap-2 md:gap-4 flex-1">
                             <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-gray-500"><ArrowLeft size={20} /></button>
-                            <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform" onClick={() => handleViewProfile(activeChat)}>
-                                <img src={activeChat.avatar_url} alt="Active" width="40" height="40" />
-                            </div>
+                            <SafeAvatar src={activeChat.avatar_url} alt="Active" size="w-9 h-9 md:w-10 md:h-10" className="cursor-pointer hover:scale-105 transition-transform" />
                             {!showChatSearch ? (<div>
                                 {isEditingAlias ? (<form onSubmit={handleSetAlias} className="flex items-center gap-2">
                                     <input

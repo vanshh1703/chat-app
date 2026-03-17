@@ -118,6 +118,10 @@ const Profile = () => {
                                     src={avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`}
                                     alt="Profile"
                                     className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+                                    }}
                                 />
                             </div>
                             <button
