@@ -19,16 +19,23 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 
 
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'https://chat-app-six-jet.vercel.app',
+    'http://localhost:5173'
+].filter(Boolean);
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: [process.env.FRONTEND_URL, 'http://localhost:5173'],
+        origin: allowedOrigins,
         methods: ['GET', 'POST'],
+        credentials: true
     },
 });
 
-app.use(cors());
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // Serve uploaded files statically
