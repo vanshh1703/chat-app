@@ -431,12 +431,21 @@ const Home = () => {
     const [activeCall, setActiveCall] = useState(null);
     const [localStream, setLocalStream] = useState(null);
     const [remoteStream, setRemoteStream] = useState(null);
+    const [facingMode, setFacingMode] = useState('user');
+
+    // Refs for signaling stability
+    const activeChatRef = useRef(activeChat);
+    const incomingCallRef = useRef(incomingCall);
+    const localStreamRef = useRef(localStream);
+
+    useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+    useEffect(() => { incomingCallRef.current = incomingCall; }, [incomingCall]);
+    useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
     const peerConnection = useRef(null);
     const pendingCandidates = useRef([]);
     const currentCallIdRef = useRef(null);
     const [isSharingScreen, setIsSharingScreen] = useState(false);
     const screenStreamRef = useRef(null);
-    const [facingMode, setFacingMode] = useState('user'); // For mobile camera flipping
 
     // E2EE Encryption Hook
     const { encrypt, decrypt, isReady: encryptionReady } = useEncryption(user?.id);
@@ -672,66 +681,43 @@ const Home = () => {
         if (!socket.current) return;
         const s = socket.current;
 
-        s.on('incoming-call', (data) => {
+        const handleIncomingCall = (data) => {
             console.log("Incoming call received:", data);
             currentCallIdRef.current = data.callId;
             setIncomingCall({ ...data, isCaller: false });
             // Play ringtone
             const ringtone = new Audio('https://assets.mixkit.co/active_storage/sfx/1350/1350-preview.mp3');
             ringtone.play().catch(e => console.error("Ringtone failed", e));
-        });
+        };
 
-        s.on('call-initiated', (data) => {
+        const handleCallInitiated = (data) => {
             console.log("Call record created on server, ID:", data.callId);
             currentCallIdRef.current = data.callId;
-        });
+        };
 
-        s.on('accept-call', async () => {
+        const handleAcceptCallSignaling = async (data) => {
             console.log("Call accepted by remote user");
-            // Stop ringback tone
             if (window.ringbackTone) {
                 window.ringbackTone.pause();
                 window.ringbackTone = null;
             }
             try {
-                const stream = await webrtc.getMediaStream(incomingCall?.type || 'video');
+                // Use refs to get latest state
+                const callType = incomingCallRef.current?.type || 'video';
+                const stream = await webrtc.getMediaStream(callType);
                 setLocalStream(stream);
 
-                peerConnection.current = webrtc.createPeerConnection((candidate) => signaling.emitIceCandidate(s, { to: activeChat.id, candidate }),
-                    (rStream) => setRemoteStream(rStream));
+                const partnerId = activeChatRef.current?.id || incomingCallRef.current?.from || data?.from;
+
+                peerConnection.current = webrtc.createPeerConnection(
+                    (candidate) => signaling.emitIceCandidate(s, { to: partnerId, candidate }),
+                    (rStream) => setRemoteStream(rStream)
+                );
 
                 stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
 
                 const offer = await webrtc.createOffer(peerConnection.current);
-                signaling.emitOffer(s, { to: activeChat.id, offer });
-                setActiveCall(true);
-
-                // Drain candidates if any arrived early
-                for (const cand of pendingCandidates.current) {
-                    await webrtc.addIceCandidate(peerConnection.current, cand);
-                }
-                pendingCandidates.current = [];
-            } catch (err) {
-                console.error("Error setting up call after acceptance", err);
-                alert("Could not access camera/microphone.");
-                handleEndCall();
-            }
-        });
-
-        s.on('reject-call', () => {
-            alert("Call rejected");
-            if (window.ringbackTone) {
-                window.ringbackTone.pause();
-                window.ringbackTone = null;
-            }
-            handleEndCall();
-        });
-
-        s.on('send-offer', async (data) => {
-            console.log("Received WebRTC offer");
-            try {
-                const answer = await webrtc.createAnswer(peerConnection.current, data.offer);
-                signaling.emitAnswer(s, { to: data.from, answer });
+                signaling.emitOffer(s, { to: partnerId, offer });
                 setActiveCall(true);
 
                 // Drain candidates
@@ -740,46 +726,78 @@ const Home = () => {
                 }
                 pendingCandidates.current = [];
             } catch (err) {
+                console.error("Error setting up call after acceptance", err);
+                handleEndCall();
+            }
+        };
+
+        const handleRejectCallSignaling = () => {
+            alert("Call rejected");
+            if (window.ringbackTone) {
+                window.ringbackTone.pause();
+                window.ringbackTone = null;
+            }
+            handleEndCall();
+        };
+
+        const handleOffer = async (data) => {
+            console.log("Received WebRTC offer");
+            try {
+                const answer = await webrtc.createAnswer(peerConnection.current, data.offer);
+                signaling.emitAnswer(s, { to: data.from, answer });
+                setActiveCall(true);
+
+                for (const cand of pendingCandidates.current) {
+                    await webrtc.addIceCandidate(peerConnection.current, cand);
+                }
+                pendingCandidates.current = [];
+            } catch (err) {
                 console.error("Error handling offer", err);
             }
-        });
+        };
 
-        s.on('send-answer', async (data) => {
+        const handleAnswer = async (data) => {
             console.log("Received WebRTC answer");
             await webrtc.handleAnswer(peerConnection.current, data.answer);
-
-            // Drain candidates
             for (const cand of pendingCandidates.current) {
                 await webrtc.addIceCandidate(peerConnection.current, cand);
             }
             pendingCandidates.current = [];
-        });
+        };
 
-        s.on('ice-candidate', async (data) => {
-            console.log("Received ICE candidate");
+        const handleIceCandidate = async (data) => {
             if (peerConnection.current && peerConnection.current.remoteDescription) {
                 await webrtc.addIceCandidate(peerConnection.current, data.candidate);
             } else {
                 pendingCandidates.current.push(data.candidate);
             }
-        });
+        };
 
-        s.on('end-call', () => {
+        const handleRemoteEndCall = () => {
             console.log("Call ended by remote user");
             handleEndCall();
-        });
+        };
+
+        s.on('incoming-call', handleIncomingCall);
+        s.on('call-initiated', handleCallInitiated);
+        s.on('accept-call', handleAcceptCallSignaling);
+        s.on('reject-call', handleRejectCallSignaling);
+        s.on('send-offer', handleOffer);
+        s.on('send-answer', handleAnswer);
+        s.on('ice-candidate', handleIceCandidate);
+        s.on('end-call', handleRemoteEndCall);
 
         return () => {
-            s.off('incoming-call');
-            s.off('call-initiated');
-            s.off('accept-call');
-            s.off('reject-call');
-            s.off('send-offer');
-            s.off('send-answer');
-            s.off('ice-candidate');
-            s.off('end-call');
+            s.off('incoming-call', handleIncomingCall);
+            s.off('call-initiated', handleCallInitiated);
+            s.off('accept-call', handleAcceptCallSignaling);
+            s.off('reject-call', handleRejectCallSignaling);
+            s.off('send-offer', handleOffer);
+            s.off('send-answer', handleAnswer);
+            s.off('ice-candidate', handleIceCandidate);
+            s.off('end-call', handleRemoteEndCall);
         };
-    }, [activeChat, incomingCall]);
+    }, []); // Stable effect
 
     const handleStartCall = async (type = 'video') => {
         if (!activeChat) return;
@@ -849,9 +867,11 @@ const Home = () => {
     };
 
     const handleEndCall = () => {
-        if (activeChat || incomingCall) {
-            const targetId = activeChat?.id || incomingCall?.from || incomingCall?.to;
-            if (targetId) signaling.emitEndCall(socket.current, { to: targetId, callId: currentCallIdRef.current });
+        // Robust target detection
+        const targetId = activeChatRef.current?.id || incomingCallRef.current?.from || incomingCallRef.current?.to;
+        
+        if (targetId && socket.current) {
+            signaling.emitEndCall(socket.current, { to: targetId, callId: currentCallIdRef.current });
         }
 
         // Stop ringback tone if active

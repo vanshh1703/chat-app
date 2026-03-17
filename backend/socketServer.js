@@ -104,8 +104,9 @@ module.exports = (io, socket) => {
 
                     const callRes = await pool.query('SELECT * FROM call_logs WHERE id = $1', [cid]);
                     const call = callRes.rows[0];
-                    await logCallToChat(cid, call.caller_id, call.receiver_id, call.call_type, 'rejected');
+                    if (call) await logCallToChat(cid, call.caller_id, call.receiver_id, call.call_type, 'rejected');
                 }
+                socket.currentCallId = null;
             }
 
             safeEmit(to, 'reject-call', { from: socket.userId });
@@ -157,27 +158,49 @@ module.exports = (io, socket) => {
 
             if (cid) {
                 const now = new Date();
-                const callRes = await pool.query('SELECT created_at, status, caller_id, receiver_id, call_type FROM call_logs WHERE id = $1', [cid]);
+                const callRes = await pool.query('SELECT id, created_at, status, caller_id, receiver_id, call_type FROM call_logs WHERE id = $1', [cid]);
                 const call = callRes.rows[0];
 
-                if (!call) return;
-
-                if (call.status === 'ongoing') {
-                    const duration = Math.floor((now - new Date(call.created_at)) / 1000);
-                    await pool.query(
-                        'UPDATE call_logs SET status = $1, duration = $2, ended_at = CURRENT_TIMESTAMP WHERE id = $3',
-                        ['ended', duration, cid]
-                    );
-                    await logCallToChat(cid, call.caller_id, call.receiver_id, call.call_type, 'ended', duration);
-                } else if (call.status === 'missed') {
-                    // Only log as missed if it hasn't been logged yet
-                    await logCallToChat(cid, call.caller_id, call.receiver_id, call.call_type, 'missed');
+                if (call) {
+                    if (call.status === 'ongoing') {
+                        const duration = Math.floor((now - new Date(call.created_at)) / 1000);
+                        await pool.query(
+                            'UPDATE call_logs SET status = $1, duration = $2, ended_at = CURRENT_TIMESTAMP WHERE id = $3',
+                            ['ended', duration, cid]
+                        );
+                        await logCallToChat(cid, call.caller_id, call.receiver_id, call.call_type, 'ended', duration);
+                    } else if (call.status === 'missed') {
+                        await logCallToChat(cid, call.caller_id, call.receiver_id, call.call_type, 'missed');
+                    }
                 }
+                socket.currentCallId = null;
             }
 
             safeEmit(to, 'end-call', { from: socket.userId });
         } catch (err) {
             console.error("Error in end-call:", err);
+        }
+    });
+
+    // Handle abrupt disconnect
+    socket.on('disconnect', async () => {
+        if (socket.currentCallId) {
+            const cid = socket.currentCallId;
+            try {
+                const callRes = await pool.query('SELECT status, caller_id, receiver_id, created_at FROM call_logs WHERE id = $1', [cid]);
+                const call = callRes.rows[0];
+                if (call && call.status === 'ongoing') {
+                    const targetId = socket.userId == call.caller_id ? call.receiver_id : call.caller_id;
+                    safeEmit(targetId, 'end-call', { from: socket.userId });
+                    
+                    const now = new Date();
+                    const duration = Math.floor((now - new Date(call.created_at || now)) / 1000);
+                    await pool.query('UPDATE call_logs SET status = $1, duration = $2, ended_at = CURRENT_TIMESTAMP WHERE id = $3', ['ended', duration, cid]);
+                }
+                socket.currentCallId = null;
+            } catch (err) {
+                console.error("Error cleaning up call on disconnect:", err);
+            }
         }
     });
 };
