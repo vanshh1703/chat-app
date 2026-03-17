@@ -63,28 +63,53 @@ export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, m
   const encryptedKey = base64ToArrayBuffer(encryptedKeyBase64);
   const iv = base64ToArrayBuffer(ivBase64);
 
+  console.log("[decryptFile] Starting...", {
+    dataSize: encryptedData.byteLength,
+    keySize: encryptedKey.byteLength,
+    ivSize: iv.byteLength
+  });
+
   // 1. Decrypt AES key
-  const decryptedAesKeyBuffer = await window.crypto.subtle.decrypt(
-    { name: "RSA-OAEP" },
-    myPrivateKey,
-    encryptedKey
-  );
+  let decryptedAesKeyBuffer;
+  try {
+    decryptedAesKeyBuffer = await window.crypto.subtle.decrypt(
+      { name: "RSA-OAEP" },
+      myPrivateKey,
+      encryptedKey
+    );
+    console.log("[decryptFile] RSA Decrypt successful");
+  } catch (e) {
+    console.error("[decryptFile] RSA Decrypt FAILED", e);
+    throw e;
+  }
 
   // 2. Import AES key
-  const aesKey = await window.crypto.subtle.importKey(
-    "raw",
-    decryptedAesKeyBuffer,
-    AES_ALGO,
-    false,
-    ["decrypt"]
-  );
+  let aesKey;
+  try {
+    aesKey = await window.crypto.subtle.importKey(
+      "raw",
+      decryptedAesKeyBuffer,
+      AES_ALGO,
+      false,
+      ["decrypt"]
+    );
+    console.log("[decryptFile] AES Key Import successful");
+  } catch (e) {
+    console.error("[decryptFile] AES Key Import FAILED", e);
+    throw e;
+  }
 
   // 3. Decrypt data
-  const decryptedData = await window.crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    aesKey,
-    encryptedData
-  );
-
-  return new Blob([decryptedData]);
+  try {
+    const decryptedData = await window.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      aesKey,
+      encryptedData
+    );
+    console.log("[decryptFile] AES Data Decrypt successful");
+    return new Blob([decryptedData]);
+  } catch (e) {
+    console.error("[decryptFile] AES Data Decrypt FAILED", e);
+    throw e;
+  }
 }

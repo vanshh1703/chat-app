@@ -87,29 +87,45 @@ export async function decryptMessage(payload, myPrivateKey) {
   const encryptedContentBuffer = base64ToArrayBuffer(encryptedContent);
 
   // 1. Decrypt the AES key using RSA private key
-  const decryptedAesKeyBuffer = await window.crypto.subtle.decrypt(
-    { name: "RSA-OAEP" },
-    myPrivateKey,
-    encryptedKeyBuffer
-  );
+  let decryptedAesKeyBuffer;
+  try {
+    decryptedAesKeyBuffer = await window.crypto.subtle.decrypt(
+      { name: "RSA-OAEP" },
+      myPrivateKey,
+      encryptedKeyBuffer
+    );
+  } catch (e) {
+    console.error("[decryptMessage] RSA Decrypt FAILED", e);
+    throw e;
+  }
 
   // 2. Import the decrypted AES key
-  const aesKey = await window.crypto.subtle.importKey(
-    "raw",
-    decryptedAesKeyBuffer,
-    AES_ALGO,
-    false,
-    ["decrypt"]
-  );
+  let aesKey;
+  try {
+    aesKey = await window.crypto.subtle.importKey(
+      "raw",
+      decryptedAesKeyBuffer,
+      AES_ALGO,
+      false,
+      ["decrypt"]
+    );
+  } catch (e) {
+    console.error("[decryptMessage] AES Key Import FAILED", e);
+    throw e;
+  }
 
   // 3. Decrypt the content using AES-GCM
-  const decryptedContentBuffer = await window.crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: ivBuffer },
-    aesKey,
-    encryptedContentBuffer
-  );
-
-  return new TextDecoder().decode(decryptedContentBuffer);
+  try {
+    const decryptedContentBuffer = await window.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: ivBuffer },
+      aesKey,
+      encryptedContentBuffer
+    );
+    return new TextDecoder().decode(decryptedContentBuffer);
+  } catch (e) {
+    console.error("[decryptMessage] AES Data Decrypt FAILED", e);
+    throw e;
+  }
 }
 
 /**
