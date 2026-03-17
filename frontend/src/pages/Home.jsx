@@ -1373,7 +1373,9 @@ const Home = () => {
 
             const formData = new FormData();
             formData.append('file', fileToUpload);
+            console.log('Starting file upload to backend...');
             const { data } = await api.uploadFile(formData);
+            console.log('Upload response from backend:', data);
             
             socket.current.emit('send_message', {
                 senderId: user.id,
@@ -1385,11 +1387,18 @@ const Home = () => {
                 senderName: user.username,
                 ...encryptionFields
             });
+            console.log('Message sent via socket with fileUrl:', data.fileUrl);
             setAttachPreview(null);
             setReplyingTo(null);
             if (!sidebarUsers.find(u => u.id === activeChat.id)) fetchSidebar();
         } catch (err) {
-            console.error('File upload error', err);
+            console.error('Frontend handleSendFile error:', err);
+            if (err.response) {
+                console.error('Error response data:', err.response.data);
+                alert(`Upload failed: ${err.response.data.detail || err.response.data.error || 'Server error'}`);
+            } else {
+                alert('Upload failed: Could not connect to server.');
+            }
         } finally {
             setUploading(false);
         }

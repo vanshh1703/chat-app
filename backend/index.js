@@ -83,13 +83,23 @@ const authenticateToken = (req, res, next) => {
 
 // File Upload endpoint using Supabase Storage
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
+    console.log('--- Upload Request Received ---');
+    console.log('File info:', req.file ? { name: req.file.originalname, size: req.file.size, type: req.file.mimetype } : 'No file');
+    
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+        console.error('Supabase config missing in .env');
+        return res.status(500).json({ error: 'Storage configuration error' });
+    }
 
     try {
         const file = req.file;
         const fileExt = path.extname(file.originalname);
         const fileName = `${uuidv4()}${fileExt}`;
         const filePath = `uploads/${fileName}`;
+
+        console.log('Uploading to Supabase path:', filePath);
 
         const { data, error } = await supabase.storage
             .from(BUCKET_NAME)
@@ -99,13 +109,15 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
             });
 
         if (error) {
-            console.error('Supabase upload error:', error);
-            return res.status(500).json({ error: 'Upload to storage failed' });
+            console.error('Supabase upload error detail:', JSON.stringify(error, null, 2));
+            return res.status(500).json({ error: 'Upload to storage failed', detail: error.message });
         }
 
         const { data: { publicUrl } } = supabase.storage
             .from(BUCKET_NAME)
             .getPublicUrl(filePath);
+
+        console.log('Upload success! Public URL:', publicUrl);
 
         const mimeType = file.mimetype;
         let messageType = 'file';
