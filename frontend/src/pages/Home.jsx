@@ -515,46 +515,53 @@ const Home = () => {
                 const text = await decrypt(newMessage);
                 setDecryptedMessages(prev => ({ ...prev, [newMessage.id]: text }));
             }
-
             if (newMessage.sender_id !== user.id) {
-                // Determine if we should show a notification
-                const isDifferentChat = !activeChat || activeChat.id !== newMessage.sender_id;
+                // Determine if we should show a foreground notification/sound
+                // Use String comparison for safety
+                const isDifferentChat = !activeChatRef.current || String(activeChatRef.current.id) !== String(newMessage.sender_id);
+                const isAppVisible = !document.hidden;
 
-                // Get sender's mute status from sidebarUsers or activeChat
-                const senderInSidebar = sidebarUsers.find(u => u.id === newMessage.sender_id);
-                const isMuted = senderInSidebar ? senderInSidebar.is_muted : (activeChat && activeChat.id === newMessage.sender_id ? activeChat.is_muted : false);
+                // Get sender's mute status
+                const senderInSidebar = sidebarUsers.find(u => String(u.id) === String(newMessage.sender_id));
+                const isMuted = senderInSidebar ? senderInSidebar.is_muted : (activeChatRef.current && String(activeChatRef.current.id) === String(newMessage.sender_id) ? activeChatRef.current.is_muted : false);
 
-                if ((isDifferentChat || document.hidden) && !isMuted) {
+                if (isAppVisible && !isMuted) {
                     const notifSettings = JSON.parse(localStorage.getItem('notifSettings') || '{"individual": true, "all": true, "sound": true}');
                     const shouldNotify = notifSettings.all && (isDifferentChat ? notifSettings.individual : true);
 
                     if (shouldNotify) {
+                        // Always play sound if enabled and app is visible, even if in active chat (as long as it's not muted)
                         if (notifSettings.sound) {
                             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
                             audio.play().catch(e => console.error("Sound play failed", e));
                         }
 
-                        const stealthSettings = JSON.parse(localStorage.getItem('stealthNotifSettings') || '{"enabled": false}');
-                        if (stealthSettings.enabled) {
-                            setStealthNotif({ message: newMessage, settings: stealthSettings });
-                        } else if ('Notification' in window && Notification.permission === 'granted') {
-                            const title = `New message from ${newMessage.senderName || 'a user'}`;
-                            const options = {
-                                body: newMessage.message_type === 'text' ? newMessage.content : `Sent an ${newMessage.message_type}`,
-                                icon: '/pwa-192x192.png',
-                                badge: '/pwa-192x192.png',
-                                vibrate: [100, 50, 100],
-                                data: {
-                                    url: window.location.origin + '/home'
-                                }
-                            };
+                        // Only show visual notification if we're in a DIFFERENT chat or list view
+                        if (isDifferentChat) {
+                            const stealthSettings = JSON.parse(localStorage.getItem('stealthNotifSettings') || '{"enabled": false}');
+                            if (stealthSettings.enabled) {
+                                setStealthNotif({ message: newMessage, settings: stealthSettings });
+                            } else if ('Notification' in window && Notification.permission === 'granted') {
+                                const title = `New message from ${newMessage.senderName || 'a user'}`;
+                                const options = {
+                                    body: newMessage.message_type === 'text' ? newMessage.content : `Sent an ${newMessage.message_type}`,
+                                    icon: '/pwa-192x192.png',
+                                    badge: '/pwa-192x192.png',
+                                    vibrate: [100, 50, 100],
+                                    tag: 'message-notification',
+                                    renotify: true,
+                                    data: {
+                                        url: window.location.origin + '/home'
+                                    }
+                                };
 
-                            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                                navigator.serviceWorker.ready.then(registration => {
-                                    registration.showNotification(title, options);
-                                });
-                            } else {
-                                new Notification(title, options);
+                                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                                    navigator.serviceWorker.ready.then(registration => {
+                                        registration.showNotification(title, options);
+                                    });
+                                } else {
+                                    new Notification(title, options);
+                                }
                             }
                         }
                     }

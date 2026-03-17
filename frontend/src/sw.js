@@ -16,14 +16,14 @@ self.addEventListener('push', (event) => {
     }
 
     const options = {
-        body: data.body,
+        body: data.body || 'You have a new message.',
         icon: data.icon || '/pwa-192x192.png',
         badge: data.badge || '/pwa-192x192.png',
         vibrate: [100, 50, 100],
-        data: data.data || {},
-        tag: 'message-notification', // Replace previous notifications
-        renotify: true
+        data: data.data || {}
     };
+
+    const title = data.title || 'New Message';
 
     const promiseChain = self.clients.matchAll({
         type: 'window',
@@ -39,7 +39,7 @@ self.addEventListener('push', (event) => {
 
         // Only show system notification if the app is NOT visible/focused
         if (!anyVisible) {
-            return self.registration.showNotification(data.title, options);
+            return self.registration.showNotification(title, options);
         }
     });
 

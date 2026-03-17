@@ -706,7 +706,7 @@ io.on('connection', (socket) => {
 
             const pushPayload = JSON.stringify({
                 title: `New message from ${payload.senderName || 'User'}`,
-                body: payload.message_type === 'text' ? payload.content : `Sent an ${payload.message_type}`,
+                body: payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`,
                 icon: '/pwa-192x192.png',
                 badge: '/pwa-192x192.png',
                 data: {
