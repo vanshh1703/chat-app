@@ -52,17 +52,21 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
 
                     const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey);
                     const fingerprint = await keyManager.getFingerprint(user.id);
-                    console.log(`Decryption successful for message ${msg.id}. Local Fingerprint: ${fingerprint}`);
+                    console.log(`[decryptFile] Decryption successful for message ${msg.id}. Local Fingerprint: ${fingerprint}`);
                     const url = URL.createObjectURL(decrypted);
                     setDecryptedUrl(url);
                 } catch (err) {
                     const fingerprint = await keyManager.getFingerprint(user.id);
+                    const isMine = msg.sender_id === user.id;
+                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
+
                     console.error("Media decryption error detail:", {
                         msgId: msg.id,
                         errorName: err.name,
                         errorMessage: err.message,
                         hasIv: !!msg.iv,
                         keySource: isMine ? (msg.sender_encrypted_key ? 'sender' : 'fallback-recipient') : 'recipient',
+                        keyStart: keyToUse ? keyToUse.substring(0, 20) + '...' : 'null',
                         localFingerprint: fingerprint
                     });
                 } finally {
