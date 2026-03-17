@@ -40,3 +40,10 @@ export const changePassword = (data) => API.post('users/change-password', data);
 // E2EE Public Key APIs
 export const uploadPublicKey = (publicKey) => API.post('keys', { publicKey });
 export const getPublicKey = (userId) => API.get(`keys/${userId}`);
+
+// Push Notification APIs
+export const getVapidPublicKey = () => API.get('push/vapid-public-key');
+export const subscribePush = (subscription) => API.post('push/subscribe', { subscription });
+export const unsubscribePush = (subscription) => API.post('push/unsubscribe', { subscription });
+
+export default API;

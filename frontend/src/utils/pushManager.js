@@ -1,4 +1,4 @@
-import axios from '../api/api';
+import { getVapidPublicKey, subscribePush, unsubscribePush } from '../api/api';
 
 const urlBase64ToUint8Array = (base64String) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -20,14 +20,14 @@ export const subscribeToPush = async () => {
         const registration = await navigator.serviceWorker.ready;
         
         // Get public key from backend
-        const { data: { publicKey } } = await axios.get('push/vapid-public-key');
+        const { data: { publicKey } } = await getVapidPublicKey();
         
         const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(publicKey)
         });
 
-        await axios.post('push/subscribe', { subscription });
+        await subscribePush(subscription);
         console.log('Successfully subscribed to push notifications');
         return true;
     } catch (error) {
@@ -43,7 +43,7 @@ export const unsubscribeFromPush = async () => {
         
         if (subscription) {
             await subscription.unsubscribe();
-            await axios.post('push/unsubscribe', { subscription });
+            await unsubscribePush(subscription);
         }
     } catch (error) {
         console.error('Failed to unsubscribe from push notifications:', error);
