@@ -329,13 +329,18 @@ const Home = () => {
         if (!socket.current) return;
 
         // Request browser notification permission
+        console.log('Notification permission status:', Notification.permission);
         if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            console.log('Requesting notification permission...');
             Notification.requestPermission().then(permission => {
+                console.log('Notification permission result:', permission);
                 if (permission === 'granted') {
+                    console.log('Subscribing to push notifications (first time)...');
                     subscribeToPush();
                 }
             });
         } else if ('Notification' in window && Notification.permission === 'granted') {
+            console.log('Already have permission, subscribing to push notifications...');
             subscribeToPush();
         }
 

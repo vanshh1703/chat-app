@@ -20,13 +20,16 @@ export const subscribeToPush = async () => {
         const registration = await navigator.serviceWorker.ready;
         
         // Get public key from backend
+        console.log('Fetching VAPID public key from backend...');
         const { data: { publicKey } } = await getVapidPublicKey();
+        console.log('Received VAPID public key:', publicKey);
         
         const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(publicKey)
         });
 
+        console.log('Registering subscription on backend...');
         await subscribePush(subscription);
         console.log('Successfully subscribed to push notifications');
         return true;
