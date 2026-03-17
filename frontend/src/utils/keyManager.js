@@ -104,7 +104,7 @@ class KeyManager {
 
   async fetchFriendPublicKey(friendId, forceRefresh = false) {
     const db = await this.dbPromise;
-    const CACHE_TTL = 3600000; // 1 hour
+    const CACHE_TTL = 30000; // 30 seconds for aggressive sync during debugging
     
     if (!forceRefresh) {
       // Try local cache first
@@ -153,6 +153,17 @@ class KeyManager {
     if (!keys) return 'missing';
     const pub = await crypto.importPublicKey(keys.publicKey);
     return await crypto.getKeyFingerprint(pub);
+  }
+
+  /**
+   * For emergency use: clears all local keys and forces a fresh generation + upload.
+   */
+  async resetKeys(userId) {
+    console.warn(`[KeyManager] FORCED RESET of keys for user ${userId}`);
+    const db = await this.dbPromise;
+    await db.delete(STORE_NAME, `keys_${userId}`);
+    await db.delete(STORE_NAME, `friend_key_${userId}`); // Clear self-cache
+    return await this.initKeys(userId);
   }
 }
 
