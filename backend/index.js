@@ -16,7 +16,7 @@ const cheerio = require('cheerio');
 const webpush = require('web-push');
 
 // Config Web Push
-webpush.setVAPIDDetails(
+webpush.setVapidDetails(
     'mailto:you@example.com',
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
