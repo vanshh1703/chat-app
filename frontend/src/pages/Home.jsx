@@ -42,7 +42,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
 
                     // For sent messages, we MUST use sender_encrypted_key if it exists
                     // For received messages, we MUST use encrypted_key
-                    const isMine = msg.sender_id === user.id;
+                    const isMine = String(msg.sender_id) === String(user.id);
                     const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
 
                     if (!keyToUse) {
@@ -57,7 +57,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                     setDecryptedUrl(url);
                 } catch (err) {
                     const fingerprint = await keyManager.getFingerprint(user.id);
-                    const isMine = msg.sender_id === user.id;
+                    const isMine = String(msg.sender_id) === String(user.id);
                     const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
 
                     console.error("Media decryption error detail:", {
@@ -1454,10 +1454,11 @@ const Home = () => {
                     if (encrypted.isEncrypted) {
                         console.log('Encryption successful for', activeChat.username);
                         msgData.content = encrypted.content; // "[Encrypted Message]"
-                        msgData.encryptedContent = encrypted.encryptedContent;
-                        msgData.encryptedKey = encrypted.encryptedKey;
-                        msgData.senderEncryptedKey = encrypted.senderEncryptedKey;
+                        msgData.encrypted_content = encrypted.encryptedContent;
+                        msgData.encrypted_key = encrypted.encryptedKey;
+                        msgData.sender_encrypted_key = encrypted.senderEncryptedKey;
                         msgData.iv = encrypted.iv;
+                        msgData.is_media_encrypted = false;
                     } else {
                         console.warn('Encryption skipped or failed for', activeChat.username, '. Sending plaintext.');
                     }
@@ -1561,10 +1562,10 @@ const Home = () => {
                     console.log('File encrypted success');
                     fileToUpload = new File([encrypted.encryptedBlob], attachPreview.file.name, { type: attachPreview.file.type });
                     encryptionFields = {
-                        encryptedKey: encrypted.encryptedKey,
-                        senderEncryptedKey: encrypted.senderEncryptedKey,
+                        encrypted_key: encrypted.encryptedKey,
+                        sender_encrypted_key: encrypted.senderEncryptedKey,
                         iv: encrypted.iv,
-                        isMediaEncrypted: true
+                        is_media_encrypted: true
                     };
                 }
             }
@@ -2083,12 +2084,12 @@ const Home = () => {
                                     </div>
                                 )}
                                 {messages.filter(m => !chatSearchTerm || (m.content && m.content.toLowerCase().includes(chatSearchTerm.toLowerCase()))).map((msg, i) => (
-                                    <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : msg.sender_id === user.id ? 'justify-end' : 'justify-start'}`}>
+                                    <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : String(msg.sender_id) === String(user.id) ? 'justify-end' : 'justify-start'}`}>
                                         {msg.message_type === 'system' ? (
                                             <div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>
                                         ) : (
                                             <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'items-end' : 'items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
-                                                <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : msg.sender_id === ashPersona.id ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : msg.sender_id === user.id ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
+                                                <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
                                                     {msg.is_deleted ? 'This message was deleted' : (
                                                         <>
                                                             {msg.reply_to_msg && (

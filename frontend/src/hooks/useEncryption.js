@@ -71,10 +71,9 @@ export function useEncryption(userId) {
         return "⚠️ Decryption Failed (Missing Ciphertext)";
       }
 
-      // If we are the sender, we need to use the sender_encrypted_key instead of the normal encrypted_key
+      // Priority: snake_case (database) -> camelCase (previous versions)
       let keyToUse = message.encrypted_key || message.encryptedKey;
-      // Socket messages send snake_case (sender_id), local DB might have camelCase but typically it matches server
-      const isSender = (message.sender_id && message.sender_id === userId) || (message.senderId && message.senderId === userId);
+      const isSender = (message.sender_id && String(message.sender_id) === String(userId)) || (message.senderId && String(message.senderId) === String(userId));
       
       if (isSender) {
         keyToUse = message.sender_encrypted_key || message.senderEncryptedKey || keyToUse;

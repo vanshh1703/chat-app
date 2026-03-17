@@ -668,11 +668,11 @@ io.on('connection', (socket) => {
     }
 
     socket.on('send_message', async (data) => {
-        const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName, encryptedKey, senderEncryptedKey, iv, encryptedContent, isMediaEncrypted } = data;
+        const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName, encrypted_key, sender_encrypted_key, iv, encrypted_content, is_media_encrypted } = data;
         try {
             const result = await pool.query(
                 'INSERT INTO messages (sender_id, receiver_id, content, message_type, reply_to_id, file_url, encrypted_key, sender_encrypted_key, iv, encrypted_content, is_media_encrypted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
-                [senderId, receiverId, content, messageType || 'text', replyToId || null, fileUrl || null, encryptedKey || null, senderEncryptedKey || null, iv || null, encryptedContent || null, isMediaEncrypted || false]
+                [senderId, receiverId, content, messageType || 'text', replyToId || null, fileUrl || null, encrypted_key || null, sender_encrypted_key || null, iv || null, encrypted_content || null, is_media_encrypted || false]
             );
             const newMessage = result.rows[0];
 
