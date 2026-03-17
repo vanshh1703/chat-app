@@ -1,5 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
@@ -9,6 +9,15 @@ const Profile = lazy(() => import('./pages/Profile'))
 const CallLogs = lazy(() => import('./pages/CallLogs'))
 const { DecoySettings, DecoyCalculator, DecoyClock, DecoyCamera } = lazy(() => import('./pages/DecoyApps'))
 
+const ProtectedRoute = ({ children }) => {
+  const user = JSON.parse(localStorage.getItem('profile'));
+  return user ? children : <Navigate to="/" />;
+};
+
+const PublicRoute = ({ children }) => {
+  const user = JSON.parse(localStorage.getItem('profile'));
+  return user ? <Navigate to="/home" /> : children;
+};
 
 function App() {
   useEffect(() => {
@@ -50,16 +59,16 @@ function App() {
         <Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-white dark:bg-slate-950 text-slate-800 dark:text-white font-medium text-lg">Loading...</div>}>
           <main>
             <Routes>
-              <Route path="/" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/home" element={<Home />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/calls" element={<CallLogs />} />
-              <Route path="/decoy/settings" element={<DecoySettings />} />
-              <Route path="/decoy/calc" element={<DecoyCalculator />} />
-              <Route path="/decoy/clock" element={<DecoyClock />} />
-              <Route path="/decoy/camera" element={<DecoyCamera />} />
+              <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+              <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/calls" element={<ProtectedRoute><CallLogs /></ProtectedRoute>} />
+              <Route path="/decoy/settings" element={<ProtectedRoute><DecoySettings /></ProtectedRoute>} />
+              <Route path="/decoy/calc" element={<ProtectedRoute><DecoyCalculator /></ProtectedRoute>} />
+              <Route path="/decoy/clock" element={<ProtectedRoute><DecoyClock /></ProtectedRoute>} />
+              <Route path="/decoy/camera" element={<ProtectedRoute><DecoyCamera /></ProtectedRoute>} />
             </Routes>
           </main>
         </Suspense>

@@ -9,6 +9,7 @@ import { EmojiPicker, CallUI, DrawingModal, OfflineChatManager, ProfileOrganizer
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
 import StealthNotificationToast from '../components/StealthNotificationToast';
+import { subscribeToPush } from '../utils/pushManager';
 
 // face-api is loaded dynamically only when camera+face recognition is used (see useFaceapi hook)
 import { useEncryption } from '../hooks/useEncryption';
@@ -329,7 +330,13 @@ const Home = () => {
 
         // Request browser notification permission
         if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-            Notification.requestPermission();
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    subscribeToPush();
+                }
+            });
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+            subscribeToPush();
         }
 
         const currentSocket = socket.current;
@@ -386,12 +393,24 @@ const Home = () => {
                         if (stealthSettings.enabled) {
                             setStealthNotif({ message: newMessage, settings: stealthSettings });
                         } else if ('Notification' in window && Notification.permission === 'granted') {
-                            const title = `New message from ${newMessage.senderName || 'a user'} `;
+                            const title = `New message from ${newMessage.senderName || 'a user'}`;
                             const options = {
-                                body: newMessage.message_type === 'text' ? newMessage.content : `Sent an ${newMessage.message_type} `,
+                                body: newMessage.message_type === 'text' ? newMessage.content : `Sent an ${newMessage.message_type}`,
                                 icon: '/pwa-192x192.png',
+                                badge: '/pwa-192x192.png',
+                                vibrate: [100, 50, 100],
+                                data: {
+                                    url: window.location.origin + '/home'
+                                }
                             };
-                            new Notification(title, options);
+
+                            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                                navigator.serviceWorker.ready.then(registration => {
+                                    registration.showNotification(title, options);
+                                });
+                            } else {
+                                new Notification(title, options);
+                            }
                         }
                     }
                 }
@@ -1376,14 +1395,26 @@ const Home = () => {
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
+            
+            // Check for supported MIME types
+            const mimeTypes = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
+            const supportedType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+            
+            if (!supportedType) {
+                console.error('No supported audio MIME types found for MediaRecorder.');
+                alert('Audio recording is not supported on this browser/device.');
+                return;
+            }
+
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: supportedType });
             mediaRecorderRef.current = mediaRecorder;
             audioChunksRef.current = [];
             mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const audioBlob = new Blob(audioChunksRef.current, { type: supportedType });
                 const url = URL.createObjectURL(audioBlob);
-                const file = new File([audioBlob], `voice_message_${Date.now()}.webm`, { type: 'audio/webm' });
+                const extension = supportedType.split('/')[1].split(';')[0];
+                const file = new File([audioBlob], `voice_message_${Date.now()}.${extension}`, { type: supportedType });
                 setAttachPreview({ file, url, type: 'audio', name: 'Voice Message' });
                 stream.getTracks().forEach(track => track.stop());
             };
@@ -2107,7 +2138,7 @@ const Home = () => {
                         )
                     ) : (
                         <>
-                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" style={{ filter: activeCameraFilter.type === 'css' ? activeCameraFilter.css : 'none' }} />
+                            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ filter: activeCameraFilter.type === 'css' ? activeCameraFilter.css : 'none' }} />
                             <canvas ref={cameraOverlayCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
                         </>
                     )}

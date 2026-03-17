@@ -13,6 +13,14 @@ require('dotenv').config();
 const { pool, initializeDB } = require('./db');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const webpush = require('web-push');
+
+// Config Web Push
+webpush.setVAPIDDetails(
+    'mailto:you@example.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+);
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -190,6 +198,39 @@ app.get('/api/utils/link-preview', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Link preview error:', err.message);
         res.status(500).json({ error: 'Failed to fetch preview' });
+    }
+});
+
+// Push Notification Routes
+app.get('/api/push/vapid-public-key', (req, res) => {
+    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
+});
+
+app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
+    const { subscription } = req.body;
+    try {
+        await pool.query(
+            'INSERT INTO push_subscriptions (user_id, subscription) VALUES ($1, $2) ON CONFLICT (user_id, subscription) DO NOTHING',
+            [req.user.id, JSON.stringify(subscription)]
+        );
+        res.status(201).json({ message: 'Subscribed to push notifications' });
+    } catch (err) {
+        console.error('Push subscribe error:', err);
+        res.status(500).json({ error: 'Failed to subscribe' });
+    }
+});
+
+app.post('/api/push/unsubscribe', authenticateToken, async (req, res) => {
+    const { subscription } = req.body;
+    try {
+        await pool.query(
+            'DELETE FROM push_subscriptions WHERE user_id = $1 AND subscription = $2',
+            [req.user.id, JSON.stringify(subscription)]
+        );
+        res.sendStatus(200);
+    } catch (err) {
+        console.error('Push unsubscribe error:', err);
+        res.status(500).json({ error: 'Failed to unsubscribe' });
     }
 });
 
@@ -581,10 +622,48 @@ io.on('connection', (socket) => {
             // Emit to both parties
             io.to(senderId.toString()).emit('receive_message', payload);
             io.to(receiverId.toString()).emit('receive_message', payload);
+
+            // Send Push Notification if receiver is not connected or in background
+            // Note: Socket.io doesn't strictly know if app is in background, but if not online, definitely push.
+            const receiverIsOnline = io.sockets.adapter.rooms.has(receiverId.toString());
+            if (!receiverIsOnline) {
+                sendPushNotification(receiverId, payload);
+            }
         } catch (err) {
             console.error('Socket send message error:', err);
         }
     });
+
+    async function sendPushNotification(receiverId, payload) {
+        try {
+            const result = await pool.query('SELECT subscription FROM push_subscriptions WHERE user_id = $1', [receiverId]);
+            const subscriptions = result.rows;
+
+            const pushPayload = JSON.stringify({
+                title: `New message from ${payload.senderName || 'User'}`,
+                body: payload.message_type === 'text' ? payload.content : `Sent an ${payload.message_type}`,
+                icon: '/pwa-192x192.png',
+                badge: '/pwa-192x192.png',
+                data: {
+                    url: '/home',
+                    senderId: payload.sender_id
+                }
+            });
+
+            subscriptions.forEach(sub => {
+                webpush.sendNotification(JSON.parse(sub.subscription), pushPayload)
+                    .catch(e => {
+                        if (e.statusCode === 410 || e.statusCode === 404) {
+                            // Subscription expired or no longer valid
+                            pool.query('DELETE FROM push_subscriptions WHERE subscription = $1', [sub.subscription]);
+                        }
+                        console.error('WebPush error:', e);
+                    });
+            });
+        } catch (err) {
+            console.error('Send push error:', err);
+        }
+    }
 
     socket.on('typing', (data) => {
         io.to(data.receiverId.toString()).emit('typing', { senderId: data.senderId });

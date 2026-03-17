@@ -7,6 +7,13 @@ function Login() {
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
+    React.useEffect(() => {
+        const user = JSON.parse(localStorage.getItem('profile'));
+        if (user) {
+            navigate('/home');
+        }
+    }, [navigate]);
+
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
