@@ -20,12 +20,30 @@ self.addEventListener('push', (event) => {
         icon: data.icon || '/pwa-192x192.png',
         badge: data.badge || '/pwa-192x192.png',
         vibrate: [100, 50, 100],
-        data: data.data || {}
+        data: data.data || {},
+        tag: 'message-notification', // Replace previous notifications
+        renotify: true
     };
 
-    event.waitUntil(
-        self.registration.showNotification(data.title, options)
-    );
+    const promiseChain = self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true
+    }).then((windowClients) => {
+        let anyVisible = false;
+        for (let i = 0; i < windowClients.length; i++) {
+            if (windowClients[i].visibilityState === 'visible') {
+                anyVisible = true;
+                break;
+            }
+        }
+
+        // Only show system notification if the app is NOT visible/focused
+        if (!anyVisible) {
+            return self.registration.showNotification(data.title, options);
+        }
+    });
+
+    event.waitUntil(promiseChain);
 });
 
 self.addEventListener('notificationclick', (event) => {

@@ -692,12 +692,8 @@ io.on('connection', (socket) => {
             io.to(senderId.toString()).emit('receive_message', payload);
             io.to(receiverId.toString()).emit('receive_message', payload);
 
-            // Send Push Notification if receiver is not connected or in background
-            // Note: Socket.io doesn't strictly know if app is in background, but if not online, definitely push.
-            const receiverIsOnline = io.sockets.adapter.rooms.has(receiverId.toString());
-            if (!receiverIsOnline) {
-                sendPushNotification(receiverId, payload);
-            }
+            // Always trigger push notification. The Service Worker will decide whether to show it based on focus.
+            sendPushNotification(receiverId, payload);
         } catch (err) {
             console.error('Socket send message error:', err);
         }
