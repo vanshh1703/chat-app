@@ -1,14 +1,10 @@
-/**
- * Utility for encrypting and decrypting media files (images, audio, video)
- * for End-to-End Encryption.
- */
-
-import * as crypto from './cryptoService';
+import { RSA_ALGO, AES_ALGO, arrayBufferToBase64, base64ToArrayBuffer } from './cryptoService';
 
 /**
  * Encrypts a file using AES-GCM and a recipient's public key
  * @param {File} file The file to encrypt
  * @param {CryptoKey} recipientPublicKey Recipient's RSA public key
+ * @param {CryptoKey} senderPublicKey Optional sender's RSA public key
  * @returns {Object} { encryptedBlob, encryptedKey, iv, fileName, fileType }
  */
 export async function encryptFile(file, recipientPublicKey, senderPublicKey = null) {
@@ -16,7 +12,7 @@ export async function encryptFile(file, recipientPublicKey, senderPublicKey = nu
   
   // 1. Generate AES key for this file
   const aesKey = await window.crypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
+    AES_ALGO,
     true,
     ["encrypt", "decrypt"]
   );
@@ -32,7 +28,7 @@ export async function encryptFile(file, recipientPublicKey, senderPublicKey = nu
   // 3. Encrypt AES key with recipient's RSA public key
   const exportedAesKey = await window.crypto.subtle.exportKey("raw", aesKey);
   const encryptedKey = await window.crypto.subtle.encrypt(
-    { name: "RSA-OAEP" },
+    RSA_ALGO,
     recipientPublicKey,
     exportedAesKey
   );
@@ -41,7 +37,7 @@ export async function encryptFile(file, recipientPublicKey, senderPublicKey = nu
   let senderEncryptedKeyBase64 = null;
   if (senderPublicKey) {
     const senderKeyBuffer = await window.crypto.subtle.encrypt(
-      { name: "RSA-OAEP" },
+      RSA_ALGO,
       senderPublicKey,
       exportedAesKey
     );
@@ -69,7 +65,7 @@ export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, m
 
   // 1. Decrypt AES key
   const decryptedAesKeyBuffer = await window.crypto.subtle.decrypt(
-    { name: "RSA-OAEP" },
+    RSA_ALGO,
     myPrivateKey,
     encryptedKey
   );
@@ -78,7 +74,7 @@ export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, m
   const aesKey = await window.crypto.subtle.importKey(
     "raw",
     decryptedAesKeyBuffer,
-    { name: "AES-GCM" },
+    AES_ALGO,
     false,
     ["decrypt"]
   );
@@ -91,24 +87,4 @@ export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, m
   );
 
   return new Blob([decryptedData]);
-}
-
-// Helpers - Chunked to avoid stack overflow with spread
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  // Process in chunks or simple loop to avoid "Maximum call stack size exceeded"
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-function base64ToArrayBuffer(base64) {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
 }

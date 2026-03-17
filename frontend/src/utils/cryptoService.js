@@ -3,14 +3,14 @@
  * Uses Web Crypto API for performance and security.
  */
 
-const RSA_ALGO = {
+export const RSA_ALGO = {
   name: "RSA-OAEP",
   modulusLength: 2048,
   publicExponent: new Uint8Array([1, 0, 1]),
   hash: "SHA-256",
 };
 
-const AES_ALGO = {
+export const AES_ALGO = {
   name: "AES-GCM",
   length: 256,
 };
@@ -156,7 +156,7 @@ export async function importPrivateKey(base64Key) {
 }
 
 // Low-level buffer conversion helpers - Chunked to avoid stack overflow with spread
-function arrayBufferToBase64(buffer) {
+export function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
   // Process in chunks or simple loop to avoid "Maximum call stack size exceeded"
@@ -166,7 +166,7 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
-function base64ToArrayBuffer(base64) {
+export function base64ToArrayBuffer(base64) {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
