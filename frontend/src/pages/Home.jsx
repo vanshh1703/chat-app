@@ -22,7 +22,8 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
     const [decrypting, setDecrypting] = useState(false);
 
     useEffect(() => {
-        if (msg.is_media_encrypted && msg.file_url && !decryptedUrl && !decrypting) {
+        const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
+        if (isEncrypted && msg.file_url && !decryptedUrl && !decrypting) {
             const performDecryption = async () => {
                 setDecrypting(true);
                 try {
@@ -54,7 +55,8 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
         }
     }, [msg, decryptedUrl, decrypting, user.id]);
 
-    const fileUrl = msg.is_media_encrypted ? (decryptedUrl || null) : msg.file_url;
+    const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
+    const fileUrl = isEncrypted ? (decryptedUrl || null) : msg.file_url;
 
     if (decrypting) {
         return (
@@ -89,7 +91,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                 >
                     <PenTool size={16} />
                 </button>
-                {msg.is_media_encrypted && (
+                {(isEncrypted) && (
                     <div className="absolute bottom-2 right-2 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
                         <Lock size={10} />
                     </div>
@@ -103,7 +105,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                 <video controls className="max-w-[280px] rounded-xl" src={fileUrl}>
                     Your browser does not support video.
                 </video>
-                {msg.is_media_encrypted && (
+                {(isEncrypted) && (
                     <div className="absolute top-2 right-2 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
                         <Lock size={10} />
                     </div>
@@ -117,7 +119,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                 <audio controls className="max-w-[240px] h-10" src={fileUrl}>
                     Your browser does not support audio.
                 </audio>
-                {msg.is_media_encrypted && <Lock size={12} className="text-emerald-500" />}
+                {isEncrypted && <Lock size={12} className="text-emerald-500" />}
             </div>
         );
     }
@@ -133,7 +135,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                     {msg.is_media_encrypted ? 'Encrypted File' : 'Tap to download'}
                 </p>
             </div>
-            {msg.is_media_encrypted ? <Lock size={14} className="text-emerald-500" /> : <Download size={14} className={isMine ? 'text-white/80' : 'text-blue-400'} />}
+            {isEncrypted ? <Lock size={14} className="text-emerald-500" /> : <Download size={14} className={isMine ? 'text-white/80' : 'text-blue-400'} />}
         </a>
     );
 };
@@ -1415,7 +1417,7 @@ const Home = () => {
                 senderId: user.id,
                 receiverId: activeChat.id,
                 content: data.originalName,
-                messageType: data.messageType,
+                messageType: attachPreview.type || data.messageType || 'file',
                 fileUrl: data.fileUrl,
                 replyToId: replyingTo ? replyingTo.id : null,
                 senderName: user.username,

@@ -70,6 +70,7 @@ const initializeDB = async () => {
         try { await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_encrypted_key TEXT'); } catch (e) { }
         try { await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS iv TEXT'); } catch (e) { }
         try { await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS encrypted_content TEXT'); } catch (e) { }
+        try { await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_media_encrypted BOOLEAN DEFAULT FALSE'); } catch (e) { }
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS pinned_chats (
