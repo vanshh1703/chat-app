@@ -56,10 +56,10 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
             {/* Minimal Header for Profile */}
             <div className="relative group">
                 <div className="h-64 md:h-80 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                    <img 
-                        src={activeChat.avatar_url} 
-                        alt={activeChat.username} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                    <img
+                        src={activeChat.avatar_url}
+                        alt={activeChat.username}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         width="128"
                         height="128"
                     />
@@ -94,15 +94,15 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
 
                 {/* About Section */}
                 <div className="p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm space-y-4">
-                   <div>
+                    <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">About & Status</p>
                         <p className="text-sm font-medium text-gray-800 dark:text-slate-200">
                             {activeChat.bio || "Available"}
                         </p>
                         <p className="text-[10px] text-gray-400 mt-1 font-bold">Updated Nov 12, 2025</p>
-                   </div>
-                   <div className="h-px bg-gray-100 dark:bg-slate-800"></div>
-                   <div className="flex items-center justify-between">
+                    </div>
+                    <div className="h-px bg-gray-100 dark:bg-slate-800"></div>
+                    <div className="flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Contact Method</p>
                             <p className="text-sm font-bold text-gray-800 dark:text-slate-200">{activeChat.email || 'Private'}</p>
@@ -110,11 +110,11 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                         <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-xl">
                             <Mail size={18} />
                         </div>
-                   </div>
+                    </div>
                 </div>
 
                 {/* Media Audio Links Docs Preview */}
-                <button 
+                <button
                     onClick={() => setSubView('media')}
                     className="w-full p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-slate-800 group"
                 >
@@ -139,7 +139,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
 
                 {/* Notification Settings */}
                 <div className="space-y-3">
-                    <button 
+                    <button
                         onClick={onToggleMute}
                         className="w-full flex items-center gap-4 p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm"
                     >
@@ -218,7 +218,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                                 <Download size={14} className="text-gray-400 group-hover:text-blue-500" />
                             </a>
                         )) : (
-                           <div className="py-10 text-center text-gray-400"><FileText size={32} className="mx-auto mb-2 opacity-30" /><p className="text-sm font-bold">No Documents Shared</p></div>
+                            <div className="py-10 text-center text-gray-400"><FileText size={32} className="mx-auto mb-2 opacity-30" /><p className="text-sm font-bold">No Documents Shared</p></div>
                         )}
                     </div>
                 )}
@@ -269,7 +269,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
     return (
         <>
             {/* Backdrop for mobile */}
-            <div 
+            <div
                 className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 md:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
             ></div>
@@ -279,7 +279,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 {/* Header */}
                 <div className="p-6 flex items-center justify-between z-10 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-gray-100 dark:border-slate-800">
                     <div className="flex items-center gap-4">
-                        <button 
+                        <button
                             onClick={subView === 'media' ? () => setSubView('profile') : onClose}
                             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors text-gray-500"
                         >
@@ -299,9 +299,9 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
 
 // Help search component (lucide-react doesn't have Search by default in some lists, but adding it here if needed)
 const Search = ({ size, className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-  </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+    </svg>
 );
 
 
@@ -324,7 +324,7 @@ const DecryptedMediaPreview = ({ msg }) => {
                     const profile = JSON.parse(localStorage.getItem('profile'));
                     const userId = profile?.user?.id;
                     const myKeys = await keyManager.getMyKeys(userId);
-                    
+
                     const isMine = String(msg.sender_id) === String(userId);
                     const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
 
@@ -343,7 +343,7 @@ const DecryptedMediaPreview = ({ msg }) => {
     const url = decryptedUrl || msg.file_url;
 
     if (decrypting) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={16} /></div>;
-    
+
     if (msg.message_type === 'audio') return <div className="w-full h-full flex items-center justify-center bg-purple-50 dark:bg-purple-900/20 text-purple-500"><Music size={24} /></div>;
 
     return <img src={url} alt="" className="w-full h-full object-cover" />;
@@ -364,7 +364,7 @@ const DecryptedMedia = ({ msg }) => {
                     const profile = JSON.parse(localStorage.getItem('profile'));
                     const userId = profile?.user?.id;
                     const myKeys = await keyManager.getMyKeys(userId);
-                    
+
                     const isMine = String(msg.sender_id) === String(userId);
                     const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
 

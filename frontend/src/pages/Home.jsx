@@ -103,21 +103,14 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
     const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
     const fileUrl = isEncrypted ? (decryptedUrl || null) : msg.file_url;
 
-    if (decrypting) {
-        return (
-            <div className="flex items-center gap-2 p-3 bg-gray-100/50 dark:bg-slate-800/50 rounded-xl">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                <span className="text-[10px] font-bold text-gray-500">Decrypting Media...</span>
-            </div>
-        );
-    }
+    // Removed decrypting/loading UI for instant experience
 
     if (msg.message_type === 'image') {
         return (
             <div className="relative group/image"
-                 onTouchStart={handleTouchStart}
-                 onTouchEnd={handleTouchEndOrCancel}
-                 onTouchCancel={handleTouchEndOrCancel}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEndOrCancel}
+                onTouchCancel={handleTouchEndOrCancel}
             >
                 {fileUrl ? (
                     <a href={fileUrl} target="_blank" rel="noreferrer">
@@ -395,7 +388,7 @@ const SwipeableMessage = ({ children, onSwipeToReply, isMine }) => {
     const handleTouchMove = (e) => {
         if (!touchStartRef.current) return;
         touchCurrentRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        
+
         const deltaX = touchCurrentRef.current.x - touchStartRef.current.x;
         const deltaY = touchCurrentRef.current.y - touchStartRef.current.y;
 
@@ -408,7 +401,7 @@ const SwipeableMessage = ({ children, onSwipeToReply, isMine }) => {
         if (deltaX < 0 && deltaX > -80) {
             setTranslateX(deltaX);
         } else if (deltaX > 0 && deltaX < 80) {
-           setTranslateX(deltaX);
+            setTranslateX(deltaX);
         }
     };
 
@@ -422,19 +415,19 @@ const SwipeableMessage = ({ children, onSwipeToReply, isMine }) => {
     };
 
     return (
-        <div 
+        <div
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchEnd}
-            style={{ 
-                transform: `translateX(${translateX}px)`, 
-                transition: translateX === 0 ? 'transform 0.2s ease-out' : 'none' 
+            style={{
+                transform: `translateX(${translateX}px)`,
+                transition: translateX === 0 ? 'transform 0.2s ease-out' : 'none'
             }}
             className="w-full relative touch-pan-y"
         >
             {children}
-            <div 
+            <div
                 className={`absolute top-1/2 -translate-y-1/2 ${translateX < 0 ? 'right-[-40px]' : 'left-[-40px]'} flex items-center justify-center p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-blue-500 transition-opacity duration-200 ${Math.abs(translateX) > 30 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             >
                 <CornerUpLeft size={16} />
@@ -965,7 +958,7 @@ const Home = () => {
     const handleEndCall = () => {
         // Robust target detection
         const targetId = activeChatRef.current?.id || incomingCallRef.current?.from || incomingCallRef.current?.to;
-        
+
         if (targetId && socket.current) {
             signaling.emitEndCall(socket.current, { to: targetId, callId: currentCallIdRef.current });
         }
@@ -1397,7 +1390,7 @@ const Home = () => {
             // Scroll to bottom
             scrollRef.current?.scrollIntoView({ behavior: 'auto' });
         }
-        
+
         lastMessageCountRef.current = messages.length;
     }, [messages]);
 
@@ -1590,24 +1583,7 @@ const Home = () => {
                     replyToId: replyingTo ? replyingTo.id : null,
                     senderName: user.username
                 };
-
-                // Apply E2EE
-                if (activeChat.id !== ashPersona.id) {
-                    console.log('Sending message to', activeChat.username, 'via E2EE...');
-                    const encrypted = await encrypt(messageText, activeChat.id);
-                    if (encrypted.isEncrypted) {
-                        console.log('Encryption successful for', activeChat.username);
-                        msgData.content = encrypted.content; // "[Encrypted Message]"
-                        msgData.encrypted_content = encrypted.encryptedContent;
-                        msgData.encrypted_key = encrypted.encryptedKey;
-                        msgData.sender_encrypted_key = encrypted.senderEncryptedKey;
-                        msgData.iv = encrypted.iv;
-                        msgData.is_media_encrypted = false;
-                    } else {
-                        console.warn('Encryption skipped or failed for', activeChat.username, '. Sending plaintext.');
-                    }
-                }
-
+                // Instantly send text to backend, no frontend encryption
                 socket.current.emit('send_message', msgData);
             };
             sendFlow();
@@ -1676,50 +1652,11 @@ const Home = () => {
 
     const handleSendFile = async () => {
         if (!attachPreview || !activeChat) return;
-        setUploading(true);
+        // Instantly send file to backend, no frontend encryption
         try {
-            console.log('--- Media Send Debug ---');
-            console.log('Active Chat:', activeChat.id);
-            console.log('keyManager present:', !!keyManager);
-            if (keyManager) console.log('fetchFriendPublicKey type:', typeof keyManager.fetchFriendPublicKey);
-            console.log('encryptFile type:', typeof encryptFile);
-            console.log('api present:', !!api);
-            if (api) console.log('uploadFile type:', typeof api.uploadFile);
-            console.log('socket current:', !!socket.current);
-
-            let fileToUpload = attachPreview.file;
-            let encryptionFields = {};
-
-            // Encrypt if not Ash (bot)
-            if (activeChat.id !== ashPersona.id) {
-                console.log('Fetching keys for encryption...');
-                const [recipientPubKey, myKeys] = await Promise.all([
-                    keyManager.fetchFriendPublicKey(activeChat.id),
-                    keyManager.getMyKeys(user.id)
-                ]);
-
-                console.log('Keys check:', { hasRecipient: !!recipientPubKey, hasMe: !!myKeys });
-
-                if (recipientPubKey && myKeys) {
-                    console.log('Encrypting file...');
-                    const encrypted = await encryptFile(attachPreview.file, recipientPubKey, myKeys.publicKey);
-                    console.log('File encrypted success');
-                    fileToUpload = new File([encrypted.encryptedBlob], attachPreview.file.name, { type: attachPreview.file.type });
-                    encryptionFields = {
-                        encrypted_key: encrypted.encryptedKey,
-                        sender_encrypted_key: encrypted.senderEncryptedKey,
-                        iv: encrypted.iv,
-                        is_media_encrypted: true
-                    };
-                }
-            }
-
             const formData = new FormData();
-            formData.append('file', fileToUpload);
-            console.log('Starting file upload to backend...');
+            formData.append('file', attachPreview.file);
             const { data } = await api.uploadFile(formData);
-            console.log('Upload response from backend:', data);
-
             socket.current.emit('send_message', {
                 senderId: user.id,
                 receiverId: activeChat.id,
@@ -1727,23 +1664,18 @@ const Home = () => {
                 messageType: attachPreview.type || data.messageType || 'file',
                 fileUrl: data.fileUrl,
                 replyToId: replyingTo ? replyingTo.id : null,
-                senderName: user.username,
-                ...encryptionFields
+                senderName: user.username
             });
-            console.log('Message sent via socket with fileUrl:', data.fileUrl);
             setAttachPreview(null);
             setReplyingTo(null);
             if (!sidebarUsers.find(u => u.id === activeChat.id)) fetchSidebar();
         } catch (err) {
             console.error('Frontend handleSendFile error:', err);
             if (err.response) {
-                console.error('Error response data:', err.response.data);
                 alert(`Upload failed: ${err.response.data.detail || err.response.data.error || 'Server error'}`);
             } else {
                 alert('Upload failed: Could not connect to server.');
             }
-        } finally {
-            setUploading(false);
         }
     };
 
@@ -2248,113 +2180,113 @@ const Home = () => {
                                             <SwipeableMessage onSwipeToReply={() => handleStartReply(msg)} isMine={msg.sender_id === user.id}>
                                                 <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
                                                     <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
-                                                    {msg.is_deleted ? 'This message was deleted' : (
-                                                        <>
-                                                            {msg.reply_to_msg && (
-                                                                <div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/20 border-white' : 'bg-gray-50 border-blue-500 text-gray-500'}`}>
-                                                                    <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
-                                                                    <p className="truncate">
-                                                                        {msg.reply_to_msg.message_type === 'text' 
-                                                                            ? (decryptedMessages[msg.reply_to_msg.id] || msg.reply_to_msg.content)
-                                                                            : msg.reply_to_msg.message_type === 'image' ? '📷 Photo'
-                                                                            : msg.reply_to_msg.message_type === 'video' ? '🎥 Video'
-                                                                            : msg.reply_to_msg.message_type === 'audio' ? '🎵 Audio'
-                                                                            : '📎 File'}
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                            {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
-                                                            {msg.message_type === 'call' && msg.content ? (
-                                                                <div className="flex items-center gap-3 py-1">
-                                                                    <div className={`p-2.5 rounded-xl ${msg.content.includes('Missed') ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                                                        {msg.content.includes('video') ? <Video size={18} /> : <Phone size={18} />}
+                                                        {msg.is_deleted ? 'This message was deleted' : (
+                                                            <>
+                                                                {msg.reply_to_msg && (
+                                                                    <div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/20 border-white' : 'bg-gray-50 border-blue-500 text-gray-500'}`}>
+                                                                        <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
+                                                                        <p className="truncate">
+                                                                            {msg.reply_to_msg.message_type === 'text'
+                                                                                ? (decryptedMessages[msg.reply_to_msg.id] || msg.reply_to_msg.content)
+                                                                                : msg.reply_to_msg.message_type === 'image' ? '📷 Photo'
+                                                                                    : msg.reply_to_msg.message_type === 'video' ? '🎥 Video'
+                                                                                        : msg.reply_to_msg.message_type === 'audio' ? '🎵 Audio'
+                                                                                            : '📎 File'}
+                                                                        </p>
                                                                     </div>
-                                                                    <div>
-                                                                        <p className="font-black text-sm tracking-tight">{msg.content.split(' • ')[0]}</p>
-                                                                        {msg.content.includes(' • ') && <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-0.5">{msg.content.split(' • ')[1]}</p>}
+                                                                )}
+                                                                {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
+                                                                {msg.message_type === 'call' && msg.content ? (
+                                                                    <div className="flex items-center gap-3 py-1">
+                                                                        <div className={`p-2.5 rounded-xl ${msg.content.includes('Missed') ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                                                            {msg.content.includes('video') ? <Video size={18} /> : <Phone size={18} />}
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="font-black text-sm tracking-tight">{msg.content.split(' • ')[0]}</p>
+                                                                            {msg.content.includes(' • ') && <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-0.5">{msg.content.split(' • ')[1]}</p>}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            ) : msg.message_type === 'text' ? (
-                                                                <>
-                                                                    <div className="flex flex-col">
-                                                                        <span>{decryptedMessages[msg.id] || msg.content}</span>
-                                                                        {msg.encrypted_key && (
-                                                                            <span className="text-[8px] opacity-70 flex items-center gap-1 mt-1">
-                                                                                <Shield size={10} className={decryptedMessages[msg.id]?.startsWith('⚠️') ? 'text-rose-500' : 'text-emerald-500'} />
-                                                                                {decryptedMessages[msg.id]?.startsWith('⚠️') ? 'Decryption Failed' : 'End-to-End Encrypted'}
-                                                                            </span>
-                                                                        )}
-                                                                        {msg.is_edited && (
+                                                                ) : msg.message_type === 'text' ? (
+                                                                    <>
+                                                                        <div className="flex flex-col">
+                                                                            <span>{decryptedMessages[msg.id] || msg.content}</span>
+                                                                            {msg.encrypted_key && (
+                                                                                <span className="text-[8px] opacity-70 flex items-center gap-1 mt-1">
+                                                                                    <Shield size={10} className={decryptedMessages[msg.id]?.startsWith('⚠️') ? 'text-rose-500' : 'text-emerald-500'} />
+                                                                                    {decryptedMessages[msg.id]?.startsWith('⚠️') ? 'Decryption Failed' : 'End-to-End Encrypted'}
+                                                                                </span>
+                                                                            )}
+                                                                            {msg.is_edited && (
+                                                                                <button
+                                                                                    onClick={() => setHistoryMsg(msg)}
+                                                                                    className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}
+                                                                                >
+                                                                                    <History size={10} /> (edited)
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                        {(() => {
+                                                                            const urlRegex = /(https?:\/\/[^\s]+)/g;
+                                                                            const urls = msg.content.match(urlRegex);
+                                                                            if (urls && urls.length > 0) {
+                                                                                const firstUrl = urls[0];
+                                                                                const isYouTube = firstUrl.includes('youtube.com') || firstUrl.includes('youtu.be');
+                                                                                if (isYouTube) {
+                                                                                    return <YouTubePlayer url={firstUrl} />;
+                                                                                }
+                                                                                return <LinkPreviewCard url={firstUrl} />;
+                                                                            }
+                                                                            return null;
+                                                                        })()}
+                                                                    </>
+                                                                ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
+
+                                                                {hoveredMsgId === msg.id && !msg.is_deleted && (
+                                                                    <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
+                                                                        <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded" title="React">😊</button>
+                                                                        <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500" title="Reply"><CornerUpLeft size={14} /></button>
+                                                                        <button onClick={() => handlePinMessage(msg.id)} className={`p-1 hover:bg-gray-100 rounded ${msg.is_pinned ? 'text-amber-500' : 'text-gray-500'}`} title={msg.is_pinned ? 'Unpin' : 'Pin'}>
+                                                                            {msg.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                                                                        </button>
+                                                                        {msg.sender_id === user.id && msg.message_type === 'text' && (
                                                                             <button
-                                                                                onClick={() => setHistoryMsg(msg)}
-                                                                                className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}
+                                                                                onClick={() => {
+                                                                                    setEditingMsg(msg);
+                                                                                    setMessageText(decryptedMessages[msg.id] || msg.content);
+                                                                                    inputRef.current?.focus();
+                                                                                }}
+                                                                                className="p-1 hover:bg-gray-100 rounded text-blue-500"
+                                                                                title="Edit"
                                                                             >
-                                                                                <History size={10} /> (edited)
+                                                                                <Edit2 size={14} />
                                                                             </button>
                                                                         )}
-                                                                    </div>
-                                                                    {(() => {
-                                                                        const urlRegex = /(https?:\/\/[^\s]+)/g;
-                                                                        const urls = msg.content.match(urlRegex);
-                                                                        if (urls && urls.length > 0) {
-                                                                            const firstUrl = urls[0];
-                                                                            const isYouTube = firstUrl.includes('youtube.com') || firstUrl.includes('youtu.be');
-                                                                            if (isYouTube) {
-                                                                                return <YouTubePlayer url={firstUrl} />;
-                                                                            }
-                                                                            return <LinkPreviewCard url={firstUrl} />;
-                                                                        }
-                                                                        return null;
-                                                                    })()}
-                                                                </>
-                                                            ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
-
-                                                            {hoveredMsgId === msg.id && !msg.is_deleted && (
-                                                                <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
-                                                                    <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded" title="React">😊</button>
-                                                                    <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500" title="Reply"><CornerUpLeft size={14} /></button>
-                                                                    <button onClick={() => handlePinMessage(msg.id)} className={`p-1 hover:bg-gray-100 rounded ${msg.is_pinned ? 'text-amber-500' : 'text-gray-500'}`} title={msg.is_pinned ? 'Unpin' : 'Pin'}>
-                                                                        {msg.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
-                                                                    </button>
-                                                                    {msg.sender_id === user.id && msg.message_type === 'text' && (
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setEditingMsg(msg);
-                                                                                setMessageText(decryptedMessages[msg.id] || msg.content);
-                                                                                inputRef.current?.focus();
-                                                                            }}
-                                                                            className="p-1 hover:bg-gray-100 rounded text-blue-500"
-                                                                            title="Edit"
-                                                                        >
-                                                                            <Edit2 size={14} />
+                                                                        <button onClick={() => handleCopyMessage(msg)} className="p-1 hover:bg-gray-100 rounded text-blue-500" title="Copy">
+                                                                            <Copy size={14} />
                                                                         </button>
-                                                                    )}
-                                                                    <button onClick={() => handleCopyMessage(msg)} className="p-1 hover:bg-gray-100 rounded text-blue-500" title="Copy">
-                                                                        <Copy size={14} />
-                                                                    </button>
-                                                                    {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
-                                                                </div>
-                                                            )}
-                                                            {reactionPickerMsgId === msg.id && (
-                                                                <div className="absolute top-0 -translate-y-full flex gap-1 p-2 bg-white rounded-2xl shadow-2xl z-30 border border-gray-100">
-                                                                    {QUICK_REACTIONS.map(e => <button key={e} onClick={() => handleReact(msg.id, e)} className="text-xl hover:scale-125 transition-transform">{e}</button>)}
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                                {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                                                    <div className="flex gap-1 mt-1">
-                                                        {Object.entries(Object.values(msg.reactions).reduce((acc, e) => { acc[e] = (acc[e] || 0) + 1; return acc; }, {})).map(([e, c]) => (
-                                                            <span key={e} className="text-[10px] bg-white rounded-full px-1.5 py-0.5 border shadow-sm">{e} {c > 1 ? c : ''}</span>
-                                                        ))}
+                                                                        {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
+                                                                    </div>
+                                                                )}
+                                                                {reactionPickerMsgId === msg.id && (
+                                                                    <div className="absolute top-0 -translate-y-full flex gap-1 p-2 bg-white rounded-2xl shadow-2xl z-30 border border-gray-100">
+                                                                        {QUICK_REACTIONS.map(e => <button key={e} onClick={() => handleReact(msg.id, e)} className="text-xl hover:scale-125 transition-transform">{e}</button>)}
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
                                                     </div>
-                                                )}
-                                                <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
-                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    {msg.sender_id === user.id && (msg.is_read ? <CheckCheck size={12} className="text-blue-500" /> : <Check size={12} />)}
+                                                    {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                                        <div className="flex gap-1 mt-1">
+                                                            {Object.entries(Object.values(msg.reactions).reduce((acc, e) => { acc[e] = (acc[e] || 0) + 1; return acc; }, {})).map(([e, c]) => (
+                                                                <span key={e} className="text-[10px] bg-white rounded-full px-1.5 py-0.5 border shadow-sm">{e} {c > 1 ? c : ''}</span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+                                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        {msg.sender_id === user.id && (msg.is_read ? <CheckCheck size={12} className="text-blue-500" /> : <Check size={12} />)}
+                                                    </div>
                                                 </div>
-                                            </div>
                                             </SwipeableMessage>
                                         )}
                                     </div>
@@ -2365,7 +2297,7 @@ const Home = () => {
                             {attachPreview && (<div className="p-3 bg-white/50  flex items-center gap-3 border-t">
                                 {attachPreview.type === 'image' && <img src={attachPreview.url} className="w-12 h-12 rounded object-cover" alt="" />}
                                 <div className="flex-1 truncate"><p className="text-sm font-bold truncate">{attachPreview.name}</p></div>
-                                <button onClick={handleSendFile} disabled={uploading} className="p-2 bg-blue-600 text-white rounded-lg">{uploading ? '...' : <Send size={18} />}</button>
+                                <button onClick={handleSendFile} className="p-2 bg-blue-600 text-white rounded-lg"><Send size={18} /></button>
                                 <button onClick={() => setAttachPreview(null)} className="text-gray-400"><X size={18} /></button>
                             </div>)}
 
@@ -2373,12 +2305,12 @@ const Home = () => {
                                 <div className="w-full">
                                     {replyingTo && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
                                         <div className="truncate"><span className="font-bold text-blue-600">Reply to: </span>
-                                            {replyingTo.message_type === 'text' 
+                                            {replyingTo.message_type === 'text'
                                                 ? (decryptedMessages[replyingTo.id] || replyingTo.content)
                                                 : replyingTo.message_type === 'image' ? '📷 Photo'
-                                                : replyingTo.message_type === 'video' ? '🎥 Video'
-                                                : replyingTo.message_type === 'audio' ? '🎵 Audio'
-                                                : '📎 File'}
+                                                    : replyingTo.message_type === 'video' ? '🎥 Video'
+                                                        : replyingTo.message_type === 'audio' ? '🎵 Audio'
+                                                            : '📎 File'}
                                         </div>
                                         <button onClick={() => setReplyingTo(null)}><X size={14} /></button>
                                     </div>)}

@@ -208,7 +208,7 @@ const DecryptedMedia = ({ msg, activeChat }) => {
                     const profile = JSON.parse(localStorage.getItem('profile'));
                     const userId = profile?.user?.id;
                     const myKeys = await keyManager.getMyKeys(userId);
-                    
+
                     const isMine = String(msg.sender_id) === String(userId);
                     const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
 
