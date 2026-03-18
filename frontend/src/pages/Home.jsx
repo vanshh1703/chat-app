@@ -432,10 +432,11 @@ const SwipeableMessage = ({ children, onSwipeToReply, isMine }) => {
 const Home = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('profile'))?.user);
     const [sidebarUsers, setSidebarUsers] = useState([]);
-    // Utility: Mark screenshot in sidebar
+    // Utility: Mark screenshot in sidebar for the currently active chat
     const markScreenshotInSidebar = () => {
+        if (!activeChat) return;
         setSidebarUsers(prev => prev.map(u =>
-            u.id === user.id
+            u.id === activeChat.id
                 ? { ...u, lastmsg: 'Took a screenshot', lastmsgtype: 'text', lastmsgtime: new Date().toISOString() }
                 : u
         ));
