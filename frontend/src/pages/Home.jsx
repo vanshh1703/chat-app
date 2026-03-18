@@ -377,6 +377,67 @@ const CAMERA_FILTERS = [
     { name: 'Clear Skin', css: 'none', type: 'ar', element: 'blur' }
 ];
 
+const SwipeableMessage = ({ children, onSwipeToReply, isMine }) => {
+    const [translateX, setTranslateX] = useState(0);
+    const touchStartRef = useRef(null);
+    const touchCurrentRef = useRef(null);
+
+    const handleTouchStart = (e) => {
+        touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    };
+
+    const handleTouchMove = (e) => {
+        if (!touchStartRef.current) return;
+        touchCurrentRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        
+        const deltaX = touchCurrentRef.current.x - touchStartRef.current.x;
+        const deltaY = touchCurrentRef.current.y - touchStartRef.current.y;
+
+        if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
+            touchStartRef.current = null;
+            setTranslateX(0);
+            return;
+        }
+
+        if (deltaX < 0 && deltaX > -80) {
+            setTranslateX(deltaX);
+        } else if (deltaX > 0 && deltaX < 80) {
+           setTranslateX(deltaX);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (Math.abs(translateX) > 50) {
+            onSwipeToReply();
+        }
+        setTranslateX(0);
+        touchStartRef.current = null;
+        touchCurrentRef.current = null;
+    };
+
+    return (
+        <div 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            style={{ 
+                transform: `translateX(${translateX}px)`, 
+                transition: translateX === 0 ? 'transform 0.2s ease-out' : 'none' 
+            }}
+            className="w-full relative touch-pan-y"
+        >
+            {children}
+            <div 
+                className={`absolute top-1/2 -translate-y-1/2 ${translateX < 0 ? 'right-[-40px]' : 'left-[-40px]'} flex items-center justify-center p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-blue-500 transition-opacity duration-200 ${Math.abs(translateX) > 30 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            >
+                <CornerUpLeft size={16} />
+            </div>
+        </div>
+    );
+};
+
+
 const Home = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('profile'))?.user);
     const [sidebarUsers, setSidebarUsers] = useState([]);

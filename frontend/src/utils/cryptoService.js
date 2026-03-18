@@ -197,10 +197,15 @@ export function arrayBufferToBase64(buffer) {
 
 export function base64ToArrayBuffer(base64) {
   if (typeof base64 !== 'string' || !base64) return new ArrayBuffer(0);
-  const binaryString = atob(base64.trim());
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  try {
+    const binaryString = atob(base64.trim());
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  } catch (e) {
+    console.warn("base64ToArrayBuffer error: likely not base64 encoded text.", e);
+    throw new Error("Invalid base64 string");
   }
-  return bytes.buffer;
 }
