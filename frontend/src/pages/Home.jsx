@@ -2026,7 +2026,7 @@ const Home = () => {
                                 <div className="relative group/profile" style={{ cursor: 'pointer' }}>
                                     <div
                                         className="absolute inset-0 rounded-full z-10 group-hover/profile:ring-2 group-hover/profile:ring-blue-200"
-                                        onClick={e => { e.stopPropagation(); setProfileModalUser(chat); }}
+                                        onClick={e => { e.stopPropagation(); handleViewProfile(chat); }}
                                     ></div>
                                     {chat.id === ashPersona.id ? (
                                         <div className="w-14 h-14 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
