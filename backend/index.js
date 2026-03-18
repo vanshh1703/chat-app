@@ -1,19 +1,3 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const uuidv4 = require('uuid').v4;
-const WebRTCSignaling = require('./socketServer');
-
-// ...existing code...
-
-
-
 // Logout a specific device/session (except current)
 app.post('/api/users/logout-session', authenticateToken, async (req, res) => {
     const { sessionId } = req.body;
@@ -43,6 +27,23 @@ app.post('/api/users/logout-all-others', authenticateToken, async (req, res) => 
         res.status(500).json({ error: 'Failed to logout other sessions' });
     }
 });
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const uuidv4 = require('uuid').v4;
+const WebRTCSignaling = require('./socketServer');
+
+// ...existing code...
+
+
+
+
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 const { pool, initializeDB } = require('./db');
