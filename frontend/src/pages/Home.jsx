@@ -2021,7 +2021,11 @@ const Home = () => {
                         <h4 className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Direct Messages</h4>
                         <div className="space-y-1">
                             {sidebarUsers.map(chat => (<div key={chat.id} onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)} onMouseLeave={() => setHoveredMsgId(null)} onClick={() => handleSelectChat(chat)} className={`group flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all duration-200 ${activeChat?.id === chat.id ? 'bg-white shadow-[0_10px_25px_rgba(0,0,0,0.05)]' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80' : 'hover:bg-white/50'}`}>
-                                <div className="relative" onClick={e => { e.stopPropagation(); setProfileModalUser(chat); }} style={{ cursor: 'pointer' }}>
+                                <div className="relative group/profile" style={{ cursor: 'pointer' }}>
+                                    <div
+                                        className="absolute inset-0 rounded-full z-10 group-hover/profile:ring-2 group-hover/profile:ring-blue-200"
+                                        onClick={e => { e.stopPropagation(); setProfileModalUser(chat); }}
+                                    ></div>
                                     {chat.id === ashPersona.id ? (
                                         <div className="w-14 h-14 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
                                             <img src={chat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
