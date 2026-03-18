@@ -40,14 +40,28 @@ export const createPeerConnection = (onIceCandidate, onTrack) => {
 
 export const getMediaStream = async (type = 'video', facingMode = 'user') => {
     try {
-        const constraints = type === 'video' ? {
-            ...MEDIA_CONSTRAINTS,
-            video: {
-                ...MEDIA_CONSTRAINTS.video,
-                facingMode: facingMode
-            }
-        } : { video: false, audio: true };
+        let constraints;
+
+        if (type === 'video') {
+            constraints = {
+                ...MEDIA_CONSTRAINTS,
+                video: {
+                    ...MEDIA_CONSTRAINTS.video,
+                    facingMode: facingMode
+                }
+            };
+        } else if (type === 'voice') {
+            // Voice call should work even when camera permission is denied.
+            constraints = {
+                video: false,
+                audio: true
+            };
+        } else {
+            constraints = { video: false, audio: true };
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
         return stream;
     } catch (error) {
         console.error("Error accessing media devices:", error);

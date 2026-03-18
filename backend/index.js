@@ -366,30 +366,37 @@ async function sendPushNotification(receiverId, payload) {
 
                     const meta = subscriptionObject.meta || {};
                     const isStealth = Boolean(meta.stealthEnabled);
+                    const isIncomingCall = payload.notificationType === 'incoming_call';
+                    const callTypeLabel = payload.callType === 'video' ? 'Video call' : 'Voice call';
+                    const incomingCallUrl = `/home?incoming=call&from=${encodeURIComponent(payload.sender_id || '')}&type=${encodeURIComponent(payload.callType || 'voice')}&name=${encodeURIComponent(payload.senderName || 'Someone')}`;
                     const notificationTitle = isStealth
                         ? (meta.fakeTitle || 'Software Update Ready')
-                        : `New message from ${payload.senderName || 'User'}`;
+                        : (isIncomingCall ? `${payload.senderName || 'Someone'} is calling` : `New message from ${payload.senderName || 'User'}`);
                     const notificationBody = isStealth
                         ? (meta.fakeBody || 'Tap to learn more')
-                        : (payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`);
+                        : (isIncomingCall
+                            ? (payload.content || callTypeLabel)
+                            : (payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`));
                     const notificationUrl = isStealth
                         ? (meta.decoyAppRoute || '/decoy/settings')
-                        : '/home';
+                        : (isIncomingCall ? incomingCallUrl : '/home');
 
                     const pushPayload = JSON.stringify({
                         title: notificationTitle,
                         body: notificationBody,
                         icon: isStealth ? '/favicon.ico' : '/pwa-192x192.png',
                         badge: isStealth ? '/favicon.ico' : '/pwa-192x192.png',
-                        vibrate: isStealth ? [20] : [100, 50, 100],
+                        vibrate: isStealth ? [20] : (isIncomingCall ? [300, 200, 300, 200, 300] : [100, 50, 100]),
                         silent: Boolean(isStealth),
-                        tag: isStealth ? 'system-alert' : 'message-notification',
-                        renotify: false,
-                        requireInteraction: false,
+                        tag: isStealth ? 'system-alert' : (isIncomingCall ? `incoming-call-${payload.sender_id || 'unknown'}` : 'message-notification'),
+                        renotify: Boolean(isIncomingCall),
+                        requireInteraction: Boolean(isIncomingCall && !isStealth),
                         data: {
                             url: notificationUrl,
                             senderId: payload.sender_id,
-                            stealth: isStealth
+                            stealth: isStealth,
+                            type: isIncomingCall ? 'incoming_call' : 'message',
+                            callType: payload.callType || null
                         }
                     });
 
@@ -811,7 +818,7 @@ io.on('connection', (socket) => {
     // Initialize WebRTC Signaling
     if (typeof WebRTCSignaling === 'function') {
         try {
-            WebRTCSignaling(io, socket);
+            WebRTCSignaling(io, socket, { sendPushNotification });
         } catch (err) {
             console.error('Error during WebRTCSignaling call:', err);
         }

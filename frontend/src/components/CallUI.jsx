@@ -56,6 +56,7 @@ const CallUI = ({
     localStream,
     remoteStream,
     isAudioOnly,
+    onToggleVideo,
     isSharingScreen,
     onToggleScreenShare,
     onSwitchCamera,
@@ -86,6 +87,19 @@ const CallUI = ({
     }, [remoteStream, activeCall]);
 
     useEffect(() => {
+        if (!localStream) {
+            setIsVideoOff(false);
+            return;
+        }
+        const firstVideoTrack = localStream.getVideoTracks()[0];
+        if (!firstVideoTrack) {
+            setIsVideoOff(true);
+            return;
+        }
+        setIsVideoOff(!firstVideoTrack.enabled);
+    }, [localStream]);
+
+    useEffect(() => {
         let timer;
         if (activeCall) {
             timer = setInterval(() => setCallDuration(prev => prev + 1), 1000);
@@ -109,10 +123,20 @@ const CallUI = ({
         }
     };
 
-    const toggleVideo = () => {
+    const toggleVideo = async () => {
+        if (onToggleVideo) {
+            const isVideoEnabled = await onToggleVideo();
+            setIsVideoOff(!isVideoEnabled);
+            return;
+        }
+
         if (localStream) {
-            localStream.getVideoTracks().forEach(t => { t.enabled = !t.enabled; });
-            setIsVideoOff(prev => !prev);
+            const tracks = localStream.getVideoTracks();
+            if (tracks.length > 0) {
+                const nextEnabled = !tracks[0].enabled;
+                tracks.forEach((t) => { t.enabled = nextEnabled; });
+                setIsVideoOff(!nextEnabled);
+            }
         }
     };
 
@@ -226,22 +250,21 @@ const CallUI = ({
                                 {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
                             </button>
 
+                            <button
+                                onClick={(e) => { e.stopPropagation(); toggleVideo(); }}
+                                className={`p-2 rounded-full transition-all ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                            >
+                                {isVideoOff ? <VideoOff size={14} /> : <Video size={14} />}
+                            </button>
+
                             {!isAudioOnly && (
-                                <>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); toggleVideo(); }}
-                                        className={`p-2 rounded-full transition-all ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                                    >
-                                        {isVideoOff ? <VideoOff size={14} /> : <Video size={14} />}
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onSwitchCamera?.(); }}
-                                        className="p-2 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all"
-                                        title="Flip Camera"
-                                    >
-                                        <RefreshCw size={14} />
-                                    </button>
-                                </>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onSwitchCamera?.(); }}
+                                    className="p-2 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all"
+                                    title="Flip Camera"
+                                >
+                                    <RefreshCw size={14} />
+                                </button>
                             )}
 
                             <button
@@ -344,15 +367,15 @@ const CallUI = ({
                             {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
                         </button>
 
+                        <button
+                            onClick={toggleVideo}
+                            className={`p-4 md:p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                        >
+                            {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
+                        </button>
+
                         {!isAudioOnly && (
                             <>
-                                <button
-                                    onClick={toggleVideo}
-                                    className={`p-4 md:p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                                >
-                                    {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
-                                </button>
-
                                 <button
                                     onClick={onSwitchCamera}
                                     className="p-4 md:p-5 bg-white/10 text-white rounded-full transition-all hover:scale-110 active:scale-90 hover:bg-white/20"

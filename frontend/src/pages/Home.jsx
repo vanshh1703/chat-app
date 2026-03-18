@@ -526,6 +526,7 @@ const Home = () => {
     const [activeCall, setActiveCall] = useState(null);
     const [localStream, setLocalStream] = useState(null);
     const [remoteStream, setRemoteStream] = useState(null);
+    const [isAudioOnlyCall, setIsAudioOnlyCall] = useState(false);
     const [facingMode, setFacingMode] = useState('user');
 
     // Refs for signaling stability
@@ -813,6 +814,7 @@ const Home = () => {
                 const callType = incomingCallRef.current?.type || 'video';
                 const stream = await webrtc.getMediaStream(callType);
                 setLocalStream(stream);
+                setIsAudioOnlyCall(callType === 'voice');
 
                 const partnerId = activeChatRef.current?.id || incomingCallRef.current?.from || data?.from;
 
@@ -922,6 +924,8 @@ const Home = () => {
                 type: type
             });
 
+            setIsAudioOnlyCall(type === 'voice');
+
             // Set up local state
             setIncomingCall({
                 name: activeChat.username,
@@ -949,6 +953,7 @@ const Home = () => {
         try {
             const stream = await webrtc.getMediaStream(incomingCall.type);
             setLocalStream(stream);
+            setIsAudioOnlyCall(incomingCall.type === 'voice');
 
             peerConnection.current = webrtc.createPeerConnection((candidate) => signaling.emitIceCandidate(socket.current, { to: incomingCall.from, candidate }),
                 (rStream) => setRemoteStream(rStream));
@@ -1000,6 +1005,7 @@ const Home = () => {
         }
 
         setIsSharingScreen(false);
+        setIsAudioOnlyCall(false);
         setLocalStream(null);
         setRemoteStream(null);
         setActiveCall(null);
@@ -1069,6 +1075,54 @@ const Home = () => {
             setFacingMode(newMode);
         } catch (err) {
             console.error("Switch camera error", err);
+        }
+    };
+
+    const handleToggleCallVideo = async () => {
+        if (!peerConnection.current || !localStreamRef.current) return false;
+
+        const stream = localStreamRef.current;
+        const videoTrack = stream.getVideoTracks()[0];
+
+        if (videoTrack) {
+            const nextEnabled = !videoTrack.enabled;
+            videoTrack.enabled = nextEnabled;
+            setIsAudioOnlyCall(!nextEnabled);
+            return nextEnabled;
+        }
+
+        try {
+            const camStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode },
+                audio: false
+            });
+
+            const newTrack = camStream.getVideoTracks()[0];
+            if (!newTrack) return false;
+
+            const videoSender = peerConnection.current
+                .getSenders()
+                .find((sender) => sender.track && sender.track.kind === 'video');
+
+            if (videoSender) {
+                await videoSender.replaceTrack(newTrack);
+            } else {
+                peerConnection.current.addTrack(newTrack, stream);
+
+                const targetId = activeChatRef.current?.id || incomingCallRef.current?.from || incomingCallRef.current?.to;
+                if (targetId && socket.current) {
+                    const offer = await webrtc.createOffer(peerConnection.current);
+                    signaling.emitOffer(socket.current, { to: targetId, offer });
+                }
+            }
+
+            const merged = new MediaStream([...stream.getAudioTracks(), newTrack]);
+            setLocalStream(merged);
+            setIsAudioOnlyCall(false);
+            return true;
+        } catch (err) {
+            console.error('Enable video in voice call failed', err);
+            return false;
         }
     };
 
@@ -2683,10 +2737,14 @@ const Home = () => {
                         activeCall={activeCall}
                         localStream={localStream}
                         remoteStream={remoteStream}
+                        isAudioOnly={isAudioOnlyCall}
+                        onToggleVideo={handleToggleCallVideo}
                         onAccept={handleAcceptCall}
                         onReject={handleRejectCall}
                         onEnd={handleEndCall}
                         onSwitchCamera={handleSwitchCamera}
+                        onToggleScreenShare={handleToggleScreenShare}
+                        isSharingScreen={isSharingScreen}
                     />
                 </Suspense>
 

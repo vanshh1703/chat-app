@@ -1,6 +1,7 @@
 const { pool } = require('./db');
 
-module.exports = (io, socket) => {
+module.exports = (io, socket, options = {}) => {
+    const { sendPushNotification } = options;
     // Helper to safely emit to a target
     const safeEmit = (to, event, payload) => {
         if (!to) return;
@@ -64,6 +65,20 @@ module.exports = (io, socket) => {
             // Send callId to both caller and receiver
             socket.emit('call-initiated', { callId });
             safeEmit(to, 'incoming-call', { from, name, avatar, type, callId });
+
+            const targetRoom = io.sockets.adapter.rooms.get(to.toString());
+            const hasActiveSocket = Boolean(targetRoom && targetRoom.size > 0);
+
+            if (!hasActiveSocket && typeof sendPushNotification === 'function') {
+                await sendPushNotification(to, {
+                    notificationType: 'incoming_call',
+                    senderName: name,
+                    sender_id: from,
+                    callerAvatar: avatar,
+                    callType: type,
+                    content: `${name || 'Someone'} is calling you`
+                });
+            }
         } catch (err) {
             console.error("Error in call-user:", err);
         }
