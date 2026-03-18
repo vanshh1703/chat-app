@@ -432,6 +432,24 @@ const SwipeableMessage = ({ children, onSwipeToReply, isMine }) => {
 const Home = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('profile'))?.user);
     const [sidebarUsers, setSidebarUsers] = useState([]);
+    // Utility: Mark screenshot in sidebar
+    const markScreenshotInSidebar = () => {
+        setSidebarUsers(prev => prev.map(u =>
+            u.id === user.id
+                ? { ...u, lastmsg: 'Took a screenshot', lastmsgtype: 'text', lastmsgtime: new Date().toISOString() }
+                : u
+        ));
+    };
+    // Listen for screenshot event (for demo, use a keyboard shortcut: Ctrl+Shift+S)
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 's') {
+                markScreenshotInSidebar();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
     // For sidebar profile modal
     const [profileModalUser, setProfileModalUser] = useState(null);
     const [activeChat, setActiveChat] = useState(null);
@@ -2047,6 +2065,12 @@ const Home = () => {
                                         </h4>
                                         <span className="text-[10px] text-gray-400">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                                     </div>
+                                    {/* Hide [System] label in sidebar */}
+                                    {/*
+                                    {chat.id === ashPersona.id && (
+                                        <span className="text-xs text-gray-400 font-semibold">[System]</span>
+                                    )}
+                                    */}
                                     <p className="text-xs truncate text-gray-500">
                                         {typingUsers[chat.id] ? (
                                             <span className="text-blue-500 italic">typing...</span>
