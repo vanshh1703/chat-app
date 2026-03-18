@@ -1632,11 +1632,15 @@ const Home = () => {
     };
 
     const scrollToMessage = (msgId) => {
+        // Find the message in the messages array
+        const msg = messages.find(m => m.id === msgId);
+        // Only scroll if the message exists and is not deleted
+        if (!msg || msg.is_deleted) return;
         const el = document.getElementById(`msg-${msgId}`);
         if (!el) return;
         el.scrollIntoView({ behavior: 'auto', block: 'center' });
         setHighlightedMsgId(msgId);
-        setTimeout(() => setHighlightedMsgId(null), 1500);
+        setTimeout(() => setHighlightedMsgId(null), 1000);
     };
 
     const handleFileSelect = (e) => {
@@ -2179,7 +2183,7 @@ const Home = () => {
                                         ) : (
                                             <SwipeableMessage onSwipeToReply={() => handleStartReply(msg)} isMine={msg.sender_id === user.id}>
                                                 <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
-                                                    <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
+                                                    <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}>
                                                         {msg.is_deleted ? 'This message was deleted' : (
                                                             <>
                                                                 {msg.reply_to_msg && (
