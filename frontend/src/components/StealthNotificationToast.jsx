@@ -19,10 +19,17 @@ const StealthNotificationToast = ({ message, settings, onDismiss }) => {
         setTimeout(onDismiss, 300); // Wait for fade out
     };
 
+
+    // Get decoy app route from localStorage or fallback
+    const getDecoyAppRoute = () => {
+        // Example: '/decoy/calculator', '/decoy/clock', '/decoy/camera', '/decoy/settings'
+        return localStorage.getItem('decoyAppRoute') || '/decoy/calculator';
+    };
+
     const handleLeftClick = (e) => {
         e.stopPropagation();
         handleDismiss();
-        navigate(settings.leftTapApp);
+        navigate(getDecoyAppRoute());
     };
 
     const handleRightClick = (e) => {
