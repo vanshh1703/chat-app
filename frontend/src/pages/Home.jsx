@@ -466,6 +466,9 @@ const Home = () => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [hoveredMsgId, setHoveredMsgId] = useState(null);
     const [reactionPickerMsgId, setReactionPickerMsgId] = useState(null);
+    // Mobile Message Action Modal
+    const [showMessageActionModal, setShowMessageActionModal] = useState(false);
+    const [selectedMsgForActions, setSelectedMsgForActions] = useState(null);
     const emojiPickerRef = useRef();
     const [replyingTo, setReplyingTo] = useState(null);
     const inputRef = useRef();
@@ -1697,7 +1700,29 @@ const Home = () => {
     };
 
     const renderFileMessage = (msg) => {
-        return <DecryptedFileMessage msg={msg} user={user} activeChat={activeChat} setIsDrawingOpen={setIsDrawingOpen} setDrawingInitialImage={setDrawingInitialImage} />;
+        // Add long-press/touch logic for modal
+        const longPressTimerRef = useRef(null);
+        const handleTouchStart = () => {
+            longPressTimerRef.current = setTimeout(() => {
+                setSelectedMsgForActions(msg);
+                setShowMessageActionModal(true);
+            }, 500);
+        };
+        const handleTouchEndOrCancel = () => {
+            if (longPressTimerRef.current) {
+                clearTimeout(longPressTimerRef.current);
+                longPressTimerRef.current = null;
+            }
+        };
+        return (
+            <div
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEndOrCancel}
+                onTouchCancel={handleTouchEndOrCancel}
+            >
+                <DecryptedFileMessage msg={msg} user={user} activeChat={activeChat} setIsDrawingOpen={setIsDrawingOpen} setDrawingInitialImage={setDrawingInitialImage} />
+            </div>
+        );
     };
 
     const startRecording = async () => {
@@ -2205,7 +2230,18 @@ const Home = () => {
                                             <div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>
                                         ) : (
                                             <SwipeableMessage onSwipeToReply={() => handleStartReply(msg)} isMine={msg.sender_id === user.id}>
-                                                <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
+                                                <div
+                                                    className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+                                                    onMouseEnter={() => setHoveredMsgId(msg.id)}
+                                                    onMouseLeave={() => setHoveredMsgId(null)}
+                                                    onTouchStart={() => {
+                                                        // Only show modal on mobile
+                                                        if (window.innerWidth < 768) {
+                                                            setSelectedMsgForActions(msg);
+                                                            setShowMessageActionModal(true);
+                                                        }
+                                                    }}
+                                                >
                                                     <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}>
                                                         {msg.is_deleted ? 'This message was deleted' : (
                                                             <>
@@ -2268,7 +2304,8 @@ const Home = () => {
                                                                     </>
                                                                 ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
 
-                                                                {hoveredMsgId === msg.id && !msg.is_deleted && (
+                                                                {/* Desktop floating menu, hidden on mobile */}
+                                                                {hoveredMsgId === msg.id && !msg.is_deleted && window.innerWidth >= 768 && (
                                                                     <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
                                                                         <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded" title="React">😊</button>
                                                                         <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500" title="Reply"><CornerUpLeft size={14} /></button>
@@ -2294,6 +2331,25 @@ const Home = () => {
                                                                         {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
                                                                     </div>
                                                                 )}
+                                                                                {/* Mobile Message Action Modal */}
+                                                                                {showMessageActionModal && selectedMsgForActions && (
+                                                                                    <div className="fixed inset-0 z-200 flex items-end justify-center bg-black/30 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-300">
+                                                                                        <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl p-6 pb-8 border-t border-gray-200 dark:border-slate-700">
+                                                                                            <div className="flex flex-col items-center gap-4">
+                                                                                                <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-2"></div>
+                                                                                                <div className="text-sm font-bold mb-2">Message Actions</div>
+                                                                                                <div className="w-full flex flex-col gap-2">
+                                                                                                    <button onClick={() => { setReactionPickerMsgId(selectedMsgForActions.id); setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 font-bold flex items-center gap-2 justify-center"><Smile size={18} /> React</button>
+                                                                                                    <button onClick={() => { handleStartReply(selectedMsgForActions); setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-green-50 dark:bg-green-900/30 text-green-600 font-bold flex items-center gap-2 justify-center"><CornerUpLeft size={18} /> Reply</button>
+                                                                                                    <button onClick={() => { handleCopyMessage(selectedMsgForActions); setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 font-bold flex items-center gap-2 justify-center"><Copy size={18} /> Copy</button>
+                                                                                                    {selectedMsgForActions.sender_id === user.id && <button onClick={() => { handleDeleteMessage(selectedMsgForActions.id); setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-600 font-bold flex items-center gap-2 justify-center"><Trash2 size={18} /> Delete</button>}
+                                                                                                    <button onClick={() => { setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 font-bold flex items-center gap-2 justify-center"><MoreVertical size={18} /> More</button>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <button onClick={() => setShowMessageActionModal(false)} className="mt-6 w-full py-2 rounded-xl bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-white font-bold">Close</button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
                                                                 {reactionPickerMsgId === msg.id && (
                                                                     <div className="absolute top-0 -translate-y-full flex gap-1 p-2 bg-white rounded-2xl shadow-2xl z-30 border border-gray-100">
                                                                         {QUICK_REACTIONS.map(e => <button key={e} onClick={() => handleReact(msg.id, e)} className="text-xl hover:scale-125 transition-transform">{e}</button>)}

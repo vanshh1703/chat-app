@@ -427,11 +427,7 @@ const OfflineChatManager = ({ isOpen, onClose, currentUser }) => {
                                 const isMine = msg.senderId === currentUser.id;
                                 return (
                                     <div key={i} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                                        <div
-                                            className={`max-w-[75%] px-4 py-3 rounded-2xl shadow-sm ${isMine ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-white rounded-tl-sm'}`}
-                                            onClick={() => setSelectedMessage(msg)}
-                                            style={{ cursor: 'pointer' }}
-                                        >
+                                        <div className={`max-w-[75%] px-4 py-3 rounded-2xl shadow-sm ${isMine ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-white rounded-tl-sm'}`}>
                                             {!isMine && <p className="text-[10px] font-bold opacity-60 mb-0.5">{msg.senderName}</p>}
                                             <p className="text-sm">{msg.content}</p>
                                             <p className={`text-[9px] mt-1 text-right opacity-70`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -456,46 +452,12 @@ const OfflineChatManager = ({ isOpen, onClose, currentUser }) => {
                                 </button>
                             </form>
                         </div>
-
-                        {/* Message Action Modal */}
-                        {selectedMessage && (
-                            <div className="fixed inset-0 z-300 flex items-end justify-center bg-black/30 backdrop-blur-sm" onClick={() => setSelectedMessage(null)}>
-                                <div className="w-full max-w-sm mx-auto mb-10 rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-gray-100 dark:border-slate-800 p-4 relative animate-in fade-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-                                    <div className="flex flex-col items-center">
-                                        <div className="w-full mb-3">
-                                            <div className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200 rounded-xl px-4 py-3 text-sm font-medium shadow-sm text-center">
-                                                {selectedMessage.content}
-                                            </div>
-                                        </div>
-                                        <div className="w-16 h-1 bg-gray-200 rounded-full mb-4"></div>
-                                        <div className="flex items-center justify-center gap-2 mb-3">
-                                            <button className="text-xl">🔥</button>
-                                            <button className="text-xl">🙌</button>
-                                            <button className="text-xl">❤️</button>
-                                            <button className="text-xl">😊</button>
-                                            <button className="text-xl">😠</button>
-                                            <button className="text-xl">👍</button>
-                                        </div>
-                                        <div className="w-full divide-y divide-gray-100 dark:divide-slate-800">
-                                            <button className="w-full flex items-center gap-3 py-3 px-2 text-left text-gray-800 dark:text-white font-bold text-sm"><span>Reply</span></button>
-                                            <button className="w-full flex items-center gap-3 py-3 px-2 text-left text-gray-800 dark:text-white font-bold text-sm"><span>Forward</span></button>
-                                            <button className="w-full flex items-center gap-3 py-3 px-2 text-left text-gray-800 dark:text-white font-bold text-sm"><span>Copy</span></button>
-                                            <button className="w-full flex items-center gap-3 py-3 px-2 text-left text-rose-600 font-bold text-sm"><span>Delete</span></button>
-                                            <button className="w-full flex items-center gap-3 py-3 px-2 text-left text-gray-500 font-bold text-sm"><span>More..</span></button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
 
             </div>
         </div>
     );
-
-// State for selected message
-const [selectedMessage, setSelectedMessage] = useState(null);
 };
 
 export default OfflineChatManager;
