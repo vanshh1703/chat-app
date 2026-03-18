@@ -1988,7 +1988,7 @@ const Home = () => {
                     <div className="p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Link to="/profile" aria-label="Go to your profile" className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm hover:scale-105 transition-transform">
-                                <img src={user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} alt="Profile" className="w-full h-full object-cover" width="40" height="40" />
+                                <img src={user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} alt="Profile" className="w-full h-full object-cover" width="44" height="44" />
                             </Link>
                             <div>
                                 <h3 className="font-bold text-gray-800 dark:text-white text-sm">{user?.username}</h3>
@@ -2033,7 +2033,7 @@ const Home = () => {
                                             <img src={chat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
-                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-16 h-16" />
+                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-14 h-14" />
                                     )}
                                     {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full z-10"></div>}
                                     {chat.is_pinned && (<div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-900 rounded-full shadow-md text-blue-500 border border-blue-100">
