@@ -58,7 +58,7 @@ export async function encryptFile(file, recipientPublicKey, senderPublicKey = nu
 /**
  * Decrypts an encrypted blob
  */
-export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, myPrivateKey) {
+export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, myPrivateKey, mimeType = 'application/octet-stream') {
   const encryptedData = await encryptedBlob.arrayBuffer();
   const encryptedKey = base64ToArrayBuffer(encryptedKeyBase64);
   const iv = base64ToArrayBuffer(ivBase64);
@@ -66,7 +66,8 @@ export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, m
   console.log("[decryptFile] Starting...", {
     dataSize: encryptedData.byteLength,
     keySize: encryptedKey.byteLength,
-    ivSize: iv.byteLength
+    ivSize: iv.byteLength,
+    mimeType
   });
 
   // 1. Decrypt AES key
@@ -107,7 +108,7 @@ export async function decryptFile(encryptedBlob, encryptedKeyBase64, ivBase64, m
       encryptedData
     );
     console.log("[decryptFile] AES Data Decrypt successful");
-    return new Blob([decryptedData]);
+    return new Blob([decryptedData], { type: mimeType });
   } catch (e) {
     console.error("[decryptFile] AES Data Decrypt FAILED", e);
     throw e;

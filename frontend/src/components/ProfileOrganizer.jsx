@@ -113,33 +113,27 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                    </div>
                 </div>
 
-                {/* Media Links Docs Preview */}
+                {/* Media Audio Links Docs Preview */}
                 <button 
                     onClick={() => setSubView('media')}
                     className="w-full p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-slate-800 group"
                 >
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Media, Links, and Docs</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Media, Audio, Links, and Docs</p>
                         <div className="flex items-center gap-1 text-blue-500 font-bold text-sm">
-                            {media.length + docs.length + links.length} <ChevronRight size={16} />
+                            {media.length + audio.length + docs.length + links.length} <ChevronRight size={16} />
                         </div>
                     </div>
-                    {media.length > 0 ? (
+                    {([...media, ...audio].length > 0) ? (
                         <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
-                            {media.slice(0, 6).map((msg, idx) => (
+                            {[...media, ...audio].slice(0, 6).map((msg, idx) => (
                                 <div key={idx} className="w-20 h-20 rounded-xl shrink-0 overflow-hidden bg-gray-100 dark:bg-slate-800 border-2 border-white dark:border-slate-700 shadow-sm">
-                                    <img 
-                                        src={msg.file_url} 
-                                        alt="" 
-                                        className="w-full h-full object-cover" 
-                                        width="80"
-                                        height="80"
-                                    />
+                                    <DecryptedMediaPreview msg={msg} />
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <p className="text-xs text-gray-400 text-left italic">No media shared yet</p>
+                        <p className="text-xs text-gray-400 text-left italic">No shared content yet</p>
                     )}
                 </button>
 
@@ -200,21 +194,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 {activeTab === 'media' && (
                     <div className="grid grid-cols-3 gap-2">
                         {media.length > 0 ? media.map(msg => (
-                            <a key={msg.id} href={msg.file_url} target="_blank" rel="noreferrer" className="aspect-square relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-sm min-h-[100px]">
-                                {msg.message_type === 'image' ? (
-                                    <img src={msg.file_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                ) : (
-                                    <div className="w-full h-full relative flex items-center justify-center">
-                                        <video src={msg.file_url} className="w-full h-full object-cover" preload="metadata" />
-                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center transition-opacity group-hover:bg-black/40">
-                                            <Video className="text-white drop-shadow-lg" size={24} />
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <span className="absolute bottom-1 right-2 text-[8px] text-white/80 font-bold tracking-wider">{formatDate(msg.created_at)}</span>
-                                </div>
-                            </a>
+                            <DecryptedMedia msg={msg} />
                         )) : (
                             <div className="col-span-3 py-10 text-center text-gray-400">
                                 <ImageIcon size={32} className="mx-auto mb-2 opacity-30" />
@@ -323,5 +303,113 @@ const Search = ({ size, className }) => (
     <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
   </svg>
 );
+
+
+// --- Decryption Helper Hook (Minimal version of useEncryption for this component) ---
+import { keyManager } from '../utils/keyManager';
+import { decryptFile } from '../utils/mediaCrypto';
+
+const DecryptedMediaPreview = ({ msg }) => {
+    const [decryptedUrl, setDecryptedUrl] = useState(null);
+    const [decrypting, setDecrypting] = useState(false);
+
+    useEffect(() => {
+        const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
+        if (isEncrypted && msg.file_url && !decryptedUrl && !decrypting) {
+            const performDecryption = async () => {
+                setDecrypting(true);
+                try {
+                    const response = await fetch(msg.file_url);
+                    const encryptedBlob = await response.blob();
+                    const profile = JSON.parse(localStorage.getItem('profile'));
+                    const userId = profile?.user?.id;
+                    const myKeys = await keyManager.getMyKeys(userId);
+                    
+                    const isMine = String(msg.sender_id) === String(userId);
+                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
+
+                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, msg.message_type === 'image' ? 'image/jpeg' : (msg.message_type === 'video' ? 'video/webm' : 'application/octet-stream'));
+                    setDecryptedUrl(URL.createObjectURL(decrypted));
+                } catch (err) {
+                    console.error("Preview decryption error:", err);
+                } finally {
+                    setDecrypting(false);
+                }
+            };
+            performDecryption();
+        }
+    }, [msg, decryptedUrl, decrypting]);
+
+    const url = decryptedUrl || msg.file_url;
+
+    if (decrypting) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={16} /></div>;
+    
+    if (msg.message_type === 'audio') return <div className="w-full h-full flex items-center justify-center bg-purple-50 dark:bg-purple-900/20 text-purple-500"><Music size={24} /></div>;
+
+    return <img src={url} alt="" className="w-full h-full object-cover" />;
+};
+
+const DecryptedMedia = ({ msg }) => {
+    const [decryptedUrl, setDecryptedUrl] = useState(null);
+    const [decrypting, setDecrypting] = useState(false);
+
+    useEffect(() => {
+        const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
+        if (isEncrypted && msg.file_url && !decryptedUrl && !decrypting) {
+            const performDecryption = async () => {
+                setDecrypting(true);
+                try {
+                    const response = await fetch(msg.file_url);
+                    const encryptedBlob = await response.blob();
+                    const profile = JSON.parse(localStorage.getItem('profile'));
+                    const userId = profile?.user?.id;
+                    const myKeys = await keyManager.getMyKeys(userId);
+                    
+                    const isMine = String(msg.sender_id) === String(userId);
+                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
+
+                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, msg.message_type === 'image' ? 'image/jpeg' : (msg.message_type === 'video' ? 'video/webm' : 'application/octet-stream'));
+                    setDecryptedUrl(URL.createObjectURL(decrypted));
+                } catch (err) {
+                    console.error("Full media decryption error:", err);
+                } finally {
+                    setDecrypting(false);
+                }
+            };
+            performDecryption();
+        }
+    }, [msg, decryptedUrl, decrypting]);
+
+    const url = decryptedUrl || msg.file_url;
+    const formatDate = (isoString) => {
+        const date = new Date(isoString);
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    if (decrypting) return <div className="aspect-square flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-xl gap-2"><Loader2 className="animate-spin text-blue-500" size={24} /><span className="text-[8px] font-bold text-gray-400 uppercase">Decrypting...</span></div>;
+
+    return (
+        <a href={url} target="_blank" rel="noreferrer" className="aspect-square relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-sm min-h-[100px]">
+            {msg.message_type === 'image' ? (
+                <img src={url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+            ) : (
+                <div className="w-full h-full relative flex items-center justify-center">
+                    <video src={url} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center transition-opacity group-hover:bg-black/40">
+                        <Video className="text-white drop-shadow-lg" size={24} />
+                    </div>
+                </div>
+            )}
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="absolute bottom-1 right-2 text-[8px] text-white/80 font-bold tracking-wider">{formatDate(msg.created_at)}</span>
+            </div>
+            {(msg.is_media_encrypted || (msg.encrypted_key && msg.iv)) && (
+                <div className="absolute top-1.5 right-1.5 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
+                    <Shield size={8} />
+                </div>
+            )}
+        </a>
+    );
+};
 
 export default ProfileOrganizer;

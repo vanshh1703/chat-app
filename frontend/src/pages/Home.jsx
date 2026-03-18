@@ -50,7 +50,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                         return;
                     }
 
-                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey);
+                        const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, msg.message_type === 'image' ? 'image/jpeg' : (msg.message_type === 'video' ? 'video/webm' : 'application/octet-stream'));
                     const fingerprint = await keyManager.getFingerprint(user.id);
                     console.log(`[decryptFile] Decryption successful for message ${msg.id}. Local Fingerprint: ${fingerprint}`);
                     const url = URL.createObjectURL(decrypted);
@@ -510,8 +510,8 @@ const Home = () => {
                 return prev;
             });
 
-            // Handle Decryption for new messages
-            if (newMessage.encrypted_key && encryptionReady) {
+            // Handle Decryption for new messages (only if it's a text message)
+            if (newMessage.message_type === 'text' && newMessage.encrypted_key && encryptionReady) {
                 const text = await decrypt(newMessage);
                 setDecryptedMessages(prev => ({ ...prev, [newMessage.id]: text }));
             }
@@ -663,7 +663,7 @@ const Home = () => {
         const decryptBatch = async () => {
             const decryptNeededMessages = messages.filter(m => m.encrypted_key && !decryptedMessages[m.id]);
             const decryptNeededSidebar = sidebarUsers
-                .filter(u => u.lastMsgData?.encrypted_key && !decryptedMessages[u.lastMsgData.id])
+                .filter(u => u.lastmsgtype === 'text' && u.lastMsgData?.encrypted_key && !decryptedMessages[u.lastMsgData.id])
                 .map(u => u.lastMsgData);
 
             const allNeeded = [...decryptNeededMessages, ...decryptNeededSidebar];
