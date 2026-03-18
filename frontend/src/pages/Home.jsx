@@ -21,6 +21,23 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
     const [decryptedUrl, setDecryptedUrl] = useState(null);
     const [decrypting, setDecrypting] = useState(false);
 
+    // Mobile long press logic for the pen icon
+    const [showMobileActions, setShowMobileActions] = useState(false);
+    const longPressTimerRef = useRef(null);
+
+    const handleTouchStart = () => {
+        longPressTimerRef.current = setTimeout(() => {
+            setShowMobileActions(true);
+        }, 500); // 500ms for long press
+    };
+
+    const handleTouchEndOrCancel = () => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    };
+
     useEffect(() => {
         const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
         if (isEncrypted && msg.file_url && !decryptedUrl && !decrypting) {
@@ -91,7 +108,11 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
 
     if (msg.message_type === 'image') {
         return (
-            <div className="relative group/image">
+            <div className="relative group/image"
+                 onTouchStart={handleTouchStart}
+                 onTouchEnd={handleTouchEndOrCancel}
+                 onTouchCancel={handleTouchEndOrCancel}
+            >
                 {fileUrl ? (
                     <a href={fileUrl} target="_blank" rel="noreferrer">
                         <img src={fileUrl} alt={msg.content}
@@ -105,10 +126,11 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                 <button
                     onClick={(e) => {
                         e.preventDefault();
+                        setShowMobileActions(false);
                         setDrawingInitialImage(fileUrl);
                         setIsDrawingOpen(true);
                     }}
-                    className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover/image:opacity-100 transition-opacity backdrop-blur-sm shadow-lg"
+                    className={`absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg transition-opacity backdrop-blur-sm shadow-lg ${showMobileActions ? 'opacity-100' : 'opacity-0 group-hover/image:opacity-100'}`}
                     title="Draw on Image"
                 >
                     <PenTool size={16} />
@@ -2156,8 +2178,9 @@ const Home = () => {
                                         {msg.message_type === 'system' ? (
                                             <div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>
                                         ) : (
-                                            <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'items-end' : 'items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
-                                                <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
+                                            <SwipeableMessage onSwipeToReply={() => handleStartReply(msg)} isMine={msg.sender_id === user.id}>
+                                                <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
+                                                    <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'}`}>
                                                     {msg.is_deleted ? 'This message was deleted' : (
                                                         <>
                                                             {msg.reply_to_msg && (
@@ -2258,6 +2281,7 @@ const Home = () => {
                                                     {msg.sender_id === user.id && (msg.is_read ? <CheckCheck size={12} className="text-blue-500" /> : <Check size={12} />)}
                                                 </div>
                                             </div>
+                                            </SwipeableMessage>
                                         )}
                                     </div>
                                 ))}
