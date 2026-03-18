@@ -432,6 +432,8 @@ const SwipeableMessage = ({ children, onSwipeToReply, isMine }) => {
 const Home = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('profile'))?.user);
     const [sidebarUsers, setSidebarUsers] = useState([]);
+    // For sidebar profile modal
+    const [profileModalUser, setProfileModalUser] = useState(null);
     const [activeChat, setActiveChat] = useState(null);
     const [messages, setMessages] = useState([]);
     const [messageText, setMessageText] = useState('');
