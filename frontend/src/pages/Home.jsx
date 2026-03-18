@@ -2081,7 +2081,10 @@ const Home = () => {
                                 <div className="flex items-center gap-2 md:gap-4 flex-1">
                                     <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-gray-500"><ArrowLeft size={20} /></button>
                                     {String(activeChat.id) === String(ashPersona.id) ? (
-                                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
+                                        <div
+                                            className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                                            onPointerDown={() => handleViewProfile(activeChat)}
+                                        >
                                             <img src={activeChat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
@@ -2108,8 +2111,9 @@ const Home = () => {
                                             <button type="button" onClick={() => setIsEditingAlias(false)} className="text-gray-400 text-xs">Cancel</button>
                                         </form>) : (<div className="flex items-center gap-2">
                                             <h3
-                                                className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-1.5"
+                                                className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-1.5 cursor-pointer"
                                                 tabIndex={0}
+                                                onPointerDown={() => handleViewProfile(activeChat)}
                                             >
                                                 {activeChat.alias || activeChat.username}
                                                 {encryptionReady && (
