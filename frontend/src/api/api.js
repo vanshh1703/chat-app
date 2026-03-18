@@ -47,6 +47,7 @@ export const getPublicKey = (userId) => API.get(`keys/${userId}`);
 export const getVapidPublicKey = () => API.get('push/vapid-public-key');
 export const subscribePush = (subscription) => API.post('push/subscribe', { subscription });
 export const unsubscribePush = (subscription) => API.post('push/unsubscribe', { subscription });
+export const resetPushSubscriptions = () => API.post('push/reset');
 export const testPush = (message) => API.post('push/test', { message });
 
 export default API;

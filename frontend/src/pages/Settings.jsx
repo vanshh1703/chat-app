@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Moon, Sun, Bell, Shield, User, LogOut, Image as ImageIcon, Check, Plus, Monitor, Smartphone, MapPin, Activity, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getLoginActivity, testPush } from '../api/api';
-import { subscribeToPush } from '../utils/pushManager';
+import { subscribeToPush, forceResubscribeToPush } from '../utils/pushManager';
 
 const Settings = () => {
     const navigate = useNavigate();
@@ -41,6 +41,7 @@ const Settings = () => {
     const [loginActivities, setLoginActivities] = useState([]);
     const [showAllActivities, setShowAllActivities] = useState(false);
     const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+    const [isResettingPush, setIsResettingPush] = useState(false);
     const fileInputRef = React.useRef(null);
 
     useEffect(() => {
@@ -118,9 +119,49 @@ const Settings = () => {
             } catch (err) {
                 console.error('Test push failed:', err);
                 const serverMsg = err?.response?.data?.error;
+
+                if (serverMsg?.includes('Push provider rejected all subscriptions')) {
+                    const recovered = await forceResubscribeToPush();
+                    if (!recovered) {
+                        alert('Push re-subscribe failed. Please allow notifications and log in again.');
+                        return;
+                    }
+
+                    try {
+                        await testPush('Push recovered. This is a fresh subscription test.');
+                        alert('Push subscription recovered and test notification sent.');
+                        return;
+                    } catch (retryErr) {
+                        const retryMsg = retryErr?.response?.data?.error;
+                        alert(retryMsg ? `Push retry failed: ${retryMsg}` : 'Push retry failed after re-subscribe.');
+                        return;
+                    }
+                }
+
                 alert(serverMsg ? `Push test failed: ${serverMsg}` : 'Failed to send push test. Check backend VAPID keys and deployment logs.');
             }
         })();
+    };
+
+    const handleResetPushSubscription = async () => {
+        if (isResettingPush) return;
+        setIsResettingPush(true);
+        try {
+            const recovered = await forceResubscribeToPush();
+            if (!recovered) {
+                alert('Push reset failed. Please allow notifications and try again.');
+                return;
+            }
+
+            await testPush('Push reset successful. This is a fresh test notification.');
+            alert('Push subscription reset complete and test notification sent.');
+        } catch (err) {
+            console.error('Manual push reset failed:', err);
+            const serverMsg = err?.response?.data?.error;
+            alert(serverMsg ? `Push reset failed: ${serverMsg}` : 'Push reset failed. Please try again.');
+        } finally {
+            setIsResettingPush(false);
+        }
     };
 
     const handleToggleStealth = (key) => {
@@ -317,6 +358,17 @@ const Settings = () => {
                                     className="w-full py-3 px-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl font-bold text-sm hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all border border-blue-100 dark:border-blue-800/50"
                                 >
                                     Send Test Notification
+                                </button>
+
+                                <button
+                                    onClick={handleResetPushSubscription}
+                                    disabled={isResettingPush}
+                                    className={`mt-3 w-full py-3 px-4 rounded-2xl font-bold text-sm transition-all border ${isResettingPush
+                                        ? 'bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-400 border-gray-200 dark:border-slate-600 cursor-not-allowed'
+                                        : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 border-amber-200 dark:border-amber-800/50'
+                                        }`}
+                                >
+                                    {isResettingPush ? 'Resetting Push Subscription...' : 'Reset Push Subscription'}
                                 </button>
                             </div>
                         </div>

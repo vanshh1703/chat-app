@@ -1,4 +1,4 @@
-import { getVapidPublicKey, subscribePush, unsubscribePush } from '../api/api';
+import { getVapidPublicKey, subscribePush, unsubscribePush, resetPushSubscriptions } from '../api/api';
 
 const urlBase64ToUint8Array = (base64String) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -77,5 +77,35 @@ export const unsubscribeFromPush = async () => {
         }
     } catch (error) {
         console.error('Failed to unsubscribe from push notifications:', error);
+    }
+};
+
+export const forceResubscribeToPush = async () => {
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            return false;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        const existingSubscription = await registration.pushManager.getSubscription();
+
+        if (existingSubscription) {
+            try {
+                await existingSubscription.unsubscribe();
+            } catch (err) {
+                console.warn('Local push unsubscribe during recovery failed:', err);
+            }
+        }
+
+        try {
+            await resetPushSubscriptions();
+        } catch (err) {
+            console.warn('Backend push reset failed during recovery:', err);
+        }
+
+        return await subscribeToPush();
+    } catch (error) {
+        console.error('Failed to force re-subscribe to push notifications:', error);
+        return false;
     }
 };

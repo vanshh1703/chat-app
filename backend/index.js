@@ -295,6 +295,16 @@ app.post('/api/push/unsubscribe', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/api/push/reset', authenticateToken, async (req, res) => {
+    try {
+        await pool.query('DELETE FROM push_subscriptions WHERE user_id = $1', [req.user.id]);
+        res.status(200).json({ message: 'Push subscriptions reset for user' });
+    } catch (err) {
+        console.error('Push reset error:', err);
+        res.status(500).json({ error: 'Failed to reset push subscriptions' });
+    }
+});
+
 app.post('/api/push/test', authenticateToken, async (req, res) => {
     try {
         const result = await sendPushNotification(req.user.id, {
