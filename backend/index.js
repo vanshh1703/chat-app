@@ -229,7 +229,7 @@ app.post('/api/keys', authenticateToken, async (req, res) => {
 });
 
 // Utility: Link Preview
-app.get('/api/utils/link-preview', authenticateToken, async (req, res) => {
+app.get('/api/utils/link-preview', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.status(400).json({ error: 'URL is required' });
 
