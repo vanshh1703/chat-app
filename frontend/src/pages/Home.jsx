@@ -2327,8 +2327,8 @@ const Home = () => {
                                                 ref={fileInputRef}
                                                 type="file"
                                                 accept="image/*,image/gif"
-                                                className={window.innerWidth < 768 ? 'absolute opacity-0 w-full h-full z-10' : 'hidden'}
-                                                style={window.innerWidth < 768 ? { left: 0, top: 0 } : {}}
+                                                className="hidden"
+                                                style={{}}
                                                 onChange={handleFileSelect}
                                             />
 
