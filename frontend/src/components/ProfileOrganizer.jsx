@@ -91,8 +91,14 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                                 <h2 className="text-3xl font-black text-white tracking-tighter drop-shadow-lg">
                                     {activeChat.alias || activeChat.username}
                                 </h2>
-                                <button onClick={() => setEditingAlias(true)} className="p-1 rounded hover:bg-white/20" title="Edit Nickname">
-                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                                <button onClick={() => setEditingAlias(true)}
+                                    className="p-1 rounded-full bg-black hover:bg-blue-900 transition-colors"
+                                    title="Edit Nickname"
+                                >
+                                    <svg width="20" height="20" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                                        <path d="M12 20h9"/>
+                                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                                    </svg>
                                 </button>
                             </>
                         ) : (

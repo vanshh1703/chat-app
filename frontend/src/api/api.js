@@ -30,7 +30,9 @@ export const pinChat = (data) => API.post('users/pin-chat', data);
 export const muteChat = (data) => API.post('users/mute-chat', data);
 export const getLinkPreview = (url) => API.get(`utils/link-preview?url=${encodeURIComponent(url)}`);
 export const pinMessage = (data) => API.post('messages/pin', data);
-export const setAlias = (data) => API.post('users/set-alias', data);
+// Accepts (contactId, alias) for clarity
+export const setAlias = (contactId, alias) =>
+    API.post('users/set-alias', { contactId, alias });
 export const getUserProfile = (userId) => API.get(`users/profile/${userId}`);
 export const getCallHistory = () => API.get('calls/history');
 export const getLoginActivity = () => API.get('users/login-activity');
