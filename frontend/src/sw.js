@@ -25,25 +25,7 @@ self.addEventListener('push', (event) => {
 
     const title = data.title || 'New Message';
 
-    const promiseChain = self.clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true
-    }).then((windowClients) => {
-        let anyVisible = false;
-        for (let i = 0; i < windowClients.length; i++) {
-            if (windowClients[i].visibilityState === 'visible') {
-                anyVisible = true;
-                break;
-            }
-        }
-
-        // Only show system notification if the app is NOT visible/focused
-        if (!anyVisible) {
-            return self.registration.showNotification(title, options);
-        }
-    });
-
-    event.waitUntil(promiseChain);
+    event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {

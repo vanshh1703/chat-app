@@ -1,5 +1,6 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { subscribeToPush } from './utils/pushManager'
 
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
@@ -23,6 +24,8 @@ const PublicRoute = ({ children }) => {
 };
 
 function App() {
+  const [isPushInitDone, setIsPushInitDone] = useState(false);
+
   useEffect(() => {
     const applyTheme = () => {
       const pref = localStorage.getItem('themePreference') || 'light';
@@ -55,6 +58,24 @@ function App() {
       mediaQuery.removeEventListener('change', mediaListener);
     };
   }, []);
+
+  useEffect(() => {
+    const initPush = async () => {
+      if (isPushInitDone) return;
+      const profile = JSON.parse(localStorage.getItem('profile'));
+      if (!profile?.token) return;
+
+      try {
+        await subscribeToPush();
+      } catch (err) {
+        console.error('Global push init error:', err);
+      } finally {
+        setIsPushInitDone(true);
+      }
+    };
+
+    initPush();
+  }, [isPushInitDone]);
 
   return (
     <>

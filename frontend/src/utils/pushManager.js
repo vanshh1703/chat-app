@@ -17,17 +17,44 @@ const urlBase64ToUint8Array = (base64String) => {
 
 export const subscribeToPush = async () => {
     try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            console.warn('Push is not supported in this browser');
+            return false;
+        }
+
+        if (!('Notification' in window)) {
+            console.warn('Notifications are not supported in this browser');
+            return false;
+        }
+
+        if (Notification.permission !== 'granted') {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                console.warn('Notification permission not granted');
+                return false;
+            }
+        }
+
         const registration = await navigator.serviceWorker.ready;
-        
-        // Get public key from backend
-        console.log('Fetching VAPID public key from backend...');
-        const { data: { publicKey } } = await getVapidPublicKey();
-        console.log('Received VAPID public key:', publicKey);
-        
-        const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey)
-        });
+
+        // Reuse existing subscription if available (important for reliability)
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (!subscription) {
+            console.log('Fetching VAPID public key from backend...');
+            const { data: { publicKey } } = await getVapidPublicKey();
+
+            if (!publicKey) {
+                console.error('VAPID public key is missing from backend response');
+                return false;
+            }
+
+            console.log('Received VAPID public key');
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey)
+            });
+        }
 
         console.log('Registering subscription on backend...');
         await subscribePush(subscription);
