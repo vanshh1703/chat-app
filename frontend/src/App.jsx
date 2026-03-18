@@ -66,7 +66,7 @@ function App() {
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/calls" element={<ProtectedRoute><CallLogs /></ProtectedRoute>} />
               <Route path="/decoy/settings" element={<ProtectedRoute><DecoySettings /></ProtectedRoute>} />
-              <Route path="/decoy/calc" element={<ProtectedRoute><DecoyCalculator /></ProtectedRoute>} />
+              <Route path="/decoy/calculator" element={<ProtectedRoute><DecoyCalculator /></ProtectedRoute>} />
               <Route path="/decoy/clock" element={<ProtectedRoute><DecoyClock /></ProtectedRoute>} />
               <Route path="/decoy/camera" element={<ProtectedRoute><DecoyCamera /></ProtectedRoute>} />
             </Routes>
