@@ -2021,13 +2021,13 @@ const Home = () => {
                         <h4 className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Direct Messages</h4>
                         <div className="space-y-1">
                             {sidebarUsers.map(chat => (<div key={chat.id} onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)} onMouseLeave={() => setHoveredMsgId(null)} onClick={() => handleSelectChat(chat)} className={`group flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all duration-200 ${activeChat?.id === chat.id ? 'bg-white shadow-[0_10px_25px_rgba(0,0,0,0.05)]' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80' : 'hover:bg-white/50'}`}>
-                                <div className="relative">
+                                <div className="relative" onClick={e => { e.stopPropagation(); setProfileModalUser(chat); }} style={{ cursor: 'pointer' }}>
                                     {chat.id === ashPersona.id ? (
-                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
+                                        <div className="w-14 h-14 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
                                             <img src={chat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
-                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-12 h-12" />
+                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-14 h-14" />
                                     )}
                                     {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full z-10"></div>}
                                     {chat.is_pinned && (<div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-900 rounded-full shadow-md text-blue-500 border border-blue-100">
@@ -2036,7 +2036,7 @@ const Home = () => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <h4 className="text-sm font-bold truncate flex items-center gap-1">
+                                        <h4 className="text-base font-bold truncate flex items-center gap-1">
                                             {chat.alias || chat.username}
                                         </h4>
                                         <span className="text-[10px] text-gray-400">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
