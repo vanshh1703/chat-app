@@ -634,7 +634,12 @@ const Home = () => {
                         // Only show visual notification if we're in a DIFFERENT chat or list view
                         if (isDifferentChat) {
                             const stealthSettings = JSON.parse(localStorage.getItem('stealthNotifSettings') || '{"enabled": false}');
-                            if (stealthSettings.enabled) {
+                            const hasSystemPushNotification = 'serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted';
+
+                            // Avoid duplicate alerts: when system push is available, backend push + SW handles visual notifications.
+                            if (hasSystemPushNotification) {
+                                // no-op: single notification path via push service worker
+                            } else if (stealthSettings.enabled) {
                                 setStealthNotif({ message: newMessage, settings: stealthSettings });
                             } else if ('Notification' in window && Notification.permission === 'granted') {
                                 const title = `New message from ${newMessage.senderName || 'a user'}`;
