@@ -42,9 +42,11 @@ const StealthNotificationToast = ({ message, settings, onDismiss }) => {
     // Resolve decoy route with backward compatibility:
     // settings.decoyAppRoute -> settings.leftTapApp -> localStorage.decoyAppRoute -> localStorage.stealthNotifSettings.leftTapApp
     const normalizeDecoyRoute = (route) => {
-        if (!route) return null;
-        if (route === '/decoy/calc') return '/decoy/calculator';
-        return route;
+        if (!route || typeof route !== 'string') return null;
+        const cleaned = route.trim();
+        const mapped = cleaned === '/decoy/calc' ? '/decoy/calculator' : cleaned;
+        const allowedRoutes = new Set(['/decoy/settings', '/decoy/calculator', '/decoy/clock', '/decoy/camera']);
+        return allowedRoutes.has(mapped) ? mapped : null;
     };
 
     const getDecoyAppRoute = () => {

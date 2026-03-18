@@ -7,7 +7,10 @@ const Home = lazy(() => import('./pages/Home'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Profile = lazy(() => import('./pages/Profile'))
 const CallLogs = lazy(() => import('./pages/CallLogs'))
-const { DecoySettings, DecoyCalculator, DecoyClock, DecoyCamera } = lazy(() => import('./pages/DecoyApps'))
+const DecoySettings = lazy(() => import('./pages/DecoyApps').then((module) => ({ default: module.DecoySettings })))
+const DecoyCalculator = lazy(() => import('./pages/DecoyApps').then((module) => ({ default: module.DecoyCalculator })))
+const DecoyClock = lazy(() => import('./pages/DecoyApps').then((module) => ({ default: module.DecoyClock })))
+const DecoyCamera = lazy(() => import('./pages/DecoyApps').then((module) => ({ default: module.DecoyCamera })))
 
 const ProtectedRoute = ({ children }) => {
   const user = JSON.parse(localStorage.getItem('profile'));
