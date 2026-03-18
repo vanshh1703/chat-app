@@ -270,9 +270,12 @@ app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
         if (!hasVapidKeys) {
             return res.status(503).json({ error: 'Cannot subscribe: VAPID keys are not configured on backend' });
         }
+        if (!subscription || !subscription.endpoint) {
+            return res.status(400).json({ error: 'Invalid subscription payload' });
+        }
         await pool.query(
             'INSERT INTO push_subscriptions (user_id, subscription) VALUES ($1, $2) ON CONFLICT (user_id, subscription) DO NOTHING',
-            [req.user.id, JSON.stringify(subscription)]
+            [req.user.id, subscription]
         );
         res.status(201).json({ message: 'Subscribed to push notifications' });
     } catch (err) {
@@ -284,9 +287,12 @@ app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
 app.post('/api/push/unsubscribe', authenticateToken, async (req, res) => {
     const { subscription } = req.body;
     try {
+        if (!subscription || !subscription.endpoint) {
+            return res.status(400).json({ error: 'Invalid subscription payload' });
+        }
         await pool.query(
-            'DELETE FROM push_subscriptions WHERE user_id = $1 AND subscription = $2',
-            [req.user.id, JSON.stringify(subscription)]
+            "DELETE FROM push_subscriptions WHERE user_id = $1 AND subscription->>'endpoint' = $2",
+            [req.user.id, subscription.endpoint]
         );
         res.sendStatus(200);
     } catch (err) {
@@ -356,7 +362,20 @@ async function sendPushNotification(receiverId, payload) {
         await Promise.all(
             subscriptions.map(async (sub) => {
                 try {
-                    await webpush.sendNotification(JSON.parse(sub.subscription), pushPayload);
+                    const subscriptionObject = typeof sub.subscription === 'string'
+                        ? JSON.parse(sub.subscription)
+                        : sub.subscription;
+
+                    if (!subscriptionObject || !subscriptionObject.endpoint) {
+                        deliveryErrors.push({
+                            statusCode: null,
+                            body: null,
+                            message: 'Invalid subscription payload in database (missing endpoint)'
+                        });
+                        return;
+                    }
+
+                    await webpush.sendNotification(subscriptionObject, pushPayload);
                     sentCount += 1;
                 } catch (e) {
                     if (e.statusCode === 410 || e.statusCode === 404) {
