@@ -90,19 +90,58 @@ const CallUI = ({
         </div>
     );
 
+    // Full-screen Incoming Call UI (no Remind Me/Message)
+    const FullScreenIncomingCall = ({ name, avatar, subtitle, onAccept, onReject }) => (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-gradient-to-b from-slate-900/80 to-slate-800/90">
+            <div className="w-full flex flex-col items-center pt-12">
+                <img src={avatar} alt={name} className="w-16 h-16 rounded-full border-2 border-white shadow-lg mb-2" />
+                <div className="font-bold text-white text-lg text-center">{name}</div>
+                <div className="text-xs text-gray-300 text-center">{subtitle}</div>
+            </div>
+            <div className="flex flex-col items-center w-full mb-12">
+                <div className="flex justify-center gap-16">
+                    <button onClick={onReject} className="flex flex-col items-center">
+                        <span className="bg-rose-500 hover:bg-rose-600 rounded-full p-5 mb-2 shadow-lg"><PhoneOff size={28} className="text-white" /></span>
+                        <span className="text-xs text-white font-bold">Decline</span>
+                    </button>
+                    <button onClick={onAccept} className="flex flex-col items-center">
+                        <span className="bg-emerald-500 hover:bg-emerald-600 rounded-full p-5 mb-2 shadow-lg"><Phone size={28} className="text-white" /></span>
+                        <span className="text-xs text-white font-bold">Accept</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     // 1. Incoming/Outgoing Call Popup (Pre-active)
     if (incomingCall && !activeCall) {
         const isCaller = incomingCall.isCaller;
+        // Add maximize/minimize state for incoming call
+        const [isMaximized, setIsMaximized] = useState(false);
         if (!isCaller) {
-            // Incoming call (Snapchat-style bar)
+            if (isMaximized) {
+                // Full-screen incoming call UI (no Remind Me/Message)
+                return (
+                    <FullScreenIncomingCall
+                        name={incomingCall.name}
+                        avatar={incomingCall.avatar}
+                        subtitle={incomingCall.subtitle || `powered by ringer`}
+                        onAccept={onAccept}
+                        onReject={onReject}
+                    />
+                );
+            }
+            // Minimized bar
             return (
-                <IncomingCallBar
-                    name={incomingCall.name}
-                    avatar={incomingCall.avatar}
-                    subtitle={incomingCall.subtitle || `powered by ringer`}
-                    onAccept={onAccept}
-                    onReject={onReject}
-                />
+                <div onClick={() => setIsMaximized(true)}>
+                    <IncomingCallBar
+                        name={incomingCall.name}
+                        avatar={incomingCall.avatar}
+                        subtitle={incomingCall.subtitle || `powered by ringer`}
+                        onAccept={onAccept}
+                        onReject={onReject}
+                    />
+                </div>
             );
         }
         // Outgoing call (keep existing UI for caller)
