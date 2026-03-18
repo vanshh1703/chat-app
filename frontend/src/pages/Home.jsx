@@ -2033,7 +2033,7 @@ const Home = () => {
                                             <img src={chat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
-                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-14 h-14" />
+                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-16 h-16" />
                                     )}
                                     {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full z-10"></div>}
                                     {chat.is_pinned && (<div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-900 rounded-full shadow-md text-blue-500 border border-blue-100">
