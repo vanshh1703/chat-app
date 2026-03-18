@@ -16,8 +16,10 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const webpush = require('web-push');
 
+const hasVapidKeys = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+
 // Config Web Push
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+if (hasVapidKeys) {
     webpush.setVapidDetails(
         'mailto:you@example.com',
         process.env.VAPID_PUBLIC_KEY,
@@ -256,12 +258,18 @@ app.get('/api/utils/link-preview', async (req, res) => {
 
 // Push Notification Routes
 app.get('/api/push/vapid-public-key', (req, res) => {
+    if (!hasVapidKeys) {
+        return res.status(503).json({ error: 'VAPID keys are not configured on backend' });
+    }
     res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
 app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
     const { subscription } = req.body;
     try {
+        if (!hasVapidKeys) {
+            return res.status(503).json({ error: 'Cannot subscribe: VAPID keys are not configured on backend' });
+        }
         await pool.query(
             'INSERT INTO push_subscriptions (user_id, subscription) VALUES ($1, $2) ON CONFLICT (user_id, subscription) DO NOTHING',
             [req.user.id, JSON.stringify(subscription)]
@@ -289,18 +297,75 @@ app.post('/api/push/unsubscribe', authenticateToken, async (req, res) => {
 
 app.post('/api/push/test', authenticateToken, async (req, res) => {
     try {
-        await sendPushNotification(req.user.id, {
+        const result = await sendPushNotification(req.user.id, {
             senderName: 'Ash Chat',
             sender_id: req.user.id,
             message_type: 'text',
             content: req.body?.message || 'Test push notification'
         });
-        res.status(200).json({ message: 'Test push notification sent' });
+
+        if (result.error) {
+            return res.status(503).json({ error: result.error, sent: result.sent || 0 });
+        }
+
+        res.status(200).json({ message: 'Test push notification sent', sent: result.sent });
     } catch (err) {
         console.error('Push test error:', err);
         res.status(500).json({ error: 'Failed to send test push notification' });
     }
 });
+
+async function sendPushNotification(receiverId, payload) {
+    if (!hasVapidKeys) {
+        console.warn('Skipping push send: VAPID keys are missing');
+        return { sent: 0, error: 'VAPID keys are missing on backend deployment' };
+    }
+
+    try {
+        const result = await pool.query('SELECT subscription FROM push_subscriptions WHERE user_id = $1', [receiverId]);
+        const subscriptions = result.rows;
+
+        if (!subscriptions.length) {
+            return { sent: 0, error: 'No push subscription found for user. Re-login and allow notifications.' };
+        }
+
+        const pushPayload = JSON.stringify({
+            title: `New message from ${payload.senderName || 'User'}`,
+            body: payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`,
+            icon: '/pwa-192x192.png',
+            badge: '/pwa-192x192.png',
+            data: {
+                url: '/home',
+                senderId: payload.sender_id
+            }
+        });
+
+        let sentCount = 0;
+
+        await Promise.all(
+            subscriptions.map(async (sub) => {
+                try {
+                    await webpush.sendNotification(JSON.parse(sub.subscription), pushPayload);
+                    sentCount += 1;
+                } catch (e) {
+                    if (e.statusCode === 410 || e.statusCode === 404) {
+                        await pool.query('DELETE FROM push_subscriptions WHERE subscription = $1', [sub.subscription]);
+                    }
+                    console.error('WebPush error:', e.message || e);
+                }
+            })
+        );
+
+        if (sentCount === 0) {
+            return { sent: 0, error: 'Push provider rejected all subscriptions. Please re-subscribe.' };
+        }
+
+        return { sent: sentCount };
+    } catch (err) {
+        console.error('Send push error:', err);
+        return { sent: 0, error: 'Server push send failed' };
+    }
+}
 
 // Helper to record login activity
 async function recordLoginActivity(userId, req) {
@@ -668,45 +733,6 @@ io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     socket.on('join', async (userId) => {
-
-async function sendPushNotification(receiverId, payload) {
-    try {
-        if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-            console.warn('Skipping push send: VAPID keys are missing');
-            return;
-        }
-
-        const result = await pool.query('SELECT subscription FROM push_subscriptions WHERE user_id = $1', [receiverId]);
-        const subscriptions = result.rows;
-        if (!subscriptions.length) return;
-
-        const pushPayload = JSON.stringify({
-            title: `New message from ${payload.senderName || 'User'}`,
-            body: payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`,
-            icon: '/pwa-192x192.png',
-            badge: '/pwa-192x192.png',
-            data: {
-                url: '/home',
-                senderId: payload.sender_id
-            }
-        });
-
-        await Promise.all(
-            subscriptions.map(async (sub) => {
-                try {
-                    await webpush.sendNotification(JSON.parse(sub.subscription), pushPayload);
-                } catch (e) {
-                    if (e.statusCode === 410 || e.statusCode === 404) {
-                        await pool.query('DELETE FROM push_subscriptions WHERE subscription = $1', [sub.subscription]);
-                    }
-                    console.error('WebPush error:', e.message || e);
-                }
-            })
-        );
-    } catch (err) {
-        console.error('Send push error:', err);
-    }
-}
         if (!userId) return;
         socket.join(userId.toString());
         socket.userId = userId;

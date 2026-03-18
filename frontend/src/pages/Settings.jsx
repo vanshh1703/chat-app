@@ -117,7 +117,8 @@ const Settings = () => {
                 alert('Push test sent. Close/minimize app and check system notifications.');
             } catch (err) {
                 console.error('Test push failed:', err);
-                alert('Failed to send push test. Check backend VAPID keys and deployment logs.');
+                const serverMsg = err?.response?.data?.error;
+                alert(serverMsg ? `Push test failed: ${serverMsg}` : 'Failed to send push test. Check backend VAPID keys and deployment logs.');
             }
         })();
     };
