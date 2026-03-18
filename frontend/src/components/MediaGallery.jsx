@@ -238,16 +238,18 @@ const DecryptedMedia = ({ msg, activeChat }) => {
 
     if (decrypting) return <div className="aspect-square flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-xl gap-2"><Loader2 className="animate-spin text-blue-500" size={24} /><span className="text-[8px] font-bold text-gray-400 uppercase">Decrypting...</span></div>;
 
+    const [videoError, setVideoError] = useState(false);
     return (
         <a href={url} target="_blank" rel="noreferrer" className="aspect-square relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-sm min-h-[100px]">
-            {msg.message_type === 'image' ? (
-                <img src={url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-            ) : (
-                <div className="w-full h-full relative flex items-center justify-center">
-                    <video src={url} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center transition-opacity group-hover:bg-black/40">
-                        <Video className="text-white drop-shadow-lg" size={24} />
-                    </div>
+            {msg.message_type === 'image' && (
+                <img src={url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" onError={e => { e.target.style.display = 'none'; }} />
+            )}
+            {msg.message_type === 'video' && !videoError && (
+                <video src={url} className="w-full h-full object-cover" controls onError={() => setVideoError(true)} />
+            )}
+            {msg.message_type === 'video' && videoError && (
+                <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-slate-700">
+                    <Video className="text-gray-400" size={48} />
                 </div>
             )}
             <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
