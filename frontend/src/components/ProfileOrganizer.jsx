@@ -3,9 +3,10 @@ import { X, Image as ImageIcon, Video, Music, FileText, Download, Link as LinkIc
 import * as api from '../api/api';
 
 const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onToggleMute, onStartCall, onStartSearch }) => {
+        const [editingAlias, setEditingAlias] = useState(false);
         const [aliasInput, setAliasInput] = useState(activeChat?.alias || '');
         const [aliasSaving, setAliasSaving] = useState(false);
-        useEffect(() => { setAliasInput(activeChat?.alias || ''); }, [activeChat]);
+        useEffect(() => { setAliasInput(activeChat?.alias || ''); setEditingAlias(false); }, [activeChat]);
 
         const handleSetAlias = async (e) => {
             e.preventDefault();
@@ -13,7 +14,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
             setAliasSaving(true);
             try {
                 await api.setAlias(activeChat.id, aliasInput);
-                // Optionally update local state or refetch sidebar/users
+                setEditingAlias(false);
                 if (typeof window !== 'undefined' && window.location.reload) window.location.reload();
             } catch (err) {
                 alert('Failed to set alias');
@@ -71,20 +72,33 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
 
     const renderProfile = () => (
         <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar">
-            {/* Alias (Rename) Section */}
+            {/* Alias (Rename) Section - Pen icon triggers input */}
             <div className="p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm space-y-4 mb-6">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Chat Nickname</p>
-                <form onSubmit={handleSetAlias} className="flex items-center gap-2">
-                    <input
-                        type="text"
-                        value={aliasInput}
-                        onChange={e => setAliasInput(e.target.value)}
-                        className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                        placeholder="Set custom name..."
-                        disabled={aliasSaving}
-                    />
-                    <button type="submit" className="text-blue-600 font-bold text-xs" disabled={aliasSaving}>{aliasSaving ? 'Saving...' : 'Save'}</button>
-                </form>
+                <div className="flex items-center gap-2">
+                    {!editingAlias ? (
+                        <>
+                            <span className="text-lg font-bold text-gray-800 dark:text-white">{activeChat.alias || activeChat.username}</span>
+                            <button onClick={() => setEditingAlias(true)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-700" title="Edit Nickname">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                            </button>
+                        </>
+                    ) : (
+                        <form onSubmit={handleSetAlias} className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={aliasInput}
+                                onChange={e => setAliasInput(e.target.value)}
+                                className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                placeholder="Set custom name..."
+                                disabled={aliasSaving}
+                                autoFocus
+                            />
+                            <button type="submit" className="text-blue-600 font-bold text-xs" disabled={aliasSaving}>{aliasSaving ? 'Saving...' : 'Save'}</button>
+                            <button type="button" className="text-gray-400 text-xs" onClick={() => setEditingAlias(false)}>Cancel</button>
+                        </form>
+                    )}
+                </div>
             </div>
             {/* Minimal Header for Profile */}
             <div className="relative group">
