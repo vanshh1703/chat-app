@@ -27,6 +27,7 @@ app.post('/api/users/logout-all-others', authenticateToken, async (req, res) => 
         res.status(500).json({ error: 'Failed to logout other sessions' });
     }
 });
+// ...existing code...
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
