@@ -351,7 +351,7 @@ const OfflineChatManager = ({ isOpen, onClose, currentUser }) => {
                                         <QRCodeSVG value={compressSDP(localOffer)} size={240} />
                                     </div>
                                 ) : (
-                                    <div className="w-[240px] h-[240px] flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-3xl mb-8 border border-gray-200 animate-pulse">
+                                    <div className="w-60 h-60 flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-3xl mb-8 border border-gray-200 animate-pulse">
                                         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                         <p className="mt-4 text-xs font-bold text-gray-400">Generating Keys...</p>
                                     </div>
@@ -399,7 +399,7 @@ const OfflineChatManager = ({ isOpen, onClose, currentUser }) => {
                                         <QRCodeSVG value={compressSDP(localOffer)} size={240} />
                                     </div>
                                 ) : (
-                                    <div className="w-[240px] h-[240px] flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-3xl mb-8 border border-gray-200 animate-pulse">
+                                    <div className="w-60 h-60 flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-3xl mb-8 border border-gray-200 animate-pulse">
                                         <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                                         <p className="mt-4 text-xs font-bold text-gray-400">Generating Keys...</p>
                                     </div>

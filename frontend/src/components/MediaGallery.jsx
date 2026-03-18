@@ -31,7 +31,7 @@ const MediaGallery = ({ isOpen, onClose, messages, activeChat }) => {
     };
 
     return (
-        <div className="absolute inset-y-0 right-0 w-full sm:w-[350px] shadow-2xl z-50 flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-white/20 dark:border-slate-700/50 animate-in slide-in-from-right duration-300">
+        <div className="absolute inset-y-0 right-0 w-full sm:w-87.5 shadow-2xl z-50 flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-white/20 dark:border-slate-700/50 animate-in slide-in-from-right duration-300">
             {/* Header */}
             <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-slate-800">
                 <div className="flex items-center gap-3">
@@ -68,7 +68,7 @@ const MediaGallery = ({ isOpen, onClose, messages, activeChat }) => {
                             )}
                         </div>
                         {activeTab === tab.id && (
-                            <div className="absolute bottom-0 left-0 w-full h-[3px] bg-blue-600 dark:bg-blue-500 rounded-t-full shadow-[0_-2px_8px_rgba(37,99,235,0.4)]"></div>
+                            <div className="absolute bottom-0 left-0 w-full h-0.75 bg-blue-600 dark:bg-blue-500 rounded-t-full shadow-[0_-2px_8px_rgba(37,99,235,0.4)]"></div>
                         )}
                     </button>
                 ))}
@@ -240,7 +240,7 @@ const DecryptedMedia = ({ msg, activeChat }) => {
 
     const [videoError, setVideoError] = useState(false);
     return (
-        <a href={url} target="_blank" rel="noreferrer" className="aspect-square relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-sm min-h-[100px]">
+        <a href={url} target="_blank" rel="noreferrer" className="aspect-square relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-sm min-h-25">
             {msg.message_type === 'image' && (
                 <img src={url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" onError={e => { e.target.style.display = 'none'; }} />
             )}
