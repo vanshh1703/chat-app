@@ -213,90 +213,82 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
 
     // ── Profile sub-view ────────────────────────────────────────────────────
     const renderProfile = () => (
-        <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar sm:pb-10">
+        <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar sm:pb-10 flex flex-col items-center bg-gradient-to-b from-blue-600 via-blue-500 to-blue-400 dark:from-slate-800 dark:via-slate-900 dark:to-slate-900 relative">
+            {/* Large Avatar with floating effect */}
+            <div className="absolute left-1/2 -translate-x-1/2 -top-16 z-20 flex flex-col items-center">
+                <div className="w-32 h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-2xl overflow-hidden bg-slate-200 dark:bg-slate-700">
+                    <img
+                        src={activeChat.avatar_url}
+                        alt={activeChat.username}
+                        className="w-full h-full object-cover"
+                        width="128"
+                        height="128"
+                    />
+                </div>
+            </div>
 
-            {/* Gradient header */}
-            <div className="relative flex flex-col items-center bg-gradient-to-b from-blue-600 via-blue-500 to-blue-400 dark:from-slate-800 dark:via-slate-900 dark:to-slate-900 pt-8 pb-16 px-2 sm:pt-10 sm:px-4">
-                {/* Avatar */}
-                <div className="relative z-10">
-                    <div className="mx-auto w-28 h-28 rounded-full border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden bg-slate-200 dark:bg-slate-700">
-                        <img
-                            src={activeChat.avatar_url}
-                            alt={activeChat.username}
-                            className="w-full h-full object-cover"
-                            width="112"
-                            height="112"
+            {/* Floating Info Card */}
+            <div className="mt-32 w-full max-w-md mx-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-6 pt-20 flex flex-col items-center relative z-10">
+                {/* Name / alias editor */}
+                {!editingAlias ? (
+                    <div className="flex items-center gap-2 mb-2">
+                        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight text-center">
+                            {activeChat.alias || activeChat.username}
+                        </h2>
+                        <button
+                            onClick={() => setEditingAlias(true)}
+                            className="p-1 rounded-full bg-gray-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors"
+                            title="Edit Nickname"
+                        >
+                            <svg width="20" height="20" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                            </svg>
+                        </button>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSetAlias} className="flex items-center gap-2 mt-1 mb-2">
+                        <input
+                            type="text"
+                            value={aliasInput}
+                            onChange={e => setAliasInput(e.target.value)}
+                            className="px-3 py-1.5 text-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                            placeholder="Set custom name…"
+                            disabled={aliasSaving}
+                            autoFocus
                         />
+                        <button type="submit" className="text-blue-100 font-bold text-xs bg-blue-600 px-2 py-1 rounded" disabled={aliasSaving}>
+                            {aliasSaving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button type="button" className="text-gray-400 text-xs" onClick={() => setEditingAlias(false)}>Cancel</button>
+                    </form>
+                )}
+                <p className="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-widest mb-2 text-center">
+                    {activeChat.is_online ? 'online' : 'last seen recently'}
+                </p>
+
+                {/* Stat Row (Snapchat style) */}
+                <div className="flex justify-center gap-6 w-full mb-4">
+                    <div className="flex flex-col items-center">
+                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{messages?.length ?? 0}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Messages</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{media.length}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Media</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="text-lg font-bold text-purple-600 dark:text-purple-400">{audio.length}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Audio</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="text-lg font-bold text-pink-600 dark:text-pink-400">{docs.length}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Docs</span>
                     </div>
                 </div>
 
-                {/* Name / alias editor */}
-                <div className="mt-4 flex flex-col items-center">
-                    {!editingAlias ? (
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-2xl font-extrabold text-white tracking-tight drop-shadow-lg">
-                                {activeChat.alias || activeChat.username}
-                            </h2>
-                            <button
-                                onClick={() => setEditingAlias(true)}
-                                className="p-1 rounded-full bg-white/20 hover:bg-blue-700 transition-colors"
-                                title="Edit Nickname"
-                            >
-                                <svg width="20" height="20" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                                    <path d="M12 20h9" />
-                                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                                </svg>
-                            </button>
-                        </div>
-                    ) : (
-                        <form onSubmit={handleSetAlias} className="flex items-center gap-2 mt-1">
-                            <input
-                                type="text"
-                                value={aliasInput}
-                                onChange={e => setAliasInput(e.target.value)}
-                                className="px-3 py-1.5 text-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                                placeholder="Set custom name…"
-                                disabled={aliasSaving}
-                                autoFocus
-                            />
-                            <button type="submit" className="text-blue-100 font-bold text-xs bg-blue-600 px-2 py-1 rounded" disabled={aliasSaving}>
-                                {aliasSaving ? 'Saving…' : 'Save'}
-                            </button>
-                            <button type="button" className="text-gray-200 text-xs" onClick={() => setEditingAlias(false)}>Cancel</button>
-                        </form>
-                    )}
-                    <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-1">
-                        {activeChat.is_online ? 'online' : 'last seen recently'}
-                    </p>
-                </div>
-            </div>
-            {/* ↑ End gradient header */}
-
-            {/* Stats row — floats over the gradient bottom edge */}
-            <div className="flex justify-center gap-4 sm:gap-6 bg-white dark:bg-slate-900 py-3 sm:py-4 px-1 sm:px-2 rounded-2xl shadow -mt-8 mb-2 mx-2 sm:mx-4 relative z-20">
-                <div className="flex flex-col items-center">
-                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{messages?.length ?? 0}</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Messages</span>
-                </div>
-                <div className="flex flex-col items-center">
-                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{media.length}</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Media</span>
-                </div>
-                <div className="flex flex-col items-center">
-                    <span className="text-lg font-bold text-purple-600 dark:text-purple-400">{audio.length}</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Audio</span>
-                </div>
-                <div className="flex flex-col items-center">
-                    <span className="text-lg font-bold text-pink-600 dark:text-pink-400">{docs.length}</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Docs</span>
-                </div>
-            </div>
-
-            {/* Body content */}
-            <div className="p-6 space-y-6">
-
-                {/* Quick actions */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* Quick Actions (Snapchat style icons) */}
+                <div className="grid grid-cols-3 gap-4 w-full mb-4">
                     {[
                         { icon: Phone,  label: 'Call',   color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/30', onClick: () => onStartCall('audio') },
                         { icon: Video,  label: 'Video',  color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/30',       onClick: () => onStartCall('video') },
@@ -312,7 +304,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 </div>
 
                 {/* About section */}
-                <div className="p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="w-full p-5 bg-white dark:bg-slate-800/50 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm space-y-4 mb-4">
                     <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">About &amp; Status</p>
                         <p className="text-sm font-medium text-gray-800 dark:text-slate-200">
@@ -335,7 +327,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 {/* Shared content preview row */}
                 <button
                     onClick={() => setSubView('media')}
-                    className="w-full p-3 sm:p-4 bg-gradient-to-r from-blue-50 via-white to-emerald-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md transition-all hover:shadow-lg group mt-2"
+                    className="w-full p-3 sm:p-4 bg-gradient-to-r from-blue-50 via-white to-emerald-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md transition-all hover:shadow-lg group mb-4"
                 >
                     <div className="flex items-center justify-between mb-3">
                         <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">Shared Content</p>
@@ -357,7 +349,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 </button>
 
                 {/* Settings / action cards */}
-                <div className="space-y-2 sm:space-y-3 mt-2">
+                <div className="space-y-2 sm:space-y-3 w-full">
                     <button
                         onClick={onToggleMute}
                         className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-gradient-to-r from-blue-50 via-white to-rose-50 dark:from-slate-800 dark:via-slate-900 dark:to-rose-900/10 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md hover:shadow-lg transition-all"
@@ -369,7 +361,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                             <p className="text-sm font-bold text-gray-800 dark:text-slate-200">Mute Notifications</p>
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{isMuted ? 'Silently listening' : 'Always ring'}</p>
                         </div>
-                        <div className={`w-10 h-5 rounded-full relative transition-colors ${isMuted ? 'bg-rose-500' : 'bg-gray-200 dark:bg-slate-700'}`}>
+                        <div className={`w-10 h-5 rounded-full relative transition-colors ${isMuted ? 'bg-rose-500' : 'bg-gray-200 dark:bg-slate-700'}`}> 
                             <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isMuted ? 'right-1' : 'left-1'}`} />
                         </div>
                     </button>
