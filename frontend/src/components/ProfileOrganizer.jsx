@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, Image as ImageIcon, Video, Music, FileText, Download, Link as LinkIcon, Calendar, ArrowUpRight, Phone, Mail, Activity, Bell, BellOff, ChevronRight, Share2, Shield, Loader2 } from 'lucide-react';
 import * as api from '../api/api';
+import { keyManager } from '../utils/keyManager';
+import { decryptFile } from '../utils/mediaCrypto';
 
 const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onToggleMute, onStartCall, onStartSearch }) => {
         const [editingAlias, setEditingAlias] = useState(false);
