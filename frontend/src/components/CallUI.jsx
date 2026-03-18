@@ -1,5 +1,51 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Maximize2, Minimize2, ChevronUp, ChevronDown, Monitor, RefreshCw } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, ChevronUp, ChevronDown, Maximize2, Minimize2, Monitor, RefreshCw } from 'lucide-react';
+
+// ── Sub-components (pure presentational, no hooks) ────────────────────────────
+
+const IncomingCallBar = ({ name, avatar, subtitle, onAccept, onReject }) => (
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-black rounded-full flex items-center px-4 py-2 shadow-xl min-w-[260px] max-w-xs">
+        <img src={avatar} alt={name} className="w-10 h-10 rounded-full border-2 border-white mr-3" />
+        <div className="flex-1 min-w-0">
+            <div className="font-bold text-white text-sm truncate">{name}</div>
+            <div className="text-xs text-gray-300 truncate">{subtitle}</div>
+        </div>
+        <button onClick={onReject} className="ml-3 bg-rose-500 hover:bg-rose-600 rounded-full p-2 text-white">
+            <PhoneOff size={18} />
+        </button>
+        <button onClick={onAccept} className="ml-2 bg-emerald-500 hover:bg-emerald-600 rounded-full p-2 text-white">
+            <Phone size={18} />
+        </button>
+    </div>
+);
+
+const FullScreenIncomingCall = ({ name, avatar, subtitle, onAccept, onReject }) => (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-gradient-to-b from-slate-900/80 to-slate-800/90">
+        <div className="w-full flex flex-col items-center pt-12">
+            <img src={avatar} alt={name} className="w-16 h-16 rounded-full border-2 border-white shadow-lg mb-2" />
+            <div className="font-bold text-white text-lg text-center">{name}</div>
+            <div className="text-xs text-gray-300 text-center">{subtitle}</div>
+        </div>
+        <div className="flex flex-col items-center w-full mb-12">
+            <div className="flex justify-center gap-16">
+                <button onClick={onReject} className="flex flex-col items-center">
+                    <span className="bg-rose-500 hover:bg-rose-600 rounded-full p-5 mb-2 shadow-lg">
+                        <PhoneOff size={28} className="text-white" />
+                    </span>
+                    <span className="text-xs text-white font-bold">Decline</span>
+                </button>
+                <button onClick={onAccept} className="flex flex-col items-center">
+                    <span className="bg-emerald-500 hover:bg-emerald-600 rounded-full p-5 mb-2 shadow-lg">
+                        <Phone size={28} className="text-white" />
+                    </span>
+                    <span className="text-xs text-white font-bold">Accept</span>
+                </button>
+            </div>
+        </div>
+    </div>
+);
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 const CallUI = ({
     onAccept,
@@ -12,27 +58,29 @@ const CallUI = ({
     isAudioOnly,
     isSharingScreen,
     onToggleScreenShare,
-    onSwitchCamera
+    onSwitchCamera,
 }) => {
-    const localVideoRef = useRef(null);
+    const localVideoRef  = useRef(null);
     const remoteVideoRef = useRef(null);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(false);
-    const [callDuration, setCallDuration] = useState(0);
-    const [isMaximized, setIsMaximized] = useState(false); // <-- moved here, top-level
-    const [isMinimized, setIsMinimized] = useState(true);
-    const [isSwapped, setIsSwapped] = useState(false); // Track PIP swap
+
+    // ── ALL hooks unconditionally at the top ──────────────────────────────
+    const [isMuted,       setIsMuted]       = useState(false);
+    const [isVideoOff,    setIsVideoOff]    = useState(false);
+    const [callDuration,  setCallDuration]  = useState(0);
+    const [isMaximized,   setIsMaximized]   = useState(false);
+    const [isMinimized,   setIsMinimized]   = useState(true);
+    const [isSwapped,     setIsSwapped]     = useState(false);
+    // For incoming-call expand/collapse (replaces the illegal conditional useState)
+    const [incomingExpanded, setIncomingExpanded] = useState(false);
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
-            console.log("Attaching local stream to video element");
             localVideoRef.current.srcObject = localStream;
         }
     }, [localStream, activeCall]);
 
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
-            console.log("Attaching remote stream to video element");
             remoteVideoRef.current.srcObject = remoteStream;
         }
     }, [remoteStream, activeCall]);
@@ -40,117 +88,75 @@ const CallUI = ({
     useEffect(() => {
         let timer;
         if (activeCall) {
-            timer = setInterval(() => {
-                setCallDuration(prev => prev + 1);
-            }, 1000);
+            timer = setInterval(() => setCallDuration(prev => prev + 1), 1000);
         } else {
             setCallDuration(0);
         }
         return () => clearInterval(timer);
     }, [activeCall]);
 
+    // ── Helpers ───────────────────────────────────────────────────────────
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     };
 
     const toggleMute = () => {
         if (localStream) {
-            localStream.getAudioTracks().forEach(track => {
-                track.enabled = !track.enabled;
-            });
-            setIsMuted(!isMuted);
+            localStream.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
+            setIsMuted(prev => !prev);
         }
     };
 
     const toggleVideo = () => {
         if (localStream) {
-            localStream.getVideoTracks().forEach(track => {
-                track.enabled = !track.enabled;
-            });
-            setIsVideoOff(!isVideoOff);
+            localStream.getVideoTracks().forEach(t => { t.enabled = !t.enabled; });
+            setIsVideoOff(prev => !prev);
         }
     };
 
-    // Incoming Call Bar (Snapchat-style)
-    const IncomingCallBar = ({ name, avatar, subtitle, onAccept, onReject }) => (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-black rounded-full flex items-center px-4 py-2 shadow-xl min-w-[260px] max-w-xs" style={{ minWidth: 260 }}>
-            <img src={avatar} alt={name} className="w-10 h-10 rounded-full border-2 border-white mr-3" />
-            <div className="flex-1 min-w-0">
-                <div className="font-bold text-white text-sm truncate">{name}</div>
-                <div className="text-xs text-gray-300 truncate">{subtitle}</div>
-            </div>
-            <button onClick={onReject} className="ml-3 bg-rose-500 hover:bg-rose-600 rounded-full p-2 text-white">
-                <PhoneOff size={18} />
-            </button>
-            <button onClick={onAccept} className="ml-2 bg-emerald-500 hover:bg-emerald-600 rounded-full p-2 text-white">
-                <Phone size={18} />
-            </button>
-        </div>
-    );
-
-    // Full-screen Incoming Call UI (no Remind Me/Message)
-    const FullScreenIncomingCall = ({ name, avatar, subtitle, onAccept, onReject }) => (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-gradient-to-b from-slate-900/80 to-slate-800/90">
-            <div className="w-full flex flex-col items-center pt-12">
-                <img src={avatar} alt={name} className="w-16 h-16 rounded-full border-2 border-white shadow-lg mb-2" />
-                <div className="font-bold text-white text-lg text-center">{name}</div>
-                <div className="text-xs text-gray-300 text-center">{subtitle}</div>
-            </div>
-            <div className="flex flex-col items-center w-full mb-12">
-                <div className="flex justify-center gap-16">
-                    <button onClick={onReject} className="flex flex-col items-center">
-                        <span className="bg-rose-500 hover:bg-rose-600 rounded-full p-5 mb-2 shadow-lg"><PhoneOff size={28} className="text-white" /></span>
-                        <span className="text-xs text-white font-bold">Decline</span>
-                    </button>
-                    <button onClick={onAccept} className="flex flex-col items-center">
-                        <span className="bg-emerald-500 hover:bg-emerald-600 rounded-full p-5 mb-2 shadow-lg"><Phone size={28} className="text-white" /></span>
-                        <span className="text-xs text-white font-bold">Accept</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
-    // 1. Incoming/Outgoing Call Popup (Pre-active)
+    // ── 1. Incoming / outgoing call (pre-active) ──────────────────────────
     if (incomingCall && !activeCall) {
         const isCaller = incomingCall.isCaller;
-        // Add maximize/minimize state for incoming call
-        const [isMaximized, setIsMaximized] = useState(false);
+
         if (!isCaller) {
-            if (isMaximized) {
-                // Full-screen incoming call UI (no Remind Me/Message)
+            if (incomingExpanded) {
                 return (
                     <FullScreenIncomingCall
                         name={incomingCall.name}
                         avatar={incomingCall.avatar}
-                        subtitle={incomingCall.subtitle || `powered by ringer`}
+                        subtitle={incomingCall.subtitle || 'powered by ringer'}
                         onAccept={onAccept}
                         onReject={onReject}
                     />
                 );
             }
-            // Minimized bar
             return (
-                <div onClick={() => setIsMaximized(true)}>
+                <div onClick={() => setIncomingExpanded(true)}>
                     <IncomingCallBar
                         name={incomingCall.name}
                         avatar={incomingCall.avatar}
-                        subtitle={incomingCall.subtitle || `powered by ringer`}
+                        subtitle={incomingCall.subtitle || 'powered by ringer'}
                         onAccept={onAccept}
                         onReject={onReject}
                     />
                 </div>
             );
         }
-        // Outgoing call (keep existing UI for caller)
+
+        // Outgoing call UI
         return (
-            <div className="fixed top-8 left-1/2 -translate-x-1/2 z-1000 w-[350px] bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl border border-white/20 dark:border-slate-800 p-6 animate-in slide-in-from-top duration-500">
+            <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[1000] w-[350px] bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl border border-white/20 dark:border-slate-800 p-6 animate-in slide-in-from-top duration-500">
                 <div className="flex flex-col items-center gap-4 text-center">
                     <div className="relative">
                         <div className="w-20 h-20 rounded-full border-4 border-blue-500/20 overflow-hidden ring-4 ring-blue-500/10 animate-pulse">
-                            <img src={incomingCall.avatar} alt={incomingCall.name} className="w-full h-full object-cover" width="80" height="80" loading="lazy" />
+                            <img
+                                src={incomingCall.avatar}
+                                alt={incomingCall.name}
+                                className="w-full h-full object-cover"
+                                width="80" height="80" loading="lazy"
+                            />
                         </div>
                         <div className="absolute -bottom-1 -right-1 p-2 bg-blue-500 rounded-full text-white shadow-lg">
                             {incomingCall.type === 'video' ? <Video size={16} /> : <Phone size={16} />}
@@ -159,10 +165,9 @@ const CallUI = ({
                     <div>
                         <h3 className="font-black text-xl text-gray-900 dark:text-white">{incomingCall.name}</h3>
                         <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mt-1">
-                            {`Calling ${incomingCall.name}...`}
+                            Calling {incomingCall.name}…
                         </p>
                     </div>
-
                     <div className="w-full mt-2">
                         <button
                             onClick={onEnd}
@@ -176,22 +181,27 @@ const CallUI = ({
         );
     }
 
-    // 2. Active Call UI (Dynamic Island or Full Overlay)
+    // ── 2. Active call ────────────────────────────────────────────────────
     if (activeCall) {
+        // Minimized / Dynamic-Island mode
         if (isMinimized) {
-            // Dynamic Island Mode
             return (
-                <div 
-                    className="fixed top-6 left-1/2 -translate-x-1/2 z-1000 cursor-pointer"
+                <div
+                    className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] cursor-pointer"
                     onClick={() => setIsMinimized(false)}
                 >
                     <div className="bg-slate-900/95 dark:bg-black/95 backdrop-blur-2xl border border-white/10 px-4 py-2.5 rounded-[32px] shadow-2xl flex items-center gap-4 transition-all duration-500 hover:scale-105 group ring-1 ring-white/10">
                         <div className="relative">
                             <div className="w-10 h-10 rounded-full border-2 border-green-500/50 overflow-hidden shadow-inner">
-                                <img src={incomingCall?.avatar || activeCall.avatar} alt="Call" className="w-full h-full object-cover" width="96" height="96" loading="lazy" />
+                                <img
+                                    src={incomingCall?.avatar || activeCall.avatar}
+                                    alt="Call"
+                                    className="w-full h-full object-cover"
+                                    width="96" height="96" loading="lazy"
+                                />
                             </div>
                             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-slate-900 rounded-full flex items-center justify-center">
-                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
                             </div>
                         </div>
 
@@ -200,30 +210,31 @@ const CallUI = ({
                                 {isAudioOnly ? 'Voice Call' : 'Video Call'}
                             </span>
                             <div className="flex items-center gap-2">
-                                <h4 className="text-white font-bold text-sm tracking-tight">{incomingCall?.name || activeCall.username || 'Active Call'}</h4>
-                                <span className="w-1 h-1 bg-white/20 rounded-full"></span>
+                                <h4 className="text-white font-bold text-sm tracking-tight">
+                                    {incomingCall?.name || activeCall.username || 'Active Call'}
+                                </h4>
+                                <span className="w-1 h-1 bg-white/20 rounded-full" />
                                 <span className="text-green-400 font-mono text-xs font-bold">{formatTime(callDuration)}</span>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2 ml-2 pl-4 border-l border-white/10">
-                            {/* Mobile Controls in Minimized Mode */}
-                            <button 
+                            <button
                                 onClick={(e) => { e.stopPropagation(); toggleMute(); }}
                                 className={`p-2 rounded-full transition-all ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                             >
                                 {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
                             </button>
-                            
+
                             {!isAudioOnly && (
                                 <>
-                                    <button 
+                                    <button
                                         onClick={(e) => { e.stopPropagation(); toggleVideo(); }}
                                         className={`p-2 rounded-full transition-all ${isVideoOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                                     >
                                         {isVideoOff ? <VideoOff size={14} /> : <Video size={14} />}
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={(e) => { e.stopPropagation(); onSwitchCamera?.(); }}
                                         className="p-2 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all"
                                         title="Flip Camera"
@@ -233,12 +244,13 @@ const CallUI = ({
                                 </>
                             )}
 
-                            <button 
+                            <button
                                 onClick={(e) => { e.stopPropagation(); onEnd(); }}
                                 className="p-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-all shadow-lg active:scale-90"
                             >
                                 <PhoneOff size={16} />
                             </button>
+
                             <div className="hidden md:block p-2 text-white/40 group-hover:text-white/70 transition-colors">
                                 <ChevronDown size={18} />
                             </div>
@@ -248,14 +260,16 @@ const CallUI = ({
             );
         }
 
+        // Full / expanded active-call UI
         return (
-            <div className={`fixed inset-0 z-1000 bg-slate-950 flex items-center justify-center transition-all duration-500 ${isMaximized ? 'p-0' : 'p-4 md:p-8'}`}>
-                {/* Background Glow */}
-                <div className="absolute inset-0 bg-linear-to-br from-blue-900/20 to-indigo-900/20 pointer-events-none"></div>
+            <div className={`fixed inset-0 z-[1000] bg-slate-950 flex items-center justify-center transition-all duration-500 ${isMaximized ? 'p-0' : 'p-4 md:p-8'}`}>
+                {/* Background glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-indigo-900/20 pointer-events-none" />
 
-                <div className={`relative w-full h-full max-w-5xl aspect-video bg-black rounded-[40px] overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center group ${isMaximized ? 'rounded-none border-none' : ''}`}>
-                    {/* Remote Video (Main) */}
-                    <div className="w-full h-full relative" onClick={() => !isAudioOnly && setIsSwapped(!isSwapped)}>
+                <div className={`relative w-full h-full max-w-5xl aspect-video bg-black overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center group ${isMaximized ? 'rounded-none border-none' : 'rounded-[40px]'}`}>
+
+                    {/* Remote video (main) */}
+                    <div className="w-full h-full relative" onClick={() => !isAudioOnly && setIsSwapped(prev => !prev)}>
                         {remoteStream ? (
                             <video
                                 ref={isSwapped ? localVideoRef : remoteVideoRef}
@@ -269,15 +283,15 @@ const CallUI = ({
                                 <div className="w-32 h-32 rounded-full bg-slate-800 flex items-center justify-center border-4 border-slate-700 animate-pulse">
                                     <Phone size={48} className="text-slate-600" />
                                 </div>
-                                <p className="text-slate-400 font-black uppercase tracking-[0.2em]">Connecting...</p>
+                                <p className="text-slate-400 font-black uppercase tracking-[0.2em]">Connecting…</p>
                             </div>
                         )}
                     </div>
 
-                    {/* Local Video (Preview/PIP) */}
+                    {/* Local video (PIP) */}
                     {!isAudioOnly && (
-                        <div 
-                            onClick={(e) => { e.stopPropagation(); setIsSwapped(!isSwapped); }}
+                        <div
+                            onClick={(e) => { e.stopPropagation(); setIsSwapped(prev => !prev); }}
                             className="absolute top-8 right-8 w-32 md:w-56 aspect-video bg-slate-900 rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl border-2 border-white/20 z-10 transition-transform cursor-pointer hover:scale-105 active:scale-95"
                         >
                             {isVideoOff && !isSwapped ? (
@@ -296,32 +310,33 @@ const CallUI = ({
                         </div>
                     )}
 
-                    {/* Minimize Button */}
+                    {/* Minimize button */}
                     <button
                         onClick={() => setIsMinimized(true)}
-                        className="absolute top-8 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/30 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 group-hover:translate-y-0 -translate-y-4 transition-transform hover:bg-black/50 text-white/70 hover:text-white"
+                        className="absolute top-8 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/30 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 -translate-y-4 group-hover:translate-y-0 transition-transform hover:bg-black/50 text-white/70 hover:text-white"
                         title="Minimize Call"
                     >
                         <ChevronUp size={16} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Minimize</span>
                     </button>
 
-                    {/* Header Info */}
-                    <div className="absolute top-8 left-8 flex items-center gap-4 z-10 bg-black/30 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 transition-transform">
-                        <div className="w-3 h-3 bg-rose-500 rounded-full animate-pulse"></div>
+                    {/* Duration badge */}
+                    <div className="absolute top-8 left-8 flex items-center gap-4 z-10 bg-black/30 backdrop-blur-md px-6 py-3 rounded-full border border-white/10">
+                        <div className="w-3 h-3 bg-rose-500 rounded-full animate-pulse" />
                         <span className="text-white font-black text-sm tracking-widest">{formatTime(callDuration)}</span>
                     </div>
 
-                    {/* Toggle Maximize */}
+                    {/* Maximize toggle */}
                     <button
-                        onClick={() => setIsMaximized(!isMaximized)}
+                        onClick={() => setIsMaximized(prev => !prev)}
                         className="absolute bottom-8 right-8 p-3 bg-black/30 backdrop-blur-md text-white/70 hover:text-white rounded-full border border-white/10 transition-all hover:scale-110 z-10"
                     >
                         {isMaximized ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
                     </button>
 
-                    {/* Bottom Controls */}
-                    <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 md:gap-6 px-6 md:px-10 py-4 md:py-6 bg-black/60 rounded-[32px] md:rounded-[40px] border border-white/10 shadow-2xl transition-all duration-500 z-20 ${isMaximized ? 'bottom-16' : ''} md:opacity-0 md:group-hover:opacity-100 md:translate-y-12 md:group-hover:translate-y-0 opacity-100 translate-y-0`}>
+                    {/* Bottom controls */}
+                    <div className={`absolute left-1/2 -translate-x-1/2 flex items-center gap-3 md:gap-6 px-6 md:px-10 py-4 md:py-6 bg-black/60 rounded-[32px] md:rounded-[40px] border border-white/10 shadow-2xl transition-all duration-500 z-20 opacity-100 translate-y-0 md:opacity-0 md:group-hover:opacity-100 md:translate-y-12 md:group-hover:translate-y-0 ${isMaximized ? 'bottom-16' : 'bottom-8'}`}>
+
                         <button
                             onClick={toggleMute}
                             className={`p-4 md:p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
@@ -337,7 +352,7 @@ const CallUI = ({
                                 >
                                     {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
                                 </button>
-                                
+
                                 <button
                                     onClick={onSwitchCamera}
                                     className="p-4 md:p-5 bg-white/10 text-white rounded-full transition-all hover:scale-110 active:scale-90 hover:bg-white/20"
@@ -345,17 +360,15 @@ const CallUI = ({
                                 >
                                     <RefreshCw size={24} />
                                 </button>
-                            </>
-                        )}
 
-                        {!isAudioOnly && (
-                            <button
-                                onClick={onToggleScreenShare}
-                                className={`p-4 md:p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isSharingScreen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                                title={isSharingScreen ? "Stop Sharing" : "Share Screen"}
-                            >
-                                <Monitor size={24} />
-                            </button>
+                                <button
+                                    onClick={onToggleScreenShare}
+                                    className={`p-4 md:p-5 rounded-full transition-all hover:scale-110 active:scale-90 ${isSharingScreen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                    title={isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
+                                >
+                                    <Monitor size={24} />
+                                </button>
+                            </>
                         )}
 
                         <button
