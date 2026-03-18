@@ -15,6 +15,15 @@ const urlBase64ToUint8Array = (base64String) => {
     return outputArray;
 };
 
+const uint8ArrayEquals = (a, b) => {
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+};
+
 export const subscribeToPush = async () => {
     try {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -37,22 +46,44 @@ export const subscribeToPush = async () => {
 
         const registration = await navigator.serviceWorker.ready;
 
-        // Reuse existing subscription if available (important for reliability)
+        console.log('Fetching VAPID public key from backend...');
+        const { data: { publicKey } } = await getVapidPublicKey();
+
+        if (!publicKey) {
+            console.error('VAPID public key is missing from backend response');
+            return false;
+        }
+
+        const backendKey = urlBase64ToUint8Array(publicKey);
+        console.log('Received VAPID public key');
+
+        // Reuse existing subscription when possible, but rotate if key mismatches
         let subscription = await registration.pushManager.getSubscription();
 
-        if (!subscription) {
-            console.log('Fetching VAPID public key from backend...');
-            const { data: { publicKey } } = await getVapidPublicKey();
+        if (subscription?.options?.applicationServerKey) {
+            const currentKey = new Uint8Array(subscription.options.applicationServerKey);
+            const isKeyMatch = uint8ArrayEquals(currentKey, backendKey);
 
-            if (!publicKey) {
-                console.error('VAPID public key is missing from backend response');
-                return false;
+            if (!isKeyMatch) {
+                console.warn('Existing push subscription uses old VAPID key, re-subscribing...');
+                try {
+                    await unsubscribePush(subscription);
+                } catch (err) {
+                    console.warn('Backend unsubscribe during key-rotation failed:', err);
+                }
+                try {
+                    await subscription.unsubscribe();
+                } catch (err) {
+                    console.warn('Local unsubscribe during key-rotation failed:', err);
+                }
+                subscription = null;
             }
+        }
 
-            console.log('Received VAPID public key');
+        if (!subscription) {
             subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(publicKey)
+                applicationServerKey: backendKey
             });
         }
 

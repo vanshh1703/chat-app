@@ -123,8 +123,9 @@ const Settings = () => {
                 const detailText = details?.firstProviderError?.statusCode
                     ? ` (provider ${details.firstProviderError.statusCode})`
                     : '';
+                const providerStatus = details?.firstProviderError?.statusCode;
 
-                if (serverMsg?.includes('Push provider rejected all subscriptions')) {
+                if (serverMsg?.includes('Push provider rejected')) {
                     const recovered = await forceResubscribeToPush();
                     if (!recovered) {
                         alert('Push re-subscribe failed. Please allow notifications and log in again.');
@@ -144,6 +145,11 @@ const Settings = () => {
                         alert(retryMsg ? `Push retry failed: ${retryMsg}${retryDetailText}` : 'Push retry failed after re-subscribe.');
                         return;
                     }
+                }
+
+                if (providerStatus === 401 || providerStatus === 403) {
+                    alert(`Push test failed: ${serverMsg}${detailText}. Likely VAPID key mismatch on backend. Regenerate one key pair and redeploy backend.`);
+                    return;
                 }
 
                 alert(serverMsg ? `Push test failed: ${serverMsg}${detailText}` : 'Failed to send push test. Check backend VAPID keys and deployment logs.');
