@@ -20,6 +20,7 @@ const Settings = () => {
     })));
     const [chatWallpaper, setChatWallpaper] = useState('default');
     const [loginActivities, setLoginActivities] = useState([]);
+    const [showAllActivities, setShowAllActivities] = useState(false);
     const [isLoadingActivities, setIsLoadingActivities] = useState(false);
     const fileInputRef = React.useRef(null);
 
@@ -474,43 +475,53 @@ const Settings = () => {
                             ) : loginActivities.length === 0 ? (
                                 <div className="py-4 text-center text-sm text-gray-400">No recent activity found</div>
                             ) : (
-                                loginActivities.map((activity, idx) => (
-                                    <div key={activity.id || idx} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-900/40 transition-colors">
-                                        <div className="p-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400">
-                                            {activity.device_name.toLowerCase().includes('mobile') || activity.device_name.toLowerCase().includes('android') || activity.device_name.toLowerCase().includes('iphone') ? (
-                                                <Smartphone size={20} />
-                                            ) : (
-                                                <Monitor size={20} />
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm font-bold text-gray-800 dark:text-white truncate">
-                                                    {(activity.device_name && activity.device_name.split('(')[0]) || 'Unknown Device'}
-                                                </p>
-                                                {idx === 0 && (
-                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full">
-                                                        Current Session
-                                                    </span>
+                                <>
+                                    {(showAllActivities ? loginActivities : loginActivities.slice(0, 3)).map((activity, idx) => (
+                                        <div key={activity.id || idx} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-900/40 transition-colors">
+                                            <div className="p-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400">
+                                                {activity.device_name.toLowerCase().includes('mobile') || activity.device_name.toLowerCase().includes('android') || activity.device_name.toLowerCase().includes('iphone') ? (
+                                                    <Smartphone size={20} />
+                                                ) : (
+                                                    <Monitor size={20} />
                                                 )}
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-y-1 gap-x-3 mt-1">
-                                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
-                                                    <MapPin size={12} />
-                                                    <span>{activity.location || 'Unknown Location'}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-bold text-gray-800 dark:text-white truncate">
+                                                        {(activity.device_name && activity.device_name.split('(')[0]) || 'Unknown Device'}
+                                                    </p>
+                                                    {idx === 0 && (
+                                                        <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full">
+                                                            Current Session
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
-                                                    <Activity size={12} />
-                                                    <span>{activity.ip_address}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
-                                                    <Clock size={12} />
-                                                    <span>{new Date(activity.last_active).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                                                <div className="flex flex-wrap items-center gap-y-1 gap-x-3 mt-1">
+                                                    <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
+                                                        <MapPin size={12} />
+                                                        <span>{activity.location || 'Unknown Location'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
+                                                        <Activity size={12} />
+                                                        <span>{activity.ip_address}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
+                                                        <Clock size={12} />
+                                                        <span>{new Date(activity.last_active).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))
+                                    ))}
+                                    {loginActivities.length > 3 && !showAllActivities && (
+                                        <button
+                                            className="w-full py-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold text-xs hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors mt-2"
+                                            onClick={() => setShowAllActivities(true)}
+                                        >
+                                            Load More
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
 
