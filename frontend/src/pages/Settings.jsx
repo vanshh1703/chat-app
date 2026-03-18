@@ -101,6 +101,19 @@ const Settings = () => {
         localStorage.setItem('stealthNotifSettings', JSON.stringify(stealthNotifs));
     }, [stealthNotifs]);
 
+    useEffect(() => {
+        const profile = JSON.parse(localStorage.getItem('profile'));
+        if (!profile?.token) return;
+
+        const syncTimer = setTimeout(() => {
+            subscribeToPush().catch((err) => {
+                console.error('Failed to sync stealth push metadata:', err);
+            });
+        }, 350);
+
+        return () => clearTimeout(syncTimer);
+    }, [stealthNotifs]);
+
     const handleToggleNotif = (key) => {
         setNotifs(prev => ({ ...prev, [key]: !prev[key] }));
     };

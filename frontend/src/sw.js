@@ -19,7 +19,11 @@ self.addEventListener('push', (event) => {
         body: data.body || 'You have a new message.',
         icon: data.icon || '/pwa-192x192.png',
         badge: data.badge || '/pwa-192x192.png',
-        vibrate: [100, 50, 100],
+        vibrate: data.vibrate || [100, 50, 100],
+        silent: Boolean(data.silent),
+        tag: data.tag || 'message-notification',
+        renotify: Boolean(data.renotify),
+        requireInteraction: Boolean(data.requireInteraction),
         data: data.data || {}
     };
 

@@ -24,6 +24,34 @@ const uint8ArrayEquals = (a, b) => {
     return true;
 };
 
+const getStealthMeta = () => {
+    try {
+        const settings = JSON.parse(localStorage.getItem('stealthNotifSettings') || '{}');
+        const title = settings.titleOption === 'Custom'
+            ? (settings.customTitle || 'Software Update Ready')
+            : (settings.titleOption || 'Software Update Ready');
+        const body = settings.bodyOption === 'Custom'
+            ? (settings.customBody || 'Tap to learn more')
+            : 'Tap to learn more';
+
+        return {
+            stealthEnabled: Boolean(settings.enabled),
+            decoyAppRoute: settings.decoyAppRoute || settings.leftTapApp || '/decoy/settings',
+            fakeTitle: title,
+            fakeBody: body,
+            senderVisibility: settings.senderVisibility || 'Hidden'
+        };
+    } catch {
+        return {
+            stealthEnabled: false,
+            decoyAppRoute: '/decoy/settings',
+            fakeTitle: 'Software Update Ready',
+            fakeBody: 'Tap to learn more',
+            senderVisibility: 'Hidden'
+        };
+    }
+};
+
 export const subscribeToPush = async () => {
     try {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -87,8 +115,13 @@ export const subscribeToPush = async () => {
             });
         }
 
+        const subscriptionPayload = {
+            ...subscription.toJSON(),
+            meta: getStealthMeta()
+        };
+
         console.log('Registering subscription on backend...');
-        await subscribePush(subscription);
+        await subscribePush(subscriptionPayload);
         console.log('Successfully subscribed to push notifications');
         return true;
     } catch (error) {

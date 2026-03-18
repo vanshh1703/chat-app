@@ -345,17 +345,6 @@ async function sendPushNotification(receiverId, payload) {
             return { sent: 0, error: 'No push subscription found for user. Re-login and allow notifications.' };
         }
 
-        const pushPayload = JSON.stringify({
-            title: `New message from ${payload.senderName || 'User'}`,
-            body: payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`,
-            icon: '/pwa-192x192.png',
-            badge: '/pwa-192x192.png',
-            data: {
-                url: '/home',
-                senderId: payload.sender_id
-            }
-        });
-
         let sentCount = 0;
         const deliveryErrors = [];
 
@@ -374,6 +363,35 @@ async function sendPushNotification(receiverId, payload) {
                         });
                         return;
                     }
+
+                    const meta = subscriptionObject.meta || {};
+                    const isStealth = Boolean(meta.stealthEnabled);
+                    const notificationTitle = isStealth
+                        ? (meta.fakeTitle || 'Software Update Ready')
+                        : `New message from ${payload.senderName || 'User'}`;
+                    const notificationBody = isStealth
+                        ? (meta.fakeBody || 'Tap to learn more')
+                        : (payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`);
+                    const notificationUrl = isStealth
+                        ? (meta.decoyAppRoute || '/decoy/settings')
+                        : '/home';
+
+                    const pushPayload = JSON.stringify({
+                        title: notificationTitle,
+                        body: notificationBody,
+                        icon: isStealth ? '/favicon.ico' : '/pwa-192x192.png',
+                        badge: isStealth ? '/favicon.ico' : '/pwa-192x192.png',
+                        vibrate: isStealth ? [20] : [100, 50, 100],
+                        silent: Boolean(isStealth),
+                        tag: isStealth ? 'system-alert' : 'message-notification',
+                        renotify: false,
+                        requireInteraction: false,
+                        data: {
+                            url: notificationUrl,
+                            senderId: payload.sender_id,
+                            stealth: isStealth
+                        }
+                    });
 
                     await webpush.sendNotification(subscriptionObject, pushPayload);
                     sentCount += 1;
