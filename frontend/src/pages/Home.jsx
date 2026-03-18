@@ -252,23 +252,15 @@ const ModernAudioPlayer = ({ src, isMine }) => {
 // --- Profile Avatar with Error Handling ---
 const SafeAvatar = ({ src, alt, size = "w-10 h-10", className = "" }) => {
     const [error, setError] = useState(false);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        setError(false);
-        setLoading(true);
-    }, [src]);
-
     const fallbackUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${alt || 'user'}`;
-
     return (
         <div className={`${size} rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800 flex items-center justify-center border-2 border-white shadow-sm shrink-0 ${className}`}>
             <img
                 src={error || !src ? fallbackUrl : src}
                 alt={alt}
-                className={`w-full h-full object-cover transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
+                className="w-full h-full object-cover"
                 onError={() => setError(true)}
-                onLoad={() => setLoading(false)}
+                draggable={false}
             />
         </div>
     );
@@ -2093,7 +2085,13 @@ const Home = () => {
                                             <img src={activeChat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
-                                        <SafeAvatar src={activeChat.avatar_url} alt="Active" size="w-9 h-9 md:w-10 md:h-10" className="cursor-pointer hover:scale-105 transition-transform" />
+                                        <SafeAvatar
+                                            src={activeChat.avatar_url}
+                                            alt="Active"
+                                            size="w-9 h-9 md:w-10 md:h-10"
+                                            className="cursor-pointer hover:scale-105 transition-transform"
+                                            onPointerDown={() => handleViewProfile(activeChat)}
+                                        />
                                     )}
                                     {!showChatSearch ? (<div>
                                         {isEditingAlias ? (<form onSubmit={handleSetAlias} className="flex items-center gap-2">
@@ -2109,7 +2107,11 @@ const Home = () => {
                                             <button type="submit" className="text-blue-600 font-bold text-xs">Save</button>
                                             <button type="button" onClick={() => setIsEditingAlias(false)} className="text-gray-400 text-xs">Cancel</button>
                                         </form>) : (<div className="flex items-center gap-2">
-                                            <h3 className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer flex items-center gap-1.5" onClick={() => handleViewProfile(activeChat)}>
+                                            <h3
+                                                className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer flex items-center gap-1.5"
+                                                onPointerDown={() => handleViewProfile(activeChat)}
+                                                tabIndex={0}
+                                            >
                                                 {activeChat.alias || activeChat.username}
                                                 {encryptionReady && (
                                                     <button
@@ -2136,7 +2138,11 @@ const Home = () => {
                                     </div>)}
                                 </div>
                                 <div className="flex items-center gap-1 md:gap-2">
-                                    <button onClick={() => handleViewProfile(activeChat)} className={`hidden md:flex p-2 rounded-xl transition-all ${viewingProfile ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`} title="Shared Media"><ImageIcon size={18} /></button>
+                                    <button
+                                        onPointerDown={() => handleViewProfile(activeChat)}
+                                        className={`hidden md:flex p-2 rounded-xl transition-all ${viewingProfile ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                                        title="Shared Media"
+                                    ><ImageIcon size={18} /></button>
                                     <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl transition-all ${showChatSearch ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}><Search size={18} /></button>
                                     <button
                                         onClick={() => handleToggleMute(activeChat.id)}

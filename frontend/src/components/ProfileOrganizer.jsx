@@ -275,12 +275,12 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
             ></div>
 
             {/* Main Panel */}
-            <div className={`fixed inset-y-0 right-0 w-full sm:w-[400px] z-1000 flex flex-col bg-white dark:bg-slate-900 shadow-2xl transition-transform duration-500 ease-in-out border-l border-white/20 dark:border-slate-800 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed inset-y-0 right-0 w-full sm:w-[400px] z-1000 flex flex-col bg-white dark:bg-slate-900 shadow-2xl border-l border-white/20 dark:border-slate-800 ${isOpen ? 'translate-x-0' : 'translate-x-full'} ${typeof window !== 'undefined' && window.innerWidth < 640 ? 'transition-none duration-0' : 'transition-transform duration-500 ease-in-out'}`}>
                 {/* Header */}
                 <div className="p-6 flex items-center justify-between z-10 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-gray-100 dark:border-slate-800">
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={subView === 'media' ? () => setSubView('profile') : onClose}
+                            onPointerDown={subView === 'media' ? () => setSubView('profile') : onClose}
                             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors text-gray-500"
                         >
                             <X size={22} className={subView === 'media' ? 'rotate-180 transition-transform' : ''} />
