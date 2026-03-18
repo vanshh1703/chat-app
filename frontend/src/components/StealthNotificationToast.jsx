@@ -39,11 +39,30 @@ const StealthNotificationToast = ({ message, settings, onDismiss }) => {
         setTimeout(onDismiss, 300);
     };
 
-    // Resolve decoy route: prop → localStorage → default
+    // Resolve decoy route with backward compatibility:
+    // settings.decoyAppRoute -> settings.leftTapApp -> localStorage.decoyAppRoute -> localStorage.stealthNotifSettings.leftTapApp
+    const normalizeDecoyRoute = (route) => {
+        if (!route) return null;
+        if (route === '/decoy/calc') return '/decoy/calculator';
+        return route;
+    };
+
     const getDecoyAppRoute = () => {
+        const routeFromSettings = settings?.decoyAppRoute || settings?.leftTapApp;
+        const routeFromDirectStorage = localStorage.getItem('decoyAppRoute');
+
+        let routeFromStealthSettings = null;
+        try {
+            const storedStealthSettings = JSON.parse(localStorage.getItem('stealthNotifSettings') || '{}');
+            routeFromStealthSettings = storedStealthSettings?.decoyAppRoute || storedStealthSettings?.leftTapApp || null;
+        } catch {
+            routeFromStealthSettings = null;
+        }
+
         return (
-            settings?.decoyAppRoute ||
-            localStorage.getItem('decoyAppRoute') ||
+            normalizeDecoyRoute(routeFromSettings) ||
+            normalizeDecoyRoute(routeFromDirectStorage) ||
+            normalizeDecoyRoute(routeFromStealthSettings) ||
             '/decoy/calculator'
         );
     };
@@ -85,7 +104,7 @@ const StealthNotificationToast = ({ message, settings, onDismiss }) => {
 
     return (
         <div
-            className={`fixed top-4 left-4 right-4 z-[9999] flex justify-center transition-all duration-300 ${
+            className={`fixed top-4 left-4 right-4 z-9999 flex justify-center transition-all duration-300 ${
                 visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
             }`}
         >

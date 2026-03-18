@@ -8,16 +8,34 @@ const Settings = () => {
     const user = JSON.parse(localStorage.getItem('profile'))?.user;
     const [themePreference, setThemePreference] = useState(localStorage.getItem('themePreference') || 'light');
     const [notifs, setNotifs] = useState(JSON.parse(localStorage.getItem('notifSettings') || '{"individual": true, "all": true, "sound": true}'));
-    const [stealthNotifs, setStealthNotifs] = useState(JSON.parse(localStorage.getItem('stealthNotifSettings') || JSON.stringify({
-        enabled: false,
-        titleOption: 'Software Update Ready',
-        customTitle: '',
-        bodyOption: 'Default',
-        customBody: '',
-        leftTapApp: '/decoy/settings',
-        senderVisibility: 'Hidden', // Hidden, Initials, Full
-        sound: 'Default'
-    })));
+    const [stealthNotifs, setStealthNotifs] = useState(() => {
+        const defaults = {
+            enabled: false,
+            titleOption: 'Software Update Ready',
+            customTitle: '',
+            bodyOption: 'Default',
+            customBody: '',
+            leftTapApp: '/decoy/settings',
+            decoyAppRoute: '/decoy/settings',
+            senderVisibility: 'Hidden', // Hidden, Initials, Full
+            sound: 'Default'
+        };
+
+        try {
+            const saved = JSON.parse(localStorage.getItem('stealthNotifSettings') || '{}');
+            const normalizedLeftTap = (saved.leftTapApp === '/decoy/calc') ? '/decoy/calculator' : saved.leftTapApp;
+            const normalizedDecoyRoute = (saved.decoyAppRoute === '/decoy/calc') ? '/decoy/calculator' : saved.decoyAppRoute;
+
+            return {
+                ...defaults,
+                ...saved,
+                leftTapApp: normalizedLeftTap || normalizedDecoyRoute || defaults.leftTapApp,
+                decoyAppRoute: normalizedDecoyRoute || normalizedLeftTap || defaults.decoyAppRoute
+            };
+        } catch {
+            return defaults;
+        }
+    });
     const [chatWallpaper, setChatWallpaper] = useState('default');
     const [loginActivities, setLoginActivities] = useState([]);
     const [showAllActivities, setShowAllActivities] = useState(false);
@@ -117,7 +135,7 @@ const Settings = () => {
 
     const decoyApps = [
         { name: 'Settings', path: '/decoy/settings' },
-        { name: 'Calculator', path: '/decoy/calc' },
+        { name: 'Calculator', path: '/decoy/calculator' },
         { name: 'Clock', path: '/decoy/clock' },
         { name: 'Camera', path: '/decoy/camera' }
     ];
@@ -389,7 +407,7 @@ const Settings = () => {
                                             {decoyApps.map(app => (
                                                 <button
                                                     key={app.path}
-                                                    onClick={() => setStealthNotifs(prev => ({ ...prev, leftTapApp: app.path }))}
+                                                    onClick={() => setStealthNotifs(prev => ({ ...prev, leftTapApp: app.path, decoyAppRoute: app.path }))}
                                                     className={`px-3 py-2 text-center text-xs font-semibold rounded-xl border transition-all ${stealthNotifs.leftTapApp === app.path
                                                         ? 'bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
                                                         : 'bg-gray-50 border-gray-100 text-gray-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
