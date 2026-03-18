@@ -2097,24 +2097,26 @@ const Home = () => {
                                     )}
                                     {!showChatSearch ? (
                                         <div
-                                            className="flex items-center gap-3 cursor-pointer select-none"
+                                            className="flex flex-col cursor-pointer select-none"
                                             onPointerDown={() => handleViewProfile(activeChat)}
                                             tabIndex={0}
                                         >
-                                            <h3
-                                                className="font-bold text-gray-800 dark:text-white text-base flex items-center gap-1.5"
-                                            >
-                                                {activeChat.alias || activeChat.username}
-                                                {encryptionReady && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setIsKeyVerificationOpen(true); }}
-                                                        className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors"
-                                                    >
-                                                        <Lock size={14} className="text-emerald-500" />
-                                                    </button>
-                                                )}
-                                            </h3>
-                                            <p className="text-[12px] text-gray-500 ml-1">{getStatusText(activeChat.id)}</p>
+                                            <div className="flex items-center gap-2">
+                                                <h3
+                                                    className="font-bold text-gray-800 dark:text-white text-base flex items-center gap-1.5"
+                                                >
+                                                    {activeChat.alias || activeChat.username}
+                                                    {encryptionReady && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setIsKeyVerificationOpen(true); }}
+                                                            className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors"
+                                                        >
+                                                            <Lock size={14} className="text-emerald-500" />
+                                                        </button>
+                                                    )}
+                                                </h3>
+                                            </div>
+                                            <p className="text-[12px] text-gray-500 ml-0.5 mt-0.5">{getStatusText(activeChat.id)}</p>
                                         </div>
                                     ) : (<div className="flex-1 max-w-md relative">
                                         <input autoFocus type="text" placeholder="Search messages..." value={chatSearchTerm} onChange={(e) => setChatSearchTerm(e.target.value)} className="w-full pl-4 pr-10 py-1.5 bg-gray-100 rounded-xl text-sm outline-none" />
