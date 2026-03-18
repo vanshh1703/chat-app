@@ -115,7 +115,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                 {fileUrl ? (
                     <a href={fileUrl} target="_blank" rel="noreferrer">
                         <img src={fileUrl} alt={msg.content}
-                            className="max-w-60 max-h-55 rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" />
+                            className="max-w-[240px] max-h-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" />
                     </a>
                 ) : (
                     <div className="w-48 h-48 bg-gray-200 dark:bg-slate-800 rounded-xl flex items-center justify-center">
@@ -145,7 +145,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
     if (msg.message_type === 'video') {
         return (
             <div className="relative">
-                <video controls className="max-w-70 rounded-xl" src={fileUrl} preload="metadata" playsInline>
+                <video controls className="max-w-[280px] rounded-xl" src={fileUrl} preload="metadata" playsInline>
                     Your browser does not support video.
                 </video>
                 {(isEncrypted) && (
@@ -166,7 +166,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                 <FileText size={18} className={isMine ? 'text-white' : 'text-blue-500'} />
             </div>
             <div className="min-w-0">
-                <p className={`text-xs font-semibold truncate max-w-40 ${isMine ? 'text-white' : 'text-gray-800'}`}>{msg.content}</p>
+                <p className={`text-xs font-semibold truncate max-w-[160px] ${isMine ? 'text-white' : 'text-gray-800'}`}>{msg.content}</p>
                 <p className={`text-[10px] ${isMine ? 'text-white/70' : 'text-gray-400'}`}>
                     {isEncrypted ? 'Encrypted File' : 'Tap to download'}
                 </p>
@@ -210,7 +210,7 @@ const ModernAudioPlayer = ({ src, isMine }) => {
     const progress = (currentTime / duration) * 100 || 0;
 
     return (
-        <div className={`flex items-center gap-3 p-3 rounded-3xl min-w-55 max-w-full shadow-sm border ${isMine ? 'bg-white/20 border-white/10' : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700'}`}>
+        <div className={`flex items-center gap-3 p-3 rounded-[24px] min-w-[220px] max-w-full shadow-sm border ${isMine ? 'bg-white/20 border-white/10' : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700'}`}>
             <audio ref={audioRef} src={src} onLoadedMetadata={onLoadedMetadata} onTimeUpdate={onTimeUpdate} onEnded={() => setIsPlaying(false)} className="hidden" />
 
             <button
@@ -222,14 +222,14 @@ const ModernAudioPlayer = ({ src, isMine }) => {
 
             <div className="flex-1 flex flex-col gap-1.5">
                 {/* Waveform Visualization Mockup */}
-                <div className="flex items-end gap-0.5 h-6 px-1">
+                <div className="flex items-end gap-[2px] h-6 px-1">
                     {[...Array(20)].map((_, i) => {
                         const h = Math.random() * 80 + 20;
                         const isActive = (i / 20) * 100 <= progress;
                         return (
                             <div
                                 key={i}
-                                className={`w-0.75 rounded-full transition-all duration-300 ${isActive ? (isMine ? 'bg-white' : 'bg-blue-500') : (isMine ? 'bg-white/30' : 'bg-gray-200 dark:bg-slate-700')}`}
+                                className={`w-[3px] rounded-full transition-all duration-300 ${isActive ? (isMine ? 'bg-white' : 'bg-blue-500') : (isMine ? 'bg-white/30' : 'bg-gray-200 dark:bg-slate-700')}`}
                                 style={{ height: `${h}%` }}
                             />
                         );
@@ -331,7 +331,7 @@ const YouTubePlayer = ({ url }) => {
     if (!videoId) return null;
 
     return (
-        <div className="mt-3 rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-black aspect-video group relative">
+        <div className="mt-3 rounded-[24px] overflow-hidden border border-white/10 shadow-2xl bg-black aspect-video group relative">
             <iframe
                 src={`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`}
                 title="YouTube video player"
@@ -420,7 +420,7 @@ const SwipeableMessage = ({ children, onSwipeToReply, isMine }) => {
         >
             {children}
             <div
-                className={`absolute top-1/2 -translate-y-1/2 ${translateX < 0 ? '-right-10' : '-left-10'} flex items-center justify-center p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-blue-500 transition-opacity duration-200 ${Math.abs(translateX) > 30 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`absolute top-1/2 -translate-y-1/2 ${translateX < 0 ? 'right-[-40px]' : 'left-[-40px]'} flex items-center justify-center p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-blue-500 transition-opacity duration-200 ${Math.abs(translateX) > 30 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             >
                 <CornerUpLeft size={16} />
             </div>
@@ -466,9 +466,6 @@ const Home = () => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [hoveredMsgId, setHoveredMsgId] = useState(null);
     const [reactionPickerMsgId, setReactionPickerMsgId] = useState(null);
-    // Mobile Message Action Modal
-    const [showMessageActionModal, setShowMessageActionModal] = useState(false);
-    const [selectedMsgForActions, setSelectedMsgForActions] = useState(null);
     const emojiPickerRef = useRef();
     const [replyingTo, setReplyingTo] = useState(null);
     const inputRef = useRef();
@@ -1700,29 +1697,7 @@ const Home = () => {
     };
 
     const renderFileMessage = (msg) => {
-        // Add long-press/touch logic for modal
-        const longPressTimerRef = useRef(null);
-        const handleTouchStart = () => {
-            longPressTimerRef.current = setTimeout(() => {
-                setSelectedMsgForActions(msg);
-                setShowMessageActionModal(true);
-            }, 500);
-        };
-        const handleTouchEndOrCancel = () => {
-            if (longPressTimerRef.current) {
-                clearTimeout(longPressTimerRef.current);
-                longPressTimerRef.current = null;
-            }
-        };
-        return (
-            <div
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEndOrCancel}
-                onTouchCancel={handleTouchEndOrCancel}
-            >
-                <DecryptedFileMessage msg={msg} user={user} activeChat={activeChat} setIsDrawingOpen={setIsDrawingOpen} setDrawingInitialImage={setDrawingInitialImage} />
-            </div>
-        );
+        return <DecryptedFileMessage msg={msg} user={user} activeChat={activeChat} setIsDrawingOpen={setIsDrawingOpen} setDrawingInitialImage={setDrawingInitialImage} />;
     };
 
     const startRecording = async () => {
@@ -2028,7 +2003,7 @@ const Home = () => {
             )}
             <div className="flex h-screen w-full bg-[#f0f2f5] dark:bg-[#0f172a] overflow-hidden font-sans relative transition-colors duration-300">
                 {/* Sidebar */}
-                <div className={`w-full md:w-87.5 flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`w-full md:w-[350px] flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Link to="/profile" aria-label="Go to your profile" className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm hover:scale-105 transition-transform">
@@ -2199,7 +2174,7 @@ const Home = () => {
                             </div>
 
                             {/* Pinned Messages Banner */}
-                            {messages.some(m => m.is_pinned) && (<div className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20  border-b border-amber-100 dark:border-amber-800 flex items-center justify-between z-10 sticky top-15 md:top-18.25">
+                            {messages.some(m => m.is_pinned) && (<div className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20  border-b border-amber-100 dark:border-amber-800 flex items-center justify-between z-10 sticky top-[60px] md:top-[73px]">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="p-1.5 bg-amber-100 dark:bg-amber-800 rounded-lg text-amber-600 dark:text-amber-400">
                                         <Pin size={14} fill="currentColor" />
@@ -2230,18 +2205,7 @@ const Home = () => {
                                             <div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>
                                         ) : (
                                             <SwipeableMessage onSwipeToReply={() => handleStartReply(msg)} isMine={msg.sender_id === user.id}>
-                                                <div
-                                                    className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`}
-                                                    onMouseEnter={() => setHoveredMsgId(msg.id)}
-                                                    onMouseLeave={() => setHoveredMsgId(null)}
-                                                    onTouchStart={() => {
-                                                        // Only show modal on mobile
-                                                        if (window.innerWidth < 768) {
-                                                            setSelectedMsgForActions(msg);
-                                                            setShowMessageActionModal(true);
-                                                        }
-                                                    }}
-                                                >
+                                                <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
                                                     <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}>
                                                         {msg.is_deleted ? 'This message was deleted' : (
                                                             <>
@@ -2304,8 +2268,7 @@ const Home = () => {
                                                                     </>
                                                                 ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
 
-                                                                {/* Desktop floating menu, hidden on mobile */}
-                                                                {hoveredMsgId === msg.id && !msg.is_deleted && window.innerWidth >= 768 && (
+                                                                {hoveredMsgId === msg.id && !msg.is_deleted && (
                                                                     <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
                                                                         <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded" title="React">😊</button>
                                                                         <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500" title="Reply"><CornerUpLeft size={14} /></button>
@@ -2331,25 +2294,6 @@ const Home = () => {
                                                                         {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
                                                                     </div>
                                                                 )}
-                                                                                {/* Mobile Message Action Modal */}
-                                                                                {showMessageActionModal && selectedMsgForActions && (
-                                                                                    <div className="fixed inset-0 z-200 flex items-end justify-center bg-black/30 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-300">
-                                                                                        <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl p-6 pb-8 border-t border-gray-200 dark:border-slate-700">
-                                                                                            <div className="flex flex-col items-center gap-4">
-                                                                                                <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-2"></div>
-                                                                                                <div className="text-sm font-bold mb-2">Message Actions</div>
-                                                                                                <div className="w-full flex flex-col gap-2">
-                                                                                                    <button onClick={() => { setReactionPickerMsgId(selectedMsgForActions.id); setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 font-bold flex items-center gap-2 justify-center"><Smile size={18} /> React</button>
-                                                                                                    <button onClick={() => { handleStartReply(selectedMsgForActions); setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-green-50 dark:bg-green-900/30 text-green-600 font-bold flex items-center gap-2 justify-center"><CornerUpLeft size={18} /> Reply</button>
-                                                                                                    <button onClick={() => { handleCopyMessage(selectedMsgForActions); setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 font-bold flex items-center gap-2 justify-center"><Copy size={18} /> Copy</button>
-                                                                                                    {selectedMsgForActions.sender_id === user.id && <button onClick={() => { handleDeleteMessage(selectedMsgForActions.id); setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-600 font-bold flex items-center gap-2 justify-center"><Trash2 size={18} /> Delete</button>}
-                                                                                                    <button onClick={() => { setShowMessageActionModal(false); }} className="w-full py-3 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 font-bold flex items-center gap-2 justify-center"><MoreVertical size={18} /> More</button>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                            <button onClick={() => setShowMessageActionModal(false)} className="mt-6 w-full py-2 rounded-xl bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-white font-bold">Close</button>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
                                                                 {reactionPickerMsgId === msg.id && (
                                                                     <div className="absolute top-0 -translate-y-full flex gap-1 p-2 bg-white rounded-2xl shadow-2xl z-30 border border-gray-100">
                                                                         {QUICK_REACTIONS.map(e => <button key={e} onClick={() => handleReact(msg.id, e)} className="text-xl hover:scale-125 transition-transform">{e}</button>)}
@@ -2458,7 +2402,7 @@ const Home = () => {
                                             </div>
                                         </>)}
                                     </form>
-                                    {showEmojiPicker && <div className="absolute bottom-full mb-2 right-0 z-50"><Suspense fallback={<div className="w-75 h-87.5 flex items-center justify-center bg-white shadow-lg rounded-lg"><div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div></div>}><EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} /></Suspense></div>}
+                                    {showEmojiPicker && <div className="absolute bottom-full mb-2 right-0 z-50"><Suspense fallback={<div className="w-[300px] h-[350px] flex items-center justify-center bg-white shadow-lg rounded-lg"><div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div></div>}><EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} /></Suspense></div>}
 
                                     {/* Mobile Attachment Popover */}
                                     {isAttachmentOpen && (
@@ -2468,7 +2412,7 @@ const Home = () => {
                                                 onClick={() => setIsAttachmentOpen(false)}
                                             ></div>
                                             <div className="absolute bottom-full mb-4 left-0 z-50 md:hidden w-72 animate-in slide-in-from-bottom-4 duration-300">
-                                                <div className="bg-white/95 dark:bg-slate-900/95  border border-white/20 dark:border-slate-700/50 p-5 rounded-4xl shadow-2xl">
+                                                <div className="bg-white/95 dark:bg-slate-900/95  border border-white/20 dark:border-slate-700/50 p-5 rounded-[32px] shadow-2xl">
                                                     <div className="grid grid-cols-2 gap-4">
                                                         {[
                                                             {
@@ -2516,7 +2460,7 @@ const Home = () => {
                                     )}
 
                                     {showTelepathyPicker && (<div className="absolute bottom-full mb-4 right-0 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                                        <div className="bg-white/95 dark:bg-slate-900/95  border border-white/20 dark:border-slate-700/50 p-4 rounded-4xl shadow-2xl w-72">
+                                        <div className="bg-white/95 dark:bg-slate-900/95  border border-white/20 dark:border-slate-700/50 p-4 rounded-[32px] shadow-2xl w-72">
                                             <div className="flex items-center justify-between mb-4 px-2">
                                                 <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Telepathy Mode</h4>
                                                 <button onClick={() => setShowTelepathyPicker(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={14} /></button>
@@ -2525,7 +2469,7 @@ const Home = () => {
                                                 {telepathySignals.map((sig, idx) => (<button
                                                     key={idx}
                                                     onClick={() => handleSendTelepathy(sig)}
-                                                    className={`flex flex-col items-center p-4 rounded-3xl ${sig.bg} border border-transparent hover:border-white/20 transition-all hover:scale-105 active:scale-95 group relative overflow-hidden shadow-sm hover:shadow-md`}
+                                                    className={`flex flex-col items-center p-4 rounded-[24px] ${sig.bg} border border-transparent hover:border-white/20 transition-all hover:scale-105 active:scale-95 group relative overflow-hidden shadow-sm hover:shadow-md`}
                                                 >
                                                     <span className="text-3xl mb-2 group-hover:animate-bounce transition-transform">{sig.icon}</span>
                                                     <span className={`text-[9px] font-black text-center uppercase tracking-tighter ${sig.color}`}>{sig.label}</span>
@@ -2764,7 +2708,7 @@ const Home = () => {
                 {/* Edit History Modal */}
                 {historyMsg && (
                     <div className="fixed inset-0 z-200 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-                        <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-4xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
                             <div className="p-6 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
@@ -2783,7 +2727,7 @@ const Home = () => {
                             <div className="max-h-[60vh] overflow-y-auto p-6 space-y-6">
                                 {/* Current Version */}
                                 <div className="relative pl-6 border-l-2 border-blue-500 pb-2">
-                                    <div className="absolute -left-2.25 top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white dark:border-slate-900 ring-4 ring-blue-500/10"></div>
+                                    <div className="absolute -left-[9px] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white dark:border-slate-900 ring-4 ring-blue-500/10"></div>
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">Current Version</span>
                                         <span className="text-[10px] text-gray-400 font-bold">Latest</span>
@@ -2796,7 +2740,7 @@ const Home = () => {
                                 {/* Previous Edits */}
                                 {historyMsg.edit_history && [...historyMsg.edit_history].reverse().map((edit, idx) => (
                                     <div key={idx} className="relative pl-6 border-l-2 border-gray-200 dark:border-slate-800 pb-2">
-                                        <div className="absolute -left-2.25 top-0 w-4 h-4 bg-gray-200 dark:bg-slate-800 rounded-full border-4 border-white dark:border-slate-900"></div>
+                                        <div className="absolute -left-[9px] top-0 w-4 h-4 bg-gray-200 dark:bg-slate-800 rounded-full border-4 border-white dark:border-slate-900"></div>
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                                                 {idx === (historyMsg.edit_history.length - 1) ? 'Original Version' : `Revision ${historyMsg.edit_history.length - idx}`}

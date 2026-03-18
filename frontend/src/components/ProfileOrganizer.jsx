@@ -122,7 +122,7 @@ const DecryptedMedia = ({ msg }) => {
                     </div>
                 </div>
             )}
-            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                 <span className="absolute bottom-1 right-2 text-[8px] text-white/80 font-bold tracking-wider">
                     {formatDate(msg.created_at)}
                 </span>
@@ -216,7 +216,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
         <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar sm:pb-10">
 
             {/* Gradient header */}
-            <div className="relative flex flex-col items-center bg-linear-to-b from-blue-600 via-blue-500 to-blue-400 dark:from-slate-800 dark:via-slate-900 dark:to-slate-900 pt-8 pb-16 px-2 sm:pt-10 sm:px-4">
+            <div className="relative flex flex-col items-center bg-gradient-to-b from-blue-600 via-blue-500 to-blue-400 dark:from-slate-800 dark:via-slate-900 dark:to-slate-900 pt-8 pb-16 px-2 sm:pt-10 sm:px-4">
                 {/* Avatar */}
                 <div className="relative z-10">
                     <div className="mx-auto w-28 h-28 rounded-full border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden bg-slate-200 dark:bg-slate-700">
@@ -335,7 +335,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 {/* Shared content preview row */}
                 <button
                     onClick={() => setSubView('media')}
-                    className="w-full p-3 sm:p-4 bg-linear-to-r from-blue-50 via-white to-emerald-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md transition-all hover:shadow-lg group mt-2"
+                    className="w-full p-3 sm:p-4 bg-gradient-to-r from-blue-50 via-white to-emerald-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md transition-all hover:shadow-lg group mt-2"
                 >
                     <div className="flex items-center justify-between mb-3">
                         <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">Shared Content</p>
@@ -360,7 +360,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 <div className="space-y-2 sm:space-y-3 mt-2">
                     <button
                         onClick={onToggleMute}
-                        className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-linear-to-r from-blue-50 via-white to-rose-50 dark:from-slate-800 dark:via-slate-900 dark:to-rose-900/10 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md hover:shadow-lg transition-all"
+                        className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-gradient-to-r from-blue-50 via-white to-rose-50 dark:from-slate-800 dark:via-slate-900 dark:to-rose-900/10 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md hover:shadow-lg transition-all"
                     >
                         <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${isMuted ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'}`}>
                             {isMuted ? <BellOff size={20} /> : <Bell size={20} />}
@@ -374,7 +374,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                         </div>
                     </button>
 
-                    <button className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-linear-to-r from-emerald-50 via-white to-blue-50 dark:from-slate-800 dark:via-slate-900 dark:to-blue-900/10 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md hover:shadow-lg transition-all">
+                    <button className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-gradient-to-r from-emerald-50 via-white to-blue-50 dark:from-slate-800 dark:via-slate-900 dark:to-blue-900/10 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md hover:shadow-lg transition-all">
                         <div className="w-11 h-11 bg-slate-50 dark:bg-slate-800 text-gray-400 rounded-2xl flex items-center justify-center">
                             <Shield size={20} />
                         </div>
@@ -512,7 +512,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
             />
 
             {/* Side panel */}
-            <div className={`fixed inset-y-0 right-0 w-full sm:w-100 z-1000 flex flex-col bg-white dark:bg-slate-900 shadow-2xl border-l border-white/20 dark:border-slate-800 transition-transform duration-500 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed inset-y-0 right-0 w-full sm:w-100 z-[1000] flex flex-col bg-white dark:bg-slate-900 shadow-2xl border-l border-white/20 dark:border-slate-800 transition-transform duration-500 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
 
                 {/* Panel header */}
                 <div className="p-6 flex items-center justify-between z-10 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-gray-100 dark:border-slate-800">
