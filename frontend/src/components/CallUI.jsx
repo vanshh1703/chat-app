@@ -73,10 +73,39 @@ const CallUI = ({
         }
     };
 
+    // Incoming Call Bar (Snapchat-style)
+    const IncomingCallBar = ({ name, avatar, subtitle, onAccept, onReject }) => (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-black rounded-full flex items-center px-4 py-2 shadow-xl min-w-[260px] max-w-xs" style={{ minWidth: 260 }}>
+            <img src={avatar} alt={name} className="w-10 h-10 rounded-full border-2 border-white mr-3" />
+            <div className="flex-1 min-w-0">
+                <div className="font-bold text-white text-sm truncate">{name}</div>
+                <div className="text-xs text-gray-300 truncate">{subtitle}</div>
+            </div>
+            <button onClick={onReject} className="ml-3 bg-rose-500 hover:bg-rose-600 rounded-full p-2 text-white">
+                <PhoneOff size={18} />
+            </button>
+            <button onClick={onAccept} className="ml-2 bg-emerald-500 hover:bg-emerald-600 rounded-full p-2 text-white">
+                <Phone size={18} />
+            </button>
+        </div>
+    );
+
     // 1. Incoming/Outgoing Call Popup (Pre-active)
     if (incomingCall && !activeCall) {
         const isCaller = incomingCall.isCaller;
-
+        if (!isCaller) {
+            // Incoming call (Snapchat-style bar)
+            return (
+                <IncomingCallBar
+                    name={incomingCall.name}
+                    avatar={incomingCall.avatar}
+                    subtitle={incomingCall.subtitle || `powered by ringer`}
+                    onAccept={onAccept}
+                    onReject={onReject}
+                />
+            );
+        }
+        // Outgoing call (keep existing UI for caller)
         return (
             <div className="fixed top-8 left-1/2 -translate-x-1/2 z-1000 w-[350px] bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl border border-white/20 dark:border-slate-800 p-6 animate-in slide-in-from-top duration-500">
                 <div className="flex flex-col items-center gap-4 text-center">
@@ -91,35 +120,18 @@ const CallUI = ({
                     <div>
                         <h3 className="font-black text-xl text-gray-900 dark:text-white">{incomingCall.name}</h3>
                         <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mt-1">
-                            {isCaller ? `Calling ${incomingCall.name}...` : `Incoming ${incomingCall.type} call...`}
+                            {`Calling ${incomingCall.name}...`}
                         </p>
                     </div>
 
-                    {isCaller ? (
-                        <div className="w-full mt-2">
-                            <button
-                                onClick={onEnd}
-                                className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
-                            >
-                                <PhoneOff size={18} /> Hang up
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="flex gap-4 w-full mt-2">
-                            <button
-                                onClick={onReject}
-                                className="flex-1 py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
-                            >
-                                <PhoneOff size={18} /> Reject
-                            </button>
-                            <button
-                                onClick={onAccept}
-                                className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
-                            >
-                                <Phone size={18} /> Accept
-                            </button>
-                        </div>
-                    )}
+                    <div className="w-full mt-2">
+                        <button
+                            onClick={onEnd}
+                            className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
+                        >
+                            <PhoneOff size={18} /> Hang up
+                        </button>
+                    </div>
                 </div>
             </div>
         );
