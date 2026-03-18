@@ -15,7 +15,10 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
             try {
                 await api.setAlias(activeChat.id, aliasInput);
                 setEditingAlias(false);
-                if (typeof window !== 'undefined' && window.location.reload) window.location.reload();
+                // Update alias in activeChat object directly for instant UI update
+                if (activeChat) {
+                    activeChat.alias = aliasInput;
+                }
             } catch (err) {
                 alert('Failed to set alias');
             } finally {

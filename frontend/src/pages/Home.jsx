@@ -2322,7 +2322,14 @@ const Home = () => {
                                                 <button type="button" onClick={stopRecording} className="p-2 bg-red-500 text-white rounded-full"><Square size={16} /></button>
                                             </div>
                                         </div>) : (<>
-                                            <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
+                                            {/* Allow GIFs from system keyboard and gallery */}
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*,image/gif"
+                                                className="hidden"
+                                                onChange={handleFileSelect}
+                                            />
 
                                             {/* Mobile Responsive Input Bar */}
                                             <div className="flex items-center gap-1">
