@@ -2041,60 +2041,82 @@ const Home = () => {
                     <div className="flex-1 overflow-y-auto mt-2 px-2 pb-4">
                         <h4 className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Direct Messages</h4>
                         <div className="space-y-1">
-                            {sidebarUsers.map(chat => (<div key={chat.id} onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)} onMouseLeave={() => setHoveredMsgId(null)} onClick={() => handleSelectChat(chat)} className={`group flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all duration-200 ${activeChat?.id === chat.id ? 'bg-white shadow-[0_10px_25px_rgba(0,0,0,0.05)]' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80' : 'hover:bg-white/50'}`}>
-                                <div className="relative group/profile" style={{ cursor: 'pointer' }}>
-                                    <div
-                                        className="absolute inset-0 rounded-full z-10 group-hover/profile:ring-2 group-hover/profile:ring-blue-200"
-                                        onClick={e => { e.stopPropagation(); handleViewProfile(chat); }}
-                                    ></div>
-                                    {chat.id === ashPersona.id ? (
-                                        <div className="w-14 h-14 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
-                                            <img src={chat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
-                                        </div>
-                                    ) : (
-                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-14 h-14" />
-                                    )}
-                                    {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full z-10"></div>}
-                                    {chat.is_pinned && (<div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-900 rounded-full shadow-md text-blue-500 border border-blue-100">
-                                        <Pin size={8} fill="currentColor" />
-                                    </div>)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-center mb-0.5">
-                                        <h4 className="text-base font-bold truncate flex items-center gap-1">
-                                            {chat.alias || chat.username}
-                                        </h4>
-                                        <span className="text-[10px] text-gray-400">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-                                    </div>
-                                    {/* Hide [System] label in sidebar */}
-                                    {/*
-                                    {chat.id === ashPersona.id && (
-                                        <span className="text-xs text-gray-400 font-semibold">[System]</span>
-                                    )}
-                                    */}
-                                    <p className="text-xs truncate text-gray-500">
-                                        {typingUsers[chat.id] ? (
-                                            <span className="text-blue-500 italic">typing...</span>
+                            {sidebarUsers.map(chat => (
+                                <div
+                                    key={chat.id}
+                                    onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)}
+                                    onMouseLeave={() => setHoveredMsgId(null)}
+                                    onClick={() => handleSelectChat(chat)}
+                                    className={`group flex items-center gap-3 px-3 py-2 cursor-pointer rounded-2xl transition-all duration-200 shadow-sm border border-transparent ${activeChat?.id === chat.id ? 'bg-white border-blue-200 shadow-lg' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80 border-blue-100' : 'hover:bg-white/70'} ${chat.is_pinned ? 'ring-2 ring-blue-400/40' : ''}`}
+                                    style={{ minHeight: 76 }}
+                                >
+                                    <div className="relative group/profile" style={{ cursor: 'pointer' }}>
+                                        <div
+                                            className="absolute inset-0 rounded-full z-10 group-hover/profile:ring-2 group-hover/profile:ring-blue-200"
+                                            onClick={e => { e.stopPropagation(); handleViewProfile(chat); }}
+                                        ></div>
+                                        {chat.id === ashPersona.id ? (
+                                            <div className="w-16 h-16 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow shrink-0">
+                                                <img src={chat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
+                                            </div>
                                         ) : (
-                                            decryptedMessages[chat.lastMsgData?.id] || (
-                                                chat.lastmsgtype === 'text' || !chat.lastmsgtype
-                                                    ? (chat.lastmsg || 'No messages yet')
-                                                    : `[${chat.lastmsgtype.charAt(0).toUpperCase() + chat.lastmsgtype.slice(1)}]`
-                                            )
+                                            <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-16 h-16" />
                                         )}
-                                    </p>
+                                        {/* Online indicator */}
+                                        <div className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white z-10 ${onlineUsers[chat.id]?.isOnline ? 'bg-green-500 shadow-lg' : 'bg-gray-300'}`}></div>
+                                        {/* Pin icon */}
+                                        {chat.is_pinned && (
+                                            <div className="absolute -top-2 -right-2 p-1 bg-white dark:bg-slate-900 rounded-full shadow text-blue-500 border border-blue-100">
+                                                <Pin size={10} fill="currentColor" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <h4 className="text-base font-bold truncate flex items-center gap-1">
+                                                {chat.alias || chat.username}
+                                            </h4>
+                                            <span className="text-xs text-gray-400 font-medium ml-auto">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500 truncate flex-1">
+                                                {typingUsers[chat.id] ? (
+                                                    <span className="text-blue-500 italic">typing...</span>
+                                                ) : (
+                                                    decryptedMessages[chat.lastMsgData?.id] || (
+                                                        chat.lastmsgtype === 'text' || !chat.lastmsgtype
+                                                            ? (chat.lastmsg || 'No messages yet')
+                                                            : `[${chat.lastmsgtype?.charAt(0).toUpperCase() + chat.lastmsgtype?.slice(1)}]`
+                                                    )
+                                                )}
+                                            </span>
+                                        </div>
+                                        <span className="text-[11px] text-gray-400 mt-0.5">
+                                            {onlineUsers[chat.id]?.isOnline
+                                                ? 'Online'
+                                                : onlineUsers[chat.id]?.lastSeen
+                                                    ? `Last seen ${formatLastSeen(onlineUsers[chat.id].lastSeen)}`
+                                                    : ''}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2 ml-2 min-w-[32px]">
+                                        {Number(chat.unreadcount) > 0 && (
+                                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow">
+                                                {chat.unreadcount}
+                                            </div>
+                                        )}
+                                        {(hoveredMsgId === `sidebar_${chat.id}` || chat.is_pinned) && (
+                                            <button
+                                                onClick={(e) => handlePinChat(e, chat.id)}
+                                                className={`p-2 rounded-full transition-all duration-200 ${chat.is_pinned ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:text-blue-500 hover:bg-blue-50 opacity-0 group-hover:opacity-100'}`}
+                                                title={chat.is_pinned ? 'Unpin chat' : 'Pin chat'}
+                                            >
+                                                {chat.is_pinned ? <PinOff size={16} /> : <Pin size={16} />}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="flex flex-col items-end gap-2">
-                                    {Number(chat.unreadcount) > 0 && <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">{chat.unreadcount}</div>}
-                                    {(hoveredMsgId === `sidebar_${chat.id}` || chat.is_pinned) && (<button
-                                        onClick={(e) => handlePinChat(e, chat.id)}
-                                        className={`p-1.5 rounded-full transition-all duration-200 ${chat.is_pinned ? 'text-blue-500' : 'text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100'}`}
-                                        title={chat.is_pinned ? 'Unpin chat' : 'Pin chat'}
-                                    >
-                                        {chat.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
-                                    </button>)}
-                                </div>
-                            </div>))}
+                            ))}
                         </div>
                     </div>
 
