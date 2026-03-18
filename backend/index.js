@@ -1,3 +1,32 @@
+// Logout a specific device/session (except current)
+app.post('/api/users/logout-session', authenticateToken, async (req, res) => {
+    const { sessionId } = req.body;
+    try {
+        // Only allow deleting sessions for the current user, and not the current session
+        await pool.query(
+            'DELETE FROM login_activities WHERE id = $1 AND user_id = $2 AND is_current = FALSE',
+            [sessionId, req.user.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to logout session' });
+    }
+});
+
+// Logout all devices except current
+app.post('/api/users/logout-all-others', authenticateToken, async (req, res) => {
+    try {
+        await pool.query(
+            'DELETE FROM login_activities WHERE user_id = $1 AND is_current = FALSE',
+            [req.user.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to logout other sessions' });
+    }
+});
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');

@@ -1,3 +1,8 @@
+// Logout a specific session by sessionId
+export const logoutSession = (sessionId) => API.post('users/logout-session', { sessionId });
+
+// Logout all sessions except the current one
+export const logoutAllOtherSessions = () => API.post('users/logout-all-others');
 import axios from 'axios';
 
 // Ensure baseURL always ends with '/' so relative paths append correctly

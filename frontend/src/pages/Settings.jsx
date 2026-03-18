@@ -1,7 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Moon, Sun, Bell, Shield, User, LogOut, Image as ImageIcon, Check, Plus, Monitor, Smartphone, MapPin, Activity, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getLoginActivity } from '../api/api';
+import { getLoginActivity, logoutSession, logoutAllOtherSessions } from '../api/api';
+    const [loggingOutSessionId, setLoggingOutSessionId] = useState(null);
+    const [loggingOutAll, setLoggingOutAll] = useState(false);
+    // Logout a specific session
+    const handleLogoutSession = async (sessionId) => {
+        setLoggingOutSessionId(sessionId);
+        try {
+            await logoutSession(sessionId);
+            setLoginActivities((prev) => prev.filter((a) => a.session_id !== sessionId));
+        } catch (err) {
+            alert('Failed to log out session.');
+        } finally {
+            setLoggingOutSessionId(null);
+        }
+    };
+
+    // Logout all sessions except current
+    const handleLogoutAllOthers = async () => {
+        setLoggingOutAll(true);
+        try {
+            await logoutAllOtherSessions();
+            // Only keep the first (current) session
+            setLoginActivities((prev) => prev.length > 0 ? [prev[0]] : []);
+        } catch (err) {
+            alert('Failed to log out other sessions.');
+        } finally {
+            setLoggingOutAll(false);
+        }
+    };
 
 const Settings = () => {
     const navigate = useNavigate();
@@ -146,6 +174,15 @@ const Settings = () => {
                         </div>
 
                         <div className="space-y-4">
+                            {loginActivities.length > 1 && (
+                                <button
+                                    onClick={handleLogoutAllOthers}
+                                    disabled={loggingOutAll}
+                                    className="mb-2 w-full py-2 rounded-xl bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors disabled:opacity-60"
+                                >
+                                    {loggingOutAll ? 'Logging out other devices...' : 'Log out all other devices'}
+                                </button>
+                            )}
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Theme Preference</p>
@@ -475,7 +512,7 @@ const Settings = () => {
                                 <div className="py-4 text-center text-sm text-gray-400">No recent activity found</div>
                             ) : (
                                 loginActivities.map((activity, idx) => (
-                                    <div key={activity.id || idx} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-900/40 transition-colors">
+                                    <div key={activity.id || idx} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-900/40 transition-colors relative">
                                         <div className="p-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400">
                                             {activity.device_name.toLowerCase().includes('mobile') || activity.device_name.toLowerCase().includes('android') || activity.device_name.toLowerCase().includes('iphone') ? (
                                                 <Smartphone size={20} />
@@ -494,6 +531,16 @@ const Settings = () => {
                                                     </span>
                                                 )}
                                             </div>
+                                                                                    {/* Logout button for all except current session */}
+                                                                                    {idx !== 0 && (
+                                                                                        <button
+                                                                                            onClick={() => handleLogoutSession(activity.session_id)}
+                                                                                            disabled={loggingOutSessionId === activity.session_id}
+                                                                                            className="absolute top-3 right-3 px-3 py-1 rounded-xl bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors disabled:opacity-60"
+                                                                                        >
+                                                                                            {loggingOutSessionId === activity.session_id ? 'Logging out...' : 'Log out'}
+                                                                                        </button>
+                                                                                    )}
                                             <div className="flex flex-wrap items-center gap-y-1 gap-x-3 mt-1">
                                                 <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-400">
                                                     <MapPin size={12} />

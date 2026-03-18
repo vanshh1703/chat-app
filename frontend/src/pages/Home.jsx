@@ -2003,7 +2003,7 @@ const Home = () => {
             )}
             <div className="flex h-screen w-full bg-[#f0f2f5] dark:bg-[#0f172a] overflow-hidden font-sans relative transition-colors duration-300">
                 {/* Sidebar */}
-                <div className={`w-full md:w-[350px] flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`w-fuyll md:w-[350px] flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Link to="/profile" aria-label="Go to your profile" className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm hover:scale-105 transition-transform">
