@@ -315,7 +315,7 @@ app.post('/api/push/test', authenticateToken, async (req, res) => {
         });
 
         if (result.error) {
-            return res.status(503).json({ error: result.error, sent: result.sent || 0 });
+            return res.status(503).json({ error: result.error, sent: result.sent || 0, details: result.details || null });
         }
 
         res.status(200).json({ message: 'Test push notification sent', sent: result.sent });
@@ -351,6 +351,7 @@ async function sendPushNotification(receiverId, payload) {
         });
 
         let sentCount = 0;
+        const deliveryErrors = [];
 
         await Promise.all(
             subscriptions.map(async (sub) => {
@@ -361,13 +362,30 @@ async function sendPushNotification(receiverId, payload) {
                     if (e.statusCode === 410 || e.statusCode === 404) {
                         await pool.query('DELETE FROM push_subscriptions WHERE subscription = $1', [sub.subscription]);
                     }
+                    deliveryErrors.push({
+                        statusCode: e.statusCode || null,
+                        body: e.body || null,
+                        message: e.message || 'WebPush send failed'
+                    });
                     console.error('WebPush error:', e.message || e);
                 }
             })
         );
 
         if (sentCount === 0) {
-            return { sent: 0, error: 'Push provider rejected all subscriptions. Please re-subscribe.' };
+            const firstError = deliveryErrors[0] || {};
+            const isLikelyVapidMismatch = firstError.statusCode === 401 || firstError.statusCode === 403;
+
+            return {
+                sent: 0,
+                error: isLikelyVapidMismatch
+                    ? 'Push provider rejected subscriptions (401/403). Your VAPID public/private keys likely do not match.'
+                    : 'Push provider rejected all subscriptions. Please re-subscribe.',
+                details: {
+                    rejected: deliveryErrors.length,
+                    firstProviderError: firstError
+                }
+            };
         }
 
         return { sent: sentCount };

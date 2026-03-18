@@ -119,6 +119,10 @@ const Settings = () => {
             } catch (err) {
                 console.error('Test push failed:', err);
                 const serverMsg = err?.response?.data?.error;
+                const details = err?.response?.data?.details;
+                const detailText = details?.firstProviderError?.statusCode
+                    ? ` (provider ${details.firstProviderError.statusCode})`
+                    : '';
 
                 if (serverMsg?.includes('Push provider rejected all subscriptions')) {
                     const recovered = await forceResubscribeToPush();
@@ -133,12 +137,16 @@ const Settings = () => {
                         return;
                     } catch (retryErr) {
                         const retryMsg = retryErr?.response?.data?.error;
-                        alert(retryMsg ? `Push retry failed: ${retryMsg}` : 'Push retry failed after re-subscribe.');
+                        const retryDetails = retryErr?.response?.data?.details;
+                        const retryDetailText = retryDetails?.firstProviderError?.statusCode
+                            ? ` (provider ${retryDetails.firstProviderError.statusCode})`
+                            : '';
+                        alert(retryMsg ? `Push retry failed: ${retryMsg}${retryDetailText}` : 'Push retry failed after re-subscribe.');
                         return;
                     }
                 }
 
-                alert(serverMsg ? `Push test failed: ${serverMsg}` : 'Failed to send push test. Check backend VAPID keys and deployment logs.');
+                alert(serverMsg ? `Push test failed: ${serverMsg}${detailText}` : 'Failed to send push test. Check backend VAPID keys and deployment logs.');
             }
         })();
     };
@@ -158,7 +166,11 @@ const Settings = () => {
         } catch (err) {
             console.error('Manual push reset failed:', err);
             const serverMsg = err?.response?.data?.error;
-            alert(serverMsg ? `Push reset failed: ${serverMsg}` : 'Push reset failed. Please try again.');
+            const details = err?.response?.data?.details;
+            const detailText = details?.firstProviderError?.statusCode
+                ? ` (provider ${details.firstProviderError.statusCode})`
+                : '';
+            alert(serverMsg ? `Push reset failed: ${serverMsg}${detailText}` : 'Push reset failed. Please try again.');
         } finally {
             setIsResettingPush(false);
         }
