@@ -24,7 +24,6 @@ const PublicRoute = ({ children }) => {
 };
 
 function App() {
-  const [isPushInitDone, setIsPushInitDone] = useState(false);
 
   useEffect(() => {
     const applyTheme = () => {
@@ -60,22 +59,37 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let isRunning = false;
+
     const initPush = async () => {
-      if (isPushInitDone) return;
+      if (isRunning) return;
       const profile = JSON.parse(localStorage.getItem('profile'));
       if (!profile?.token) return;
 
+      isRunning = true;
       try {
         await subscribeToPush();
       } catch (err) {
         console.error('Global push init error:', err);
       } finally {
-        setIsPushInitDone(true);
+        isRunning = false;
       }
     };
 
+    const onFocus = () => { initPush(); };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') initPush();
+    };
+
     initPush();
-  }, [isPushInitDone]);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
 
   return (
     <>

@@ -287,6 +287,21 @@ app.post('/api/push/unsubscribe', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/api/push/test', authenticateToken, async (req, res) => {
+    try {
+        await sendPushNotification(req.user.id, {
+            senderName: 'Ash Chat',
+            sender_id: req.user.id,
+            message_type: 'text',
+            content: req.body?.message || 'Test push notification'
+        });
+        res.status(200).json({ message: 'Test push notification sent' });
+    } catch (err) {
+        console.error('Push test error:', err);
+        res.status(500).json({ error: 'Failed to send test push notification' });
+    }
+});
+
 // Helper to record login activity
 async function recordLoginActivity(userId, req) {
     const userAgent = req.headers['user-agent'] || 'Unknown Device';
@@ -653,6 +668,45 @@ io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     socket.on('join', async (userId) => {
+
+async function sendPushNotification(receiverId, payload) {
+    try {
+        if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+            console.warn('Skipping push send: VAPID keys are missing');
+            return;
+        }
+
+        const result = await pool.query('SELECT subscription FROM push_subscriptions WHERE user_id = $1', [receiverId]);
+        const subscriptions = result.rows;
+        if (!subscriptions.length) return;
+
+        const pushPayload = JSON.stringify({
+            title: `New message from ${payload.senderName || 'User'}`,
+            body: payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`,
+            icon: '/pwa-192x192.png',
+            badge: '/pwa-192x192.png',
+            data: {
+                url: '/home',
+                senderId: payload.sender_id
+            }
+        });
+
+        await Promise.all(
+            subscriptions.map(async (sub) => {
+                try {
+                    await webpush.sendNotification(JSON.parse(sub.subscription), pushPayload);
+                } catch (e) {
+                    if (e.statusCode === 410 || e.statusCode === 404) {
+                        await pool.query('DELETE FROM push_subscriptions WHERE subscription = $1', [sub.subscription]);
+                    }
+                    console.error('WebPush error:', e.message || e);
+                }
+            })
+        );
+    } catch (err) {
+        console.error('Send push error:', err);
+    }
+}
         if (!userId) return;
         socket.join(userId.toString());
         socket.userId = userId;
@@ -698,37 +752,6 @@ io.on('connection', (socket) => {
             console.error('Socket send message error:', err);
         }
     });
-
-    async function sendPushNotification(receiverId, payload) {
-        try {
-            const result = await pool.query('SELECT subscription FROM push_subscriptions WHERE user_id = $1', [receiverId]);
-            const subscriptions = result.rows;
-
-            const pushPayload = JSON.stringify({
-                title: `New message from ${payload.senderName || 'User'}`,
-                body: payload.message_type === 'text' ? (payload.content || 'New Message') : `Sent an ${payload.message_type || 'attachment'}`,
-                icon: '/pwa-192x192.png',
-                badge: '/pwa-192x192.png',
-                data: {
-                    url: '/home',
-                    senderId: payload.sender_id
-                }
-            });
-
-            subscriptions.forEach(sub => {
-                webpush.sendNotification(JSON.parse(sub.subscription), pushPayload)
-                    .catch(e => {
-                        if (e.statusCode === 410 || e.statusCode === 404) {
-                            // Subscription expired or no longer valid
-                            pool.query('DELETE FROM push_subscriptions WHERE subscription = $1', [sub.subscription]);
-                        }
-                        console.error('WebPush error:', e);
-                    });
-            });
-        } catch (err) {
-            console.error('Send push error:', err);
-        }
-    }
 
     socket.on('typing', (data) => {
         io.to(data.receiverId.toString()).emit('typing', { senderId: data.senderId });

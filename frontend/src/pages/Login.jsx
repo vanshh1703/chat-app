@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import * as api from '../api/api';
+import { subscribeToPush } from '../utils/pushManager';
 
 function Login() {
     const [formData, setFormData] = useState({ username: '', password: '' });
@@ -19,6 +20,11 @@ function Login() {
         try {
             const { data } = await api.signIn(formData);
             localStorage.setItem('profile', JSON.stringify(data));
+            try {
+                await subscribeToPush();
+            } catch (pushErr) {
+                console.error('Push subscribe after login failed:', pushErr);
+            }
             navigate('/home');
         } catch (err) {
             setError('Invalid username or password.');

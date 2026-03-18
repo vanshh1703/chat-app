@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Moon, Sun, Bell, Shield, User, LogOut, Image as ImageIcon, Check, Plus, Monitor, Smartphone, MapPin, Activity, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getLoginActivity } from '../api/api';
+import { getLoginActivity, testPush } from '../api/api';
+import { subscribeToPush } from '../utils/pushManager';
 
 const Settings = () => {
     const navigate = useNavigate();
@@ -104,20 +105,21 @@ const Settings = () => {
     };
 
     const sendTestNotification = () => {
-        if (!('Notification' in window)) return;
+        (async () => {
+            try {
+                const subscribed = await subscribeToPush();
+                if (!subscribed) {
+                    alert('Push permission is required for background notifications.');
+                    return;
+                }
 
-        if (Notification.permission === 'granted') {
-            new Notification("Test Notification", {
-                body: "This is a test to verify your notification settings are working!",
-                icon: "/vite.svg"
-            });
-            if (notifs.sound) {
-                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-                audio.play().catch(e => console.error("Sound play failed", e));
+                await testPush('This is a real push test from your server.');
+                alert('Push test sent. Close/minimize app and check system notifications.');
+            } catch (err) {
+                console.error('Test push failed:', err);
+                alert('Failed to send push test. Check backend VAPID keys and deployment logs.');
             }
-        } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission();
-        }
+        })();
     };
 
     const handleToggleStealth = (key) => {
