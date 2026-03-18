@@ -19,7 +19,7 @@ const CallUI = ({
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [callDuration, setCallDuration] = useState(0);
-    const [isMaximized, setIsMaximized] = useState(false); // <-- moved here
+    const [isMaximized, setIsMaximized] = useState(false); // <-- moved here, top-level
     const [isMinimized, setIsMinimized] = useState(true);
     const [isSwapped, setIsSwapped] = useState(false); // Track PIP swap
 
