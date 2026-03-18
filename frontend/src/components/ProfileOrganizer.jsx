@@ -72,34 +72,6 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
 
     const renderProfile = () => (
         <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar">
-            {/* Alias (Rename) Section - Pen icon triggers input */}
-            <div className="p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm space-y-4 mb-6">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Chat Nickname</p>
-                <div className="flex items-center gap-2">
-                    {!editingAlias ? (
-                        <>
-                            <span className="text-lg font-bold text-gray-800 dark:text-white">{activeChat.alias || activeChat.username}</span>
-                            <button onClick={() => setEditingAlias(true)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-700" title="Edit Nickname">
-                                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-                            </button>
-                        </>
-                    ) : (
-                        <form onSubmit={handleSetAlias} className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                value={aliasInput}
-                                onChange={e => setAliasInput(e.target.value)}
-                                className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                                placeholder="Set custom name..."
-                                disabled={aliasSaving}
-                                autoFocus
-                            />
-                            <button type="submit" className="text-blue-600 font-bold text-xs" disabled={aliasSaving}>{aliasSaving ? 'Saving...' : 'Save'}</button>
-                            <button type="button" className="text-gray-400 text-xs" onClick={() => setEditingAlias(false)}>Cancel</button>
-                        </form>
-                    )}
-                </div>
-            </div>
             {/* Minimal Header for Profile */}
             <div className="relative group">
                 <div className="h-64 md:h-80 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
@@ -113,9 +85,32 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                     <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent"></div>
                 </div>
                 <div className="absolute bottom-6 left-6 right-6">
-                    <h2 className="text-3xl font-black text-white tracking-tighter drop-shadow-lg">
-                        {activeChat.alias || activeChat.username}
-                    </h2>
+                    <div className="flex items-center gap-2">
+                        {!editingAlias ? (
+                            <>
+                                <h2 className="text-3xl font-black text-white tracking-tighter drop-shadow-lg">
+                                    {activeChat.alias || activeChat.username}
+                                </h2>
+                                <button onClick={() => setEditingAlias(true)} className="p-1 rounded hover:bg-white/20" title="Edit Nickname">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                                </button>
+                            </>
+                        ) : (
+                            <form onSubmit={handleSetAlias} className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={aliasInput}
+                                    onChange={e => setAliasInput(e.target.value)}
+                                    className="px-3 py-1.5 text-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                    placeholder="Set custom name..."
+                                    disabled={aliasSaving}
+                                    autoFocus
+                                />
+                                <button type="submit" className="text-blue-600 font-bold text-xs" disabled={aliasSaving}>{aliasSaving ? 'Saving...' : 'Save'}</button>
+                                <button type="button" className="text-gray-400 text-xs" onClick={() => setEditingAlias(false)}>Cancel</button>
+                            </form>
+                        )}
+                    </div>
                     <p className="text-white/80 text-sm font-bold uppercase tracking-widest mt-1">
                         {activeChat.is_online ? 'online' : 'last seen recently'}
                     </p>

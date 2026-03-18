@@ -2108,8 +2108,7 @@ const Home = () => {
                                             <button type="button" onClick={() => setIsEditingAlias(false)} className="text-gray-400 text-xs">Cancel</button>
                                         </form>) : (<div className="flex items-center gap-2">
                                             <h3
-                                                className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer flex items-center gap-1.5"
-                                                onPointerDown={() => handleViewProfile(activeChat)}
+                                                className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-1.5"
                                                 tabIndex={0}
                                             >
                                                 {activeChat.alias || activeChat.username}
