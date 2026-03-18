@@ -212,7 +212,13 @@ const DecryptedMedia = ({ msg, activeChat }) => {
                     const isMine = String(msg.sender_id) === String(userId);
                     const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
 
-                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, msg.message_type === 'image' ? 'image/jpeg' : (msg.message_type === 'video' ? 'video/webm' : 'application/octet-stream'));
+                    const ext = msg.content ? msg.content.split('.').pop().toLowerCase() : '';
+                    let mimeType = 'application/octet-stream';
+                    if (msg.message_type === 'image') mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+                    else if (msg.message_type === 'video') mimeType = ext === 'webm' ? 'video/webm' : ext === 'mov' ? 'video/quicktime' : 'video/mp4';
+                    else if (msg.message_type === 'audio') mimeType = ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
+
+                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, mimeType);
                     setDecryptedUrl(URL.createObjectURL(decrypted));
                 } catch (err) {
                     console.error("Gallery decryption error:", err);

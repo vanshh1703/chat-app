@@ -67,7 +67,13 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                         return;
                     }
 
-                        const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, msg.message_type === 'image' ? 'image/jpeg' : (msg.message_type === 'video' ? 'video/webm' : 'application/octet-stream'));
+                    const ext = msg.content ? msg.content.split('.').pop().toLowerCase() : '';
+                    let mimeType = 'application/octet-stream';
+                    if (msg.message_type === 'image') mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+                    else if (msg.message_type === 'video') mimeType = ext === 'webm' ? 'video/webm' : ext === 'mov' ? 'video/quicktime' : 'video/mp4';
+                    else if (msg.message_type === 'audio') mimeType = ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
+
+                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, mimeType);
                     const fingerprint = await keyManager.getFingerprint(user.id);
                     console.log(`[decryptFile] Decryption successful for message ${msg.id}. Local Fingerprint: ${fingerprint}`);
                     const url = URL.createObjectURL(decrypted);
@@ -146,7 +152,7 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
     if (msg.message_type === 'video') {
         return (
             <div className="relative">
-                <video controls className="max-w-[280px] rounded-xl" src={fileUrl}>
+                <video controls className="max-w-[280px] rounded-xl" src={fileUrl} preload="metadata" playsInline>
                     Your browser does not support video.
                 </video>
                 {(isEncrypted) && (
@@ -1079,7 +1085,7 @@ const Home = () => {
             if (encryptionReady) {
                 normalizedData.forEach(async (chat) => {
                     const msg = chat.lastMsgData;
-                    if (msg.encrypted_key && !decryptedMessages[msg.id]) {
+                    if (msg.message_type === 'text' && msg.encrypted_key && !decryptedMessages[msg.id]) {
                         try {
                             const text = await decrypt(msg);
                             setDecryptedMessages(prev => ({ ...prev, [msg.id]: text }));
