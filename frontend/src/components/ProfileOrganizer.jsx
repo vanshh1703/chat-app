@@ -3,6 +3,24 @@ import { X, Image as ImageIcon, Video, Music, FileText, Download, Link as LinkIc
 import * as api from '../api/api';
 
 const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onToggleMute, onStartCall, onStartSearch }) => {
+        const [aliasInput, setAliasInput] = useState(activeChat?.alias || '');
+        const [aliasSaving, setAliasSaving] = useState(false);
+        useEffect(() => { setAliasInput(activeChat?.alias || ''); }, [activeChat]);
+
+        const handleSetAlias = async (e) => {
+            e.preventDefault();
+            if (!activeChat?.id) return;
+            setAliasSaving(true);
+            try {
+                await api.setAlias(activeChat.id, aliasInput);
+                // Optionally update local state or refetch sidebar/users
+                if (typeof window !== 'undefined' && window.location.reload) window.location.reload();
+            } catch (err) {
+                alert('Failed to set alias');
+            } finally {
+                setAliasSaving(false);
+            }
+        };
     const [subView, setSubView] = useState('profile'); // 'profile' or 'media'
     const [activeTab, setActiveTab] = useState('media'); // 'media', 'docs', 'audio', 'links'
     const [sharedMedia, setSharedMedia] = useState([]);
@@ -53,6 +71,21 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
 
     const renderProfile = () => (
         <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar">
+            {/* Alias (Rename) Section */}
+            <div className="p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm space-y-4 mb-6">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Chat Nickname</p>
+                <form onSubmit={handleSetAlias} className="flex items-center gap-2">
+                    <input
+                        type="text"
+                        value={aliasInput}
+                        onChange={e => setAliasInput(e.target.value)}
+                        className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        placeholder="Set custom name..."
+                        disabled={aliasSaving}
+                    />
+                    <button type="submit" className="text-blue-600 font-bold text-xs" disabled={aliasSaving}>{aliasSaving ? 'Saving...' : 'Save'}</button>
+                </form>
+            </div>
             {/* Minimal Header for Profile */}
             <div className="relative group">
                 <div className="h-64 md:h-80 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
