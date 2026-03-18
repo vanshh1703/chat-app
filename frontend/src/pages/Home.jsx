@@ -2091,29 +2091,18 @@ const Home = () => {
                                         <SafeAvatar
                                             src={activeChat.avatar_url}
                                             alt="Active"
-                                            size="w-9 h-9 md:w-10 md:h-10"
+                                            size="w-10 h-10 md:w-11 md:h-11"
                                             className="cursor-pointer hover:scale-105 transition-transform"
-                                            onPointerDown={() => handleViewProfile(activeChat)}
                                         />
                                     )}
-                                    {!showChatSearch ? (<div>
-                                        {isEditingAlias ? (<form onSubmit={handleSetAlias} className="flex items-center gap-2">
-                                            <input
-                                                autoFocus
-                                                type="text"
-                                                value={newAlias}
-                                                onFocus={(e) => e.target.select()}
-                                                onChange={(e) => setNewAlias(e.target.value)}
-                                                className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                                                placeholder="Set custom name..."
-                                            />
-                                            <button type="submit" className="text-blue-600 font-bold text-xs">Save</button>
-                                            <button type="button" onClick={() => setIsEditingAlias(false)} className="text-gray-400 text-xs">Cancel</button>
-                                        </form>) : (<div className="flex items-center gap-2">
+                                    {!showChatSearch ? (
+                                        <div
+                                            className="flex items-center gap-3 cursor-pointer select-none"
+                                            onPointerDown={() => handleViewProfile(activeChat)}
+                                            tabIndex={0}
+                                        >
                                             <h3
-                                                className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-1.5 cursor-pointer"
-                                                tabIndex={0}
-                                                onPointerDown={() => handleViewProfile(activeChat)}
+                                                className="font-bold text-gray-800 dark:text-white text-base flex items-center gap-1.5"
                                             >
                                                 {activeChat.alias || activeChat.username}
                                                 {encryptionReady && (
@@ -2121,21 +2110,13 @@ const Home = () => {
                                                         onClick={(e) => { e.stopPropagation(); setIsKeyVerificationOpen(true); }}
                                                         className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors"
                                                     >
-                                                        <Lock size={12} className="text-emerald-500" />
+                                                        <Lock size={14} className="text-emerald-500" />
                                                     </button>
                                                 )}
                                             </h3>
-                                            <button
-                                                onClick={() => { setIsEditingAlias(true); setNewAlias(activeChat.alias || activeChat.username); }}
-                                                onFocus={(e) => e.target.select()}
-                                                className="p-1 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-                                                title="Edit Name"
-                                            >
-                                                <Plus size={12} />
-                                            </button>
-                                        </div>)}
-                                        <p className="text-[11px] text-gray-500">{getStatusText(activeChat.id)}</p>
-                                    </div>) : (<div className="flex-1 max-w-md relative">
+                                            <p className="text-[12px] text-gray-500 ml-1">{getStatusText(activeChat.id)}</p>
+                                        </div>
+                                    ) : (<div className="flex-1 max-w-md relative">
                                         <input autoFocus type="text" placeholder="Search messages..." value={chatSearchTerm} onChange={(e) => setChatSearchTerm(e.target.value)} className="w-full pl-4 pr-10 py-1.5 bg-gray-100 rounded-xl text-sm outline-none" />
                                         <button onClick={() => { setShowChatSearch(false); setChatSearchTerm(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"><X size={16} /></button>
                                     </div>)}
