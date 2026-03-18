@@ -73,56 +73,78 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
         { id: 'links', label: 'Links', count: links.length, icon: LinkIcon }
     ];
 
+
     const renderProfile = () => (
-        <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar">
-            {/* Minimal Header for Profile */}
-            <div className="relative group">
-                <div className="h-64 md:h-80 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                    <img
-                        src={activeChat.avatar_url}
-                        alt={activeChat.username}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        width="128"
-                        height="128"
-                    />
-                    <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent"></div>
+        <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar sm:pb-10">
+            {/* Redesigned Profile Header */}
+            <div className="relative flex flex-col items-center justify-center bg-gradient-to-b from-blue-600 via-blue-500 to-blue-400 dark:from-slate-800 dark:via-slate-900 dark:to-slate-900 pt-8 pb-6 px-2 sm:pt-10 sm:pb-8 sm:px-4">
+                <div className="absolute top-2 right-2">
+                    {/* Optionally add a close button here for mobile UX */}
                 </div>
-                <div className="absolute bottom-6 left-6 right-6">
-                    <div className="flex items-center gap-2">
-                        {!editingAlias ? (
-                            <>
-                                <h2 className="text-3xl font-black text-white tracking-tighter drop-shadow-lg">
-                                    {activeChat.alias || activeChat.username}
-                                </h2>
-                                <button onClick={() => setEditingAlias(true)}
-                                    className="p-1 rounded-full bg-black hover:bg-blue-900 transition-colors"
-                                    title="Edit Nickname"
-                                >
-                                    <svg width="20" height="20" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                                        <path d="M12 20h9"/>
-                                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-                                    </svg>
-                                </button>
-                            </>
-                        ) : (
-                            <form onSubmit={handleSetAlias} className="flex items-center gap-2">
-                                <input
-                                    type="text"
-                                    value={aliasInput}
-                                    onChange={e => setAliasInput(e.target.value)}
-                                    className="px-3 py-1.5 text-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                                    placeholder="Set custom name..."
-                                    disabled={aliasSaving}
-                                    autoFocus
-                                />
-                                <button type="submit" className="text-blue-600 font-bold text-xs" disabled={aliasSaving}>{aliasSaving ? 'Saving...' : 'Save'}</button>
-                                <button type="button" className="text-gray-400 text-xs" onClick={() => setEditingAlias(false)}>Cancel</button>
-                            </form>
-                        )}
+                <div className="relative z-10">
+                    <div className="mx-auto w-28 h-28 rounded-full border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden bg-slate-200 dark:bg-slate-700">
+                        <img
+                            src={activeChat.avatar_url}
+                            alt={activeChat.username}
+                            className="w-full h-full object-cover"
+                            width="112"
+                            height="112"
+                        />
                     </div>
-                    <p className="text-white/80 text-sm font-bold uppercase tracking-widest mt-1">
+                </div>
+                <div className="mt-4 flex flex-col items-center">
+                    {!editingAlias ? (
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-2xl font-extrabold text-white tracking-tight drop-shadow-lg">
+                                {activeChat.alias || activeChat.username}
+                            </h2>
+                            <button onClick={() => setEditingAlias(true)}
+                                className="p-1 rounded-full bg-white/20 hover:bg-blue-700 transition-colors"
+                                title="Edit Nickname"
+                            >
+                                <svg width="20" height="20" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSetAlias} className="flex items-center gap-2 mt-1">
+                            <input
+                                type="text"
+                                value={aliasInput}
+                                onChange={e => setAliasInput(e.target.value)}
+                                className="px-3 py-1.5 text-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                placeholder="Set custom name..."
+                                disabled={aliasSaving}
+                                autoFocus
+                            />
+                            <button type="submit" className="text-blue-100 font-bold text-xs bg-blue-600 px-2 py-1 rounded" disabled={aliasSaving}>{aliasSaving ? 'Saving...' : 'Save'}</button>
+                            <button type="button" className="text-gray-200 text-xs" onClick={() => setEditingAlias(false)}>Cancel</button>
+                        </form>
+                    )}
+                    <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-1">
                         {activeChat.is_online ? 'online' : 'last seen recently'}
                     </p>
+                </div>
+
+            {/* Stats Row */}
+            <div className="flex justify-center gap-4 sm:gap-6 bg-white dark:bg-slate-900 py-3 sm:py-4 px-1 sm:px-2 rounded-2xl shadow -mt-8 mb-2 mx-2 sm:mx-4 relative z-20">
+                <div className="flex flex-col items-center">
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{messages?.length ?? 0}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Messages</span>
+                </div>
+                <div className="flex flex-col items-center">
+                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{media.length}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Media</span>
+                </div>
+                <div className="flex flex-col items-center">
+                    <span className="text-lg font-bold text-purple-600 dark:text-purple-400">{audio.length}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Audio</span>
+                </div>
+                <div className="flex flex-col items-center">
+                    <span className="text-lg font-bold text-pink-600 dark:text-pink-400">{docs.length}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Docs</span>
                 </div>
             </div>
 
@@ -164,21 +186,21 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                     </div>
                 </div>
 
-                {/* Media Audio Links Docs Preview */}
+                {/* Redesigned Media Row Preview */}
                 <button
                     onClick={() => setSubView('media')}
-                    className="w-full p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-slate-800 group"
+                    className="w-full p-3 sm:p-4 bg-gradient-to-r from-blue-50 via-white to-emerald-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md transition-all hover:shadow-lg group mt-2"
                 >
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Media, Audio, Links, and Docs</p>
-                        <div className="flex items-center gap-1 text-blue-500 font-bold text-sm">
-                            {media.length + audio.length + docs.length + links.length} <ChevronRight size={16} />
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">Shared Content</p>
+                        <div className="flex items-center gap-1 text-blue-600 font-bold text-xs">
+                            {media.length + audio.length + docs.length + links.length} <ChevronRight size={14} />
                         </div>
                     </div>
                     {([...media, ...audio].length > 0) ? (
-                        <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
-                            {[...media, ...audio].slice(0, 6).map((msg, idx) => (
-                                <div key={idx} className="w-20 h-20 rounded-xl shrink-0 overflow-hidden bg-gray-100 dark:bg-slate-800 border-2 border-white dark:border-slate-700 shadow-sm">
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                            {[...media, ...audio].slice(0, 5).map((msg, idx) => (
+                                <div key={idx} className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl shrink-0 overflow-hidden bg-gray-100 dark:bg-slate-800 border-2 border-white dark:border-slate-700 shadow-sm">
                                     <DecryptedMediaPreview msg={msg} />
                                 </div>
                             ))}
@@ -188,25 +210,25 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                     )}
                 </button>
 
-                {/* Notification Settings */}
-                <div className="space-y-3">
+                {/* Modern Card-Style Settings/Actions */}
+                <div className="space-y-2 sm:space-y-3 mt-2">
                     <button
                         onClick={onToggleMute}
-                        className="w-full flex items-center gap-4 p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm"
+                        className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-gradient-to-r from-blue-50 via-white to-rose-50 dark:from-slate-800 dark:via-slate-900 dark:to-rose-900/10 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md hover:shadow-lg transition-all"
                     >
-                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${isMuted ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'}`}>
+                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${isMuted ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'}`}> 
                             {isMuted ? <BellOff size={20} /> : <Bell size={20} />}
                         </div>
                         <div className="text-left flex-1">
                             <p className="text-sm font-bold text-gray-800 dark:text-slate-200">Mute Notifications</p>
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{isMuted ? 'Silently listening' : 'Always ring'}</p>
                         </div>
-                        <div className={`w-10 h-5 rounded-full relative transition-colors ${isMuted ? 'bg-rose-500' : 'bg-gray-200 dark:bg-slate-700'}`}>
+                        <div className={`w-10 h-5 rounded-full relative transition-colors ${isMuted ? 'bg-rose-500' : 'bg-gray-200 dark:bg-slate-700'}`}> 
                             <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isMuted ? 'right-1' : 'left-1'}`}></div>
                         </div>
                     </button>
 
-                    <button className="w-full flex items-center gap-4 p-5 bg-white dark:bg-slate-800/50 rounded-[28px] border border-gray-100 dark:border-slate-800 shadow-sm">
+                    <button className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-gradient-to-r from-emerald-50 via-white to-blue-50 dark:from-slate-800 dark:via-slate-900 dark:to-blue-900/10 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-md hover:shadow-lg transition-all">
                         <div className="w-11 h-11 bg-slate-50 dark:bg-slate-800 text-gray-400 rounded-2xl flex items-center justify-center">
                             <Shield size={20} />
                         </div>
