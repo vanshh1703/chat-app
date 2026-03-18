@@ -744,7 +744,7 @@ const Home = () => {
         if (!encryptionReady) return;
 
         const decryptBatch = async () => {
-            const decryptNeededMessages = messages.filter(m => m.encrypted_key && !decryptedMessages[m.id]);
+            const decryptNeededMessages = messages.filter(m => m.message_type === 'text' && m.encrypted_key && !decryptedMessages[m.id]);
             const decryptNeededSidebar = sidebarUsers
                 .filter(u => u.lastmsgtype === 'text' && u.lastMsgData?.encrypted_key && !decryptedMessages[u.lastMsgData.id])
                 .map(u => u.lastMsgData);
@@ -2247,7 +2247,14 @@ const Home = () => {
                                                             {msg.reply_to_msg && (
                                                                 <div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/20 border-white' : 'bg-gray-50 border-blue-500 text-gray-500'}`}>
                                                                     <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
-                                                                    <p className="truncate">{decryptedMessages[msg.reply_to_msg.id] || msg.reply_to_msg.content}</p>
+                                                                    <p className="truncate">
+                                                                        {msg.reply_to_msg.message_type === 'text' 
+                                                                            ? (decryptedMessages[msg.reply_to_msg.id] || msg.reply_to_msg.content)
+                                                                            : msg.reply_to_msg.message_type === 'image' ? '📷 Photo'
+                                                                            : msg.reply_to_msg.message_type === 'video' ? '🎥 Video'
+                                                                            : msg.reply_to_msg.message_type === 'audio' ? '🎵 Audio'
+                                                                            : '📎 File'}
+                                                                    </p>
                                                                 </div>
                                                             )}
                                                             {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
@@ -2359,7 +2366,14 @@ const Home = () => {
                             <div className="p-3 md:p-4 bg-white/80 backdrop-blur-md border-t border-gray-100 dark:border-slate-700/30">
                                 <div className="w-full">
                                     {replyingTo && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
-                                        <div className="truncate"><span className="font-bold text-blue-600">Reply to: </span>{decryptedMessages[replyingTo.id] || replyingTo.content}</div>
+                                        <div className="truncate"><span className="font-bold text-blue-600">Reply to: </span>
+                                            {replyingTo.message_type === 'text' 
+                                                ? (decryptedMessages[replyingTo.id] || replyingTo.content)
+                                                : replyingTo.message_type === 'image' ? '📷 Photo'
+                                                : replyingTo.message_type === 'video' ? '🎥 Video'
+                                                : replyingTo.message_type === 'audio' ? '🎵 Audio'
+                                                : '📎 File'}
+                                        </div>
                                         <button onClick={() => setReplyingTo(null)}><X size={14} /></button>
                                     </div>)}
                                     {editingMsg && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
