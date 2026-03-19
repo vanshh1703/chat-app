@@ -42,6 +42,8 @@ export const pinChat = (data) => API.post('users/pin-chat', data);
 export const muteChat = (data) => API.post('users/mute-chat', data);
 export const getLinkPreview = (url) => API.get(`utils/link-preview?url=${encodeURIComponent(url)}`);
 export const pinMessage = (data) => API.post('messages/pin', data);
+export const getChatWallpaper = (otherId) => API.get(`chats/${otherId}/wallpaper`);
+export const setChatWallpaperForChat = (otherUserId, wallpaper) => API.post('chats/wallpaper', { otherUserId, wallpaper });
 // Accepts (contactId, alias) for clarity
 export const setAlias = (contactId, alias) =>
     API.post('users/set-alias', { contactId, alias });

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Moon, Sun, Bell, Shield, User, LogOut, Image as ImageIcon, Check, Plus, Monitor, Smartphone, MapPin, Activity, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getLoginActivity, testPush } from '../api/api';
+import { getLoginActivity, testPush, setChatWallpaperForChat } from '../api/api';
 import { subscribeToPush, forceResubscribeToPush } from '../utils/pushManager';
 
 const Settings = () => {
@@ -43,6 +43,7 @@ const Settings = () => {
     const [isLoadingActivities, setIsLoadingActivities] = useState(false);
     const [isResettingPush, setIsResettingPush] = useState(false);
     const fileInputRef = React.useRef(null);
+    const wallpaperSyncInitRef = React.useRef(false);
 
     useEffect(() => {
         const fetchActivities = async () => {
@@ -100,6 +101,22 @@ const Settings = () => {
     useEffect(() => {
         localStorage.setItem('stealthNotifSettings', JSON.stringify(stealthNotifs));
     }, [stealthNotifs]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        if (!wallpaperSyncInitRef.current) {
+            wallpaperSyncInitRef.current = true;
+            return;
+        }
+
+        const lastActiveChatId = Number(localStorage.getItem('lastActiveChatId'));
+        if (!lastActiveChatId) return;
+
+        setChatWallpaperForChat(lastActiveChatId, chatWallpaper).catch((err) => {
+            console.error('Failed to sync wallpaper to active chat:', err);
+        });
+    }, [chatWallpaper, user?.id]);
 
     useEffect(() => {
         const profile = JSON.parse(localStorage.getItem('profile'));

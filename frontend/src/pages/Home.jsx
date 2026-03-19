@@ -479,6 +479,7 @@ const Home = () => {
     const currentCallIdRef = useRef(null);
     const [isSharingScreen, setIsSharingScreen] = useState(false);
     const screenStreamRef = useRef(null);
+    const wallpaperSyncInFlightRef = useRef(false);
 
     useEffect(() => {
         if (user) {
@@ -639,6 +640,26 @@ const Home = () => {
                 prev.map((msg) => msg.id === messageId ? { ...msg, is_deleted: true, content: '' } : msg));
         });
 
+        currentSocket.on('chat_wallpaper_updated', (payload) => {
+            const me = Number(user?.id);
+            const openPeer = Number(activeChatRef.current?.id);
+            const user1 = Number(payload?.user1_id);
+            const user2 = Number(payload?.user2_id);
+
+            if (!me || !openPeer) return;
+
+            const isCurrentOpenChat =
+                (user1 === me && user2 === openPeer)
+                || (user2 === me && user1 === openPeer);
+
+            if (!isCurrentOpenChat) return;
+
+            const incomingWallpaper = payload?.wallpaper || 'default';
+            wallpaperSyncInFlightRef.current = true;
+            setChatWallpaper(incomingWallpaper);
+            localStorage.setItem(`chatWallpaper_${me}`, incomingWallpaper);
+        });
+
         // Screenshot detection
         const handleKeyDown = (e) => {
             const screenshotKeys = ['PrintScreen', 'Print', 'Snapshot'];
@@ -680,6 +701,7 @@ const Home = () => {
             currentSocket.off('messages_read');
             currentSocket.off('message_updated');
             currentSocket.off('message_deleted');
+            currentSocket.off('chat_wallpaper_updated');
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
@@ -1373,6 +1395,7 @@ const Home = () => {
     // Handle clicking a user (from sidebar or search)
     const handleSelectChat = async (selectedUser) => {
         setActiveChat(selectedUser);
+        localStorage.setItem('lastActiveChatId', String(selectedUser.id));
         setShowEmojiPicker(false);
         setShowTelepathyPicker(false);
         setSearchTerm('');
@@ -1388,6 +1411,17 @@ const Home = () => {
             await api.markAsRead({ senderId: selectedUser.id });
             const { data } = await api.getMessages(selectedUser.id, 20, 0);
             setMessages(data);
+            try {
+                const wallpaperRes = await api.getChatWallpaper(selectedUser.id);
+                const resolvedWallpaper = wallpaperRes?.data?.wallpaper || 'default';
+                wallpaperSyncInFlightRef.current = true;
+                setChatWallpaper(resolvedWallpaper);
+                if (user?.id) {
+                    localStorage.setItem(`chatWallpaper_${user.id}`, resolvedWallpaper);
+                }
+            } catch (wallpaperErr) {
+                console.error('Fetch chat wallpaper error', wallpaperErr);
+            }
             setMessageOffset(data.length);
             if (data.length < 20) setHasMoreMessages(false);
             fetchSidebar();
@@ -1395,6 +1429,36 @@ const Home = () => {
             console.error('Fetch messages error', err);
         }
     };
+
+    useEffect(() => {
+        if (!activeChat?.id || !user?.id || String(activeChat.id) === String(ashPersona.id)) return;
+
+        if (wallpaperSyncInFlightRef.current) {
+            wallpaperSyncInFlightRef.current = false;
+            return;
+        }
+
+        let cancelled = false;
+
+        const syncWallpaper = async () => {
+            try {
+                await api.setChatWallpaperForChat(activeChat.id, chatWallpaper);
+                if (!cancelled) {
+                    localStorage.setItem(`chatWallpaper_${user.id}`, chatWallpaper);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Set chat wallpaper error', err);
+                }
+            }
+        };
+
+        syncWallpaper();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeChat?.id, chatWallpaper, user?.id]);
 
     useEffect(() => {
         if (!user || !location.search) return;

@@ -83,6 +83,22 @@ const initializeDB = async () => {
         `);
 
         await pool.query(`
+            CREATE TABLE IF NOT EXISTS chat_wallpapers (
+                id SERIAL PRIMARY KEY,
+                user1_id INTEGER REFERENCES users(id),
+                user2_id INTEGER REFERENCES users(id),
+                wallpaper TEXT NOT NULL DEFAULT 'default',
+                updated_by INTEGER REFERENCES users(id),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user1_id, user2_id)
+            );
+        `);
+
+        try { await pool.query('ALTER TABLE chat_wallpapers ADD COLUMN IF NOT EXISTS wallpaper TEXT NOT NULL DEFAULT \'default\''); } catch (e) { }
+        try { await pool.query('ALTER TABLE chat_wallpapers ADD COLUMN IF NOT EXISTS updated_by INTEGER REFERENCES users(id)'); } catch (e) { }
+        try { await pool.query('ALTER TABLE chat_wallpapers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'); } catch (e) { }
+
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS call_logs (
                 id SERIAL PRIMARY KEY,
                 caller_id INTEGER REFERENCES users(id),

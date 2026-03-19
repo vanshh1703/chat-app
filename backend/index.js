@@ -738,15 +738,81 @@ app.post('/api/messages/mark-read', authenticateToken, async (req, res) => {
 app.post('/api/messages/pin', authenticateToken, async (req, res) => {
     const { messageId } = req.body;
     try {
-        const check = await pool.query('SELECT is_pinned FROM messages WHERE id = $1', [messageId]);
+        const check = await pool.query(
+            'SELECT id, sender_id, receiver_id, is_pinned FROM messages WHERE id = $1 AND (sender_id = $2 OR receiver_id = $2)',
+            [messageId, req.user.id]
+        );
         if (check.rows.length === 0) return res.status(404).send('Message not found');
 
         const newPinned = !check.rows[0].is_pinned;
-        await pool.query('UPDATE messages SET is_pinned = $1 WHERE id = $2', [newPinned, messageId]);
+        const updated = await pool.query('UPDATE messages SET is_pinned = $1 WHERE id = $2 RETURNING *', [newPinned, messageId]);
+        const updatedMessage = sanitizeMessageForClient(updated.rows[0]);
+
+        io.to(updatedMessage.sender_id.toString()).emit('message_updated', updatedMessage);
+        io.to(updatedMessage.receiver_id.toString()).emit('message_updated', updatedMessage);
+
         res.json({ is_pinned: newPinned });
     } catch (err) {
         console.error(err);
         res.status(500).send('Pin message error');
+    }
+});
+
+// Shared wallpaper per chat pair
+app.get('/api/chats/:otherId/wallpaper', authenticateToken, async (req, res) => {
+    try {
+        const otherId = Number(req.params.otherId);
+        if (!otherId) return res.status(400).json({ error: 'Invalid chat user id' });
+
+        const [user1, user2] = [req.user.id, otherId].sort((a, b) => a - b);
+        const result = await pool.query(
+            'SELECT wallpaper, updated_by, updated_at FROM chat_wallpapers WHERE user1_id = $1 AND user2_id = $2 LIMIT 1',
+            [user1, user2]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ wallpaper: 'default' });
+        }
+
+        return res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Get chat wallpaper failed' });
+    }
+});
+
+app.post('/api/chats/wallpaper', authenticateToken, async (req, res) => {
+    const { otherUserId, wallpaper } = req.body;
+    try {
+        const peerId = Number(otherUserId);
+        if (!peerId) return res.status(400).json({ error: 'Invalid chat user id' });
+
+        const safeWallpaper = typeof wallpaper === 'string' && wallpaper.trim() ? wallpaper : 'default';
+        const [user1, user2] = [req.user.id, peerId].sort((a, b) => a - b);
+
+        const result = await pool.query(`
+            INSERT INTO chat_wallpapers (user1_id, user2_id, wallpaper, updated_by, updated_at)
+            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+            ON CONFLICT (user1_id, user2_id)
+            DO UPDATE SET wallpaper = EXCLUDED.wallpaper, updated_by = EXCLUDED.updated_by, updated_at = CURRENT_TIMESTAMP
+            RETURNING wallpaper, updated_by, updated_at
+        `, [user1, user2, safeWallpaper, req.user.id]);
+
+        const payload = {
+            user1_id: user1,
+            user2_id: user2,
+            wallpaper: result.rows[0].wallpaper,
+            updated_by: result.rows[0].updated_by,
+            updated_at: result.rows[0].updated_at
+        };
+
+        io.to(user1.toString()).emit('chat_wallpaper_updated', payload);
+        io.to(user2.toString()).emit('chat_wallpaper_updated', payload);
+
+        return res.json(payload);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Set chat wallpaper failed' });
     }
 });
 
