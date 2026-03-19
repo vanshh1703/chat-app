@@ -2263,9 +2263,6 @@ const Home = () => {
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-3xl font-semibold text-white tracking-tight">Chats</h2>
                             <div className="flex items-center gap-2">
-                                <button className="w-8 h-8 rounded-full bg-white/15 text-white/85 flex items-center justify-center hover:bg-white/20 transition-colors" title="Search">
-                                    <Search size={16} />
-                                </button>
                                 <button onClick={() => setIsOfflineChatOpen(true)} className="w-8 h-8 rounded-full bg-white/15 text-white/85 flex items-center justify-center hover:bg-white/20 transition-colors" title="Offline Mesh Chat">
                                     <Wifi size={16} />
                                 </button>
@@ -2658,7 +2655,7 @@ const Home = () => {
                                         <div className="truncate"><span className="font-bold text-blue-300">Editing: </span>{editingMsg.content}</div>
                                         <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                                     </div>)}
-                                    <form onSubmit={handleSendMessage} className="flex w-full min-w-0 gap-1 md:gap-1.5 items-center bg-black/85 p-1.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15 overflow-hidden">
+                                    <form onSubmit={handleSendMessage} className="flex w-full min-w-0 gap-1 md:gap-1.5 items-center bg-black/85 p-2.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15 overflow-hidden">
                                         {isRecording ? (<div className="flex-1 flex items-center justify-between px-2 text-red-500">
                                             <span>Recording... {formatRecordingTime(recordingTime)}</span>
                                             <div className="flex gap-2">
