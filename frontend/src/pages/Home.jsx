@@ -963,16 +963,17 @@ const Home = () => {
         };
     }, []); // Stable effect
 
-    const handleStartCall = async (type = 'video') => {
-        if (!activeChat) return;
-        if (activeChat.id === ashPersona.id) {
+    const handleStartCall = async (type = 'video', chatTargetOverride = null) => {
+        const chatTarget = chatTargetOverride || activeChatRef.current || activeChat;
+        if (!chatTarget) return;
+        if (chatTarget.id === ashPersona.id) {
             alert("You cannot call ASH.");
             return;
         }
         try {
             // First notify the other user
             signaling.emitCallUser(socket.current, {
-                to: activeChat.id,
+                to: chatTarget.id,
                 from: user.id,
                 name: user.username,
                 avatar: user.avatar_url,
@@ -983,11 +984,11 @@ const Home = () => {
 
             // Set up local state
             setIncomingCall({
-                name: activeChat.username,
-                avatar: activeChat.avatar_url,
+                name: chatTarget.username || chatTarget.alias,
+                avatar: chatTarget.avatar_url,
                 type,
                 isCaller: true,
-                to: activeChat.id
+                to: chatTarget.id
             });
 
             if (outgoingCallTimeoutRef.current) {
@@ -1682,10 +1683,9 @@ const Home = () => {
 
                 if (isCancelled) return;
 
-                setTimeout(() => {
-                    if (isCancelled) return;
-                    handleStartCall(startCallType);
-                }, 120);
+                if (!isCancelled) {
+                    await handleStartCall(startCallType, targetUser);
+                }
             } catch (err) {
                 console.error('Failed to start call from call logs swipe:', err);
             } finally {
