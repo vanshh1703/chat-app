@@ -171,10 +171,12 @@ const CallUI = ({
         }
 
         return (
-            <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[1000] w-[350px] bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl border border-white/20 dark:border-slate-800 p-6 animate-in slide-in-from-top duration-500">
-                <div className="flex flex-col items-center gap-4 text-center">
-                    <div className="relative">
-                        <div className="w-20 h-20 rounded-full border-4 border-blue-500/20 overflow-hidden ring-4 ring-blue-500/10 animate-pulse">
+            <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] w-[340px] max-w-[92vw] rounded-[30px] border border-white/10 bg-gradient-to-b from-slate-900/95 to-black/95 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.55)] p-6 animate-in slide-in-from-top duration-500">
+                <div className="flex flex-col items-center text-center">
+                    <div className="relative mb-4">
+                        <div className="absolute inset-0 rounded-full border border-fuchsia-400/20 animate-pulse scale-125" />
+                        <div className="absolute inset-0 rounded-full border border-blue-300/20 animate-pulse scale-150" />
+                        <div className="relative w-20 h-20 rounded-full overflow-hidden border border-white/20 ring-4 ring-white/5 shadow-xl">
                             <img
                                 src={callAvatar}
                                 alt={callDisplayName}
@@ -184,24 +186,22 @@ const CallUI = ({
                                 loading="lazy"
                             />
                         </div>
-                        <div className="absolute -bottom-1 -right-1 p-2 bg-blue-500 rounded-full text-white shadow-lg">
-                            {incomingCall.type === 'video' ? <Video size={16} /> : <Phone size={16} />}
+                        <div className="absolute -bottom-1 -right-1 p-2 bg-white/10 border border-white/20 rounded-full text-white backdrop-blur-xl">
+                            {incomingCall.type === 'video' ? <Video size={14} /> : <Phone size={14} />}
                         </div>
                     </div>
-                    <div>
-                        <h3 className="font-black text-xl text-gray-900 dark:text-white">{callDisplayName}</h3>
-                        <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mt-1">
-                            Calling {callDisplayName}…
-                        </p>
-                    </div>
-                    <div className="w-full mt-2">
-                        <button
-                            onClick={onEnd}
-                            className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
-                        >
-                            <PhoneOff size={18} /> Hang up
-                        </button>
-                    </div>
+
+                    <h3 className="text-[29px] leading-none font-semibold tracking-tight text-white">{callDisplayName}</h3>
+                    <p className="mt-2 text-[12px] font-semibold text-slate-300 uppercase tracking-[0.16em]">
+                        Calling {callDisplayName}...
+                    </p>
+
+                    <button
+                        onClick={onEnd}
+                        className="w-full mt-6 py-3.5 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-semibold tracking-[0.12em] uppercase transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(244,63,94,0.35)]"
+                    >
+                        <PhoneOff size={16} /> Hang Up
+                    </button>
                 </div>
             </div>
         );
