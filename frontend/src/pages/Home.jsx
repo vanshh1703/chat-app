@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Info, RefreshCw } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Info, RefreshCw, Calculator } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -432,6 +432,7 @@ const Home = () => {
     const [isOfflineChatOpen, setIsOfflineChatOpen] = useState(false);
     const [showMediaGallery, setShowMediaGallery] = useState(false);
     const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
+    const [showDecoyAppsMenu, setShowDecoyAppsMenu] = useState(false);
     const [historyMsg, setHistoryMsg] = useState(null);
     const [messageOffset, setMessageOffset] = useState(0);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -471,6 +472,12 @@ const Home = () => {
     }, [activeHomeTab, sidebarUsers]);
 
     const storyUsers = useMemo(() => filteredSidebarUsers.slice(0, 8), [filteredSidebarUsers]);
+    const decoyQuickApps = useMemo(() => ([
+        { label: 'Settings', route: '/decoy/settings', icon: SettingsIcon },
+        { label: 'Calculator', route: '/decoy/calculator', icon: Calculator },
+        { label: 'Clock', route: '/decoy/clock', icon: Clock },
+        { label: 'Camera', route: '/decoy/camera', icon: Camera }
+    ]), []);
 
     useEffect(() => {
         const updateVisualViewport = () => {
@@ -2360,6 +2367,37 @@ const Home = () => {
                     </div>
 
                     <div className="md:hidden absolute bottom-0 left-0 right-0 p-3 bg-black/70 backdrop-blur-xl border-t border-white/10">
+                        {showDecoyAppsMenu && (
+                            <>
+                                <button
+                                    type="button"
+                                    aria-label="Close decoy app menu"
+                                    className="fixed inset-0 z-40 bg-black/25"
+                                    onClick={() => setShowDecoyAppsMenu(false)}
+                                />
+                                <div className="absolute left-1/2 -translate-x-1/2 bottom-[76px] z-50 w-[240px] rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl p-3 shadow-2xl">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {decoyQuickApps.map((app) => {
+                                            const AppIcon = app.icon;
+                                            return (
+                                                <button
+                                                    key={app.route}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setShowDecoyAppsMenu(false);
+                                                        navigate(app.route);
+                                                    }}
+                                                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/85 hover:bg-white/10"
+                                                >
+                                                    <AppIcon size={16} />
+                                                    <span className="text-xs font-semibold">{app.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                         <div className="grid grid-cols-5 items-center">
                             <button className="flex flex-col items-center gap-1 text-[10px] text-white">
                                 <MessageSquare size={18} />
@@ -2369,7 +2407,11 @@ const Home = () => {
                                 <Phone size={18} />
                                 <span>Call</span>
                             </Link>
-                            <button className="mx-auto w-10 h-10 rounded-full bg-white/15 border border-white/20 text-white flex items-center justify-center -mt-5">
+                            <button
+                                type="button"
+                                onClick={() => setShowDecoyAppsMenu((prev) => !prev)}
+                                className="mx-auto w-10 h-10 rounded-full bg-white/15 border border-white/20 text-white flex items-center justify-center -mt-5"
+                            >
                                 <Plus size={20} />
                             </button>
                             <Link to="/settings" className="flex flex-col items-center gap-1 text-[10px] text-white/60 hover:text-white">
