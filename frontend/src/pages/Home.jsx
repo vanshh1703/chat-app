@@ -1475,6 +1475,22 @@ const Home = () => {
         return () => window.removeEventListener('storage', handleStorage);
     }, [user]);
 
+    useEffect(() => {
+        const previousBodyOverflow = document.body.style.overflow;
+        const previousHtmlOverflow = document.documentElement.style.overflow;
+        const previousBodyOverscroll = document.body.style.overscrollBehavior;
+
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overscrollBehavior = 'none';
+
+        return () => {
+            document.body.style.overflow = previousBodyOverflow;
+            document.documentElement.style.overflow = previousHtmlOverflow;
+            document.body.style.overscrollBehavior = previousBodyOverscroll;
+        };
+    }, []);
+
     // Scroll to bottom on new messages
     const shouldScrollToBottomRef = useRef(true);
     const forceScrollToBottomRef = useRef(false);
@@ -2214,7 +2230,7 @@ const Home = () => {
                     onDismiss={() => setStealthNotif(null)}
                 />
             )}
-            <div className="flex h-dvh md:h-screen w-full bg-black overflow-hidden font-sans relative transition-colors duration-300">
+            <div className="fixed inset-0 flex h-dvh w-full bg-black overflow-hidden font-sans relative transition-colors duration-300">
                 {/* Sidebar */}
                 <div className={`w-full md:w-[350px] flex flex-col bg-linear-to-b from-[#8f6a5d] via-[#2b2224] to-black border-r border-white/10 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 pb-3">
