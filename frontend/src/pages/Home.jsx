@@ -2184,7 +2184,7 @@ const Home = () => {
                     onDismiss={() => setStealthNotif(null)}
                 />
             )}
-            <div className="flex h-screen w-full bg-[#0b0f14] overflow-hidden font-sans relative transition-colors duration-300">
+            <div className="flex h-screen w-full bg-black overflow-hidden font-sans relative transition-colors duration-300">
                 {/* Sidebar */}
                 <div className={`w-full md:w-[350px] flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 flex items-center justify-between">
@@ -2283,13 +2283,13 @@ const Home = () => {
 
                 {/* Main Chat Area */}
                 <div className={`flex-1 flex flex-col relative h-full w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
-                    <div className={`absolute inset-0 z-0 ${chatWallpaper === 'gradient' ? 'wallpaper-gradient' : chatWallpaper === 'stars' ? 'wallpaper-stars' : 'bg-linear-to-b from-[#111827] via-[#0f172a] to-[#0b1220]'}`} style={chatWallpaper.startsWith('data:') ? { backgroundImage: `url(${chatWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
-                        <div className="absolute inset-0 bg-black/35"></div>
+                    <div className={`absolute inset-0 z-0 ${chatWallpaper === 'gradient' ? 'wallpaper-gradient' : chatWallpaper === 'stars' ? 'wallpaper-stars' : 'bg-black'}`} style={chatWallpaper.startsWith('data:') ? { backgroundImage: `url(${chatWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
+                        <div className="absolute inset-0 bg-black/55"></div>
                     </div>
 
                     {
                         activeChat ? (<div className="flex flex-col h-full relative z-10">
-                            <div className="p-2.5 md:p-4 flex items-center justify-between bg-black/40 backdrop-blur-xl border-b border-white/10 z-10 sticky top-0">
+                            <div className="p-2.5 md:p-4 flex items-center justify-between bg-black/70 backdrop-blur-xl border-b border-white/10 z-10 sticky top-0">
                                 <div className="flex items-center gap-2 md:gap-4 flex-1">
                                     <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-white/70 hover:bg-white/10"><ArrowLeft size={20} /></button>
                                     {String(activeChat.id) === String(ashPersona.id) ? (
@@ -2347,7 +2347,7 @@ const Home = () => {
                             </div>
 
                             {/* Pinned Messages Banner */}
-                            {latestPinnedMessage && (<div className="px-4 py-2 bg-black/45 border-b border-amber-400/20 flex items-center justify-between z-10 sticky top-[58px] md:top-[73px] backdrop-blur-xl">
+                            {latestPinnedMessage && (<div className="px-4 py-2 bg-black/70 border-b border-amber-400/20 flex items-center justify-between z-10 sticky top-[58px] md:top-[73px] backdrop-blur-xl">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="p-1.5 bg-amber-500/20 rounded-lg text-amber-300">
                                         <Pin size={14} fill="currentColor" />
@@ -2495,7 +2495,7 @@ const Home = () => {
                                 <button onClick={() => setAttachPreview(null)} className="text-white/60"><X size={18} /></button>
                             </div>)}
 
-                            <div className="p-2.5 md:p-4 bg-black/40 backdrop-blur-xl border-t border-white/10">
+                            <div className="p-2.5 md:p-4 bg-black/70 backdrop-blur-xl border-t border-white/10">
                                 <div className="w-full">
                                     {replyingTo && (<div className="flex justify-between items-center bg-white/10 p-2 rounded-xl mb-2 text-xs text-white/80 border border-white/10">
                                         <div className="truncate"><span className="font-bold text-blue-300">Reply to: </span>
@@ -2512,7 +2512,7 @@ const Home = () => {
                                         <div className="truncate"><span className="font-bold text-blue-300">Editing: </span>{editingMsg.content}</div>
                                         <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                                     </div>)}
-                                    <form onSubmit={handleSendMessage} className="flex gap-1.5 md:gap-2 items-center bg-[#1f2937]/88 p-1.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15">
+                                    <form onSubmit={handleSendMessage} className="flex gap-1.5 md:gap-2 items-center bg-black/85 p-1.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15">
                                         {isRecording ? (<div className="flex-1 flex items-center justify-between px-2 text-red-500">
                                             <span>Recording... {formatRecordingTime(recordingTime)}</span>
                                             <div className="flex gap-2">
