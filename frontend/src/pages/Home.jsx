@@ -448,6 +448,7 @@ const Home = () => {
     const [messageOffset, setMessageOffset] = useState(0);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [isMobileViewport, setIsMobileViewport] = useState(window.innerWidth < 768);
     const [visualViewportHeight, setVisualViewportHeight] = useState(window.visualViewport?.height || window.innerHeight);
     const [visualViewportOffsetTop, setVisualViewportOffsetTop] = useState(window.visualViewport?.offsetTop || 0);
     const messageContainerRef = useRef(null);
@@ -495,6 +496,7 @@ const Home = () => {
             const vv = window.visualViewport;
             setVisualViewportHeight(vv?.height || window.innerHeight);
             setVisualViewportOffsetTop(vv?.offsetTop || 0);
+            setIsMobileViewport(window.innerWidth < 768);
         };
 
         updateVisualViewport();
@@ -2593,7 +2595,14 @@ const Home = () => {
                                         ) : (
                                             <SwipeableMessage onSwipeToReply={() => handleStartReply(msg)} isMine={msg.sender_id === user.id}>
                                                 <div className={`flex flex-col max-w-[80%] md:max-w-[68%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
-                                                    <div className={`px-3.5 md:px-4 py-2.5 md:py-3 rounded-2xl relative shadow-sm backdrop-blur-md border ${msg.is_deleted ? 'bg-white/10 italic text-white/40 border-white/10' : msg.is_pinned ? 'bg-amber-500/10 border-amber-300/30 text-white' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-violet-700/80 to-indigo-700/80 text-white border-violet-400/30 shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-[#6b4b3d]/80 text-white border-[#8d6a58]/50' : 'bg-[#1f2937]/78 text-white border-white/10'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}>
+                                                    <div
+                                                        onClick={() => {
+                                                            if (isMobileViewport && !msg.is_deleted) {
+                                                                setMessageActionMsg(msg);
+                                                            }
+                                                        }}
+                                                        className={`px-3.5 md:px-4 py-2.5 md:py-3 rounded-2xl relative shadow-sm backdrop-blur-md border ${msg.is_deleted ? 'bg-white/10 italic text-white/40 border-white/10' : msg.is_pinned ? 'bg-amber-500/10 border-amber-300/30 text-white' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-violet-700/80 to-indigo-700/80 text-white border-violet-400/30 shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-[#6b4b3d]/80 text-white border-[#8d6a58]/50' : 'bg-[#1f2937]/78 text-white border-white/10'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}
+                                                    >
                                                         {msg.is_deleted ? 'This message was deleted' : (
                                                             <>
                                                                 {msg.reply_to_msg && (
@@ -2649,7 +2658,7 @@ const Home = () => {
                                                                     </>
                                                                 ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
 
-                                                                {hoveredMsgId === msg.id && !msg.is_deleted && (
+                                                                {hoveredMsgId === msg.id && !msg.is_deleted && !isMobileViewport && (
                                                                     <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-black/75 backdrop-blur-xl rounded-lg shadow-xl border border-white/10 z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
                                                                         <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-white/10 rounded" title="React">😊</button>
                                                                         <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-white/10 rounded text-white/70" title="Reply"><CornerUpLeft size={14} /></button>
