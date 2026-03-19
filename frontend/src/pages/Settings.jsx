@@ -233,34 +233,34 @@ const Settings = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] transition-colors duration-300 font-sans">
+        <div className="min-h-screen bg-linear-to-b from-[#8f6a5d] via-[#2b2224] to-black transition-colors duration-300 font-sans text-white">
             <div className="max-w-2xl mx-auto p-4 md:p-8">
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-8">
                     <button
                         onClick={() => navigate('/home')}
-                        className="p-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all"
+                        className="p-2 rounded-xl bg-black/45 backdrop-blur-xl border border-white/10 text-white/75 hover:bg-black/60 transition-all"
                     >
                         <ArrowLeft size={20} />
                     </button>
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Settings</h1>
+                    <h1 className="text-2xl font-bold text-white">Settings</h1>
                 </div>
 
                 <div className="space-y-6">
                     {/* Appearance Section */}
-                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700 font-sans">
+                    <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-white/10 font-sans">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400">
                                 <Sun size={20} />
                             </div>
-                            <h2 className="font-bold text-gray-800 dark:text-white">Appearance</h2>
+                            <h2 className="font-bold text-white">Appearance</h2>
                         </div>
 
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Theme Preference</p>
-                                    <p className="text-xs text-gray-400 dark:text-slate-400">Choose how the app looks</p>
+                                    <p className="text-sm font-semibold text-white/90">Theme Preference</p>
+                                    <p className="text-xs text-white/55">Choose how the app looks</p>
                                 </div>
                                 <div className="flex bg-gray-100 dark:bg-slate-900 p-1 rounded-xl">
                                     {['light', 'dark', 'system'].map((t) => (
@@ -281,12 +281,12 @@ const Settings = () => {
                     </div>
 
                     {/* Chat Wallpaper Section */}
-                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-white/10">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 dark:text-emerald-400">
                                 <ImageIcon size={20} />
                             </div>
-                            <h2 className="font-bold text-gray-800 dark:text-white">Chat Wallpaper</h2>
+                            <h2 className="font-bold text-white">Chat Wallpaper</h2>
                         </div>
 
                         <div className="space-y-6">
@@ -347,24 +347,24 @@ const Settings = () => {
                                 </button>
                             </div>
 
-                            <p className="text-xs text-gray-400 dark:text-slate-400">Animated presets or choose a custom photo for your chat background.</p>
+                            <p className="text-xs text-white/55">Animated presets or choose a custom photo for your chat background.</p>
                         </div>
                     </div>
 
                     {/* Notifications Section */}
-                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-white/10">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-500 dark:text-purple-400">
                                 <Bell size={20} />
                             </div>
-                            <h2 className="font-bold text-gray-800 dark:text-white">Notifications</h2>
+                            <h2 className="font-bold text-white">Notifications</h2>
                         </div>
 
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Individual Chats</p>
-                                    <p className="text-xs text-gray-400 dark:text-slate-400">Receive alerts for direct messages</p>
+                                    <p className="text-sm font-semibold text-white/90">Individual Chats</p>
+                                    <p className="text-xs text-white/55">Receive alerts for direct messages</p>
                                 </div>
                                 <button
                                     onClick={() => handleToggleNotif('individual')}
@@ -376,8 +376,8 @@ const Settings = () => {
 
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">All Notifications</p>
-                                    <p className="text-xs text-gray-400 dark:text-slate-400">Enable or disable all browser alerts</p>
+                                    <p className="text-sm font-semibold text-white/90">All Notifications</p>
+                                    <p className="text-xs text-white/55">Enable or disable all browser alerts</p>
                                 </div>
                                 <button
                                     onClick={() => handleToggleNotif('all')}
@@ -389,8 +389,8 @@ const Settings = () => {
 
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Notification Sound</p>
-                                    <p className="text-xs text-gray-400 dark:text-slate-400">Play a sound on new messages</p>
+                                    <p className="text-sm font-semibold text-white/90">Notification Sound</p>
+                                    <p className="text-xs text-white/55">Play a sound on new messages</p>
                                 </div>
                                 <button
                                     onClick={() => handleToggleNotif('sound')}
@@ -423,19 +423,19 @@ const Settings = () => {
                     </div>
 
                     {/* Stealth Notifications Section */}
-                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-white/10">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-rose-500 dark:text-rose-400">
                                 <Shield size={20} />
                             </div>
-                            <h2 className="font-bold text-gray-800 dark:text-white">Stealth Notifications</h2>
+                            <h2 className="font-bold text-white">Stealth Notifications</h2>
                         </div>
 
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Enable Stealth Mode</p>
-                                    <p className="text-xs text-gray-400 dark:text-slate-400">Mask real chat alerts with fake ones</p>
+                                    <p className="text-sm font-semibold text-white/90">Enable Stealth Mode</p>
+                                    <p className="text-xs text-white/55">Mask real chat alerts with fake ones</p>
                                 </div>
                                 <button
                                     onClick={() => handleToggleStealth('enabled')}
@@ -551,7 +551,7 @@ const Settings = () => {
                                                     <Smartphone size={20} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className="text-xs font-bold text-gray-800 dark:text-white truncate font-sans">
+                                                    <h4 className="text-xs font-bold text-white truncate font-sans">
                                                         {stealthNotifs.titleOption === 'Custom' ? (stealthNotifs.customTitle || 'Fake Title') : stealthNotifs.titleOption}
                                                     </h4>
                                                     <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1 font-sans">
@@ -582,12 +582,12 @@ const Settings = () => {
                     </div>
 
                     {/* Login Activity Section */}
-                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-white/10">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400">
                                 <Activity size={20} />
                             </div>
-                            <h2 className="font-bold text-gray-800 dark:text-white">Login Activity</h2>
+                            <h2 className="font-bold text-white">Login Activity</h2>
                         </div>
 
                         <div className="space-y-4">
@@ -608,7 +608,7 @@ const Settings = () => {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-bold text-gray-800 dark:text-white truncate">
+                                                    <p className="text-sm font-bold text-white truncate">
                                                         {(activity.device_name && activity.device_name.split('(')[0]) || 'Unknown Device'}
                                                     </p>
                                                     {idx === 0 && (
@@ -652,12 +652,12 @@ const Settings = () => {
                     </div>
 
                     {/* Account Section */}
-                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-white/10">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-900/30 text-orange-500 dark:text-orange-400">
                                 <User size={20} />
                             </div>
-                            <h2 className="font-bold text-gray-800 dark:text-white">Account</h2>
+                            <h2 className="font-bold text-white">Account</h2>
                         </div>
 
                         <button

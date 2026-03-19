@@ -164,11 +164,11 @@ const CallLogs = () => {
     const rangeEnd = filteredLogs.length === 0 ? 0 : Math.min(currentPage * itemsPerPage, filteredLogs.length);
 
     return (
-        <div className="min-h-screen bg-[#FDFDFF] dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-500 selection:bg-blue-500/30">
+        <div className="min-h-screen bg-linear-to-b from-[#8f6a5d] via-[#2b2224] to-black text-slate-100 transition-colors duration-500 selection:bg-amber-500/30">
             {/* Ambient Background */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-40">
-                <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-[150px]" />
-                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[150px]" />
+            <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-30">
+                <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-[#d8a087]/10 rounded-full blur-[150px]" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-[#503236]/20 rounded-full blur-[150px]" />
             </div>
 
             <div className="relative max-w-[1200px] mx-auto px-6 py-12 md:py-20">
@@ -183,21 +183,21 @@ const CallLogs = () => {
                             <input
                                 type="text"
                                 placeholder="Search by name or status..."
-                                className="w-full bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl py-4 pl-14 pr-6 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 placeholder:text-slate-400 placeholder:font-semibold"
+                                className="w-full bg-black/40 backdrop-blur-xl border border-white/15 rounded-3xl py-4 pl-14 pr-6 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-300 transition-all duration-300 placeholder:text-white/45"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
 
                         {/* Tabs Inspired by Screenshot */}
-                        <div className="flex p-1.5 bg-slate-100/50 dark:bg-slate-900 shadow-inner rounded-3xl border border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar">
+                        <div className="flex p-1.5 bg-black/35 backdrop-blur-xl rounded-3xl border border-white/10 overflow-x-auto no-scrollbar">
                                 {TABS.map((tab) => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab.id
-                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
-                                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                                            ? 'bg-white/16 text-amber-300 border border-white/20'
+                                            : 'text-white/60 hover:text-white'
                                         }`}
                                 >
                                     {tab.label}
@@ -210,12 +210,12 @@ const CallLogs = () => {
                         <div className="flex items-center gap-6">
                             <button
                                 onClick={() => navigate('/home')}
-                                className="group p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-x-1 transition-all active:scale-95"
+                                className="group p-4 bg-black/45 backdrop-blur-xl border border-white/10 rounded-2xl shadow-sm hover:bg-black/60 hover:-translate-x-1 transition-all active:scale-95"
                             >
-                                <ArrowLeft size={24} className="text-slate-600 dark:text-slate-400 group-hover:text-blue-500" />
+                                <ArrowLeft size={24} className="text-white/70 group-hover:text-amber-300" />
                             </button>
                             <div>
-                                <h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-blue-600 to-indigo-600 dark:from-white dark:via-blue-400 dark:to-indigo-400 bg-clip-text text-transparent leading-tight lowercase first-letter:uppercase">
+                                <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white leading-tight lowercase first-letter:uppercase">
                                     History Dashboard
                                 </h1>
                             </div>
@@ -224,17 +224,17 @@ const CallLogs = () => {
                 </div>
 
                 {/* Dashboard Table Wrapper */}
-                <div className="bg-white dark:bg-slate-900/40  border border-slate-200/60 dark:border-slate-800/60 rounded-[48px] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
+                <div className="bg-black/45 backdrop-blur-xl border border-white/10 rounded-[40px] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>
-                                <tr className="border-b border-slate-100 dark:border-slate-800/50">
-                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Contact</th>
-                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Type</th>
-                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
-                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Duration</th>
-                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Timestamp</th>
-                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Action</th>
+                                <tr className="border-b border-white/10">
+                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-white/55">Contact</th>
+                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-white/55">Type</th>
+                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-white/55">Status</th>
+                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-white/55">Duration</th>
+                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-white/55">Timestamp</th>
+                                    <th className="px-8 py-8 text-[10px] font-black uppercase tracking-[0.2em] text-white/55 text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -287,7 +287,7 @@ const CallLogs = () => {
                                         const otherAvatar = isOutgoing ? log.receiver_avatar : log.caller_avatar;
 
                                         return (
-                                            <tr key={log.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all duration-300 border-b border-slate-50/50 dark:border-slate-800/30 last:border-0">
+                                            <tr key={log.id} className="group hover:bg-white/6 transition-all duration-300 border-b border-white/6 last:border-0">
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-12 h-12 rounded-[18px] overflow-hidden ring-4 ring-slate-100/50 dark:ring-slate-800/50 group-hover:ring-blue-500/20 transition-all duration-500">
@@ -299,7 +299,7 @@ const CallLogs = () => {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <span className="font-black text-sm uppercase tracking-tight group-hover:text-blue-500 transition-colors">{otherName}</span>
+                                                        <span className="font-black text-sm uppercase tracking-tight text-white group-hover:text-amber-300 transition-colors">{otherName}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6">
@@ -307,29 +307,29 @@ const CallLogs = () => {
                                                         <div className={`p-2 rounded-xl border ${log.call_type === 'video' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-500' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'}`}>
                                                             {log.call_type === 'video' ? <Video size={16} /> : <Phone size={16} />}
                                                         </div>
-                                                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">{log.call_type}</span>
+                                                        <span className="text-[11px] font-black uppercase tracking-widest text-white/60">{log.call_type}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <StatusPill status={log.status} isOutgoing={isOutgoing} />
                                                 </td>
                                                 <td className="px-8 py-6">
-                                                    <span className="text-xs font-black tracking-widest text-slate-600 dark:text-slate-400">
+                                                    <span className="text-xs font-black tracking-widest text-white/75">
                                                         {log.status === 'ended' ? formatDuration(log.duration) : '--'}
                                                     </span>
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex flex-col gap-1">
                                                         <span className="text-[11px] font-black tracking-widest uppercase">{formatDate(log.created_at)}</span>
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{formatTime(log.created_at)}</span>
+                                                        <span className="text-[10px] font-bold text-white/55 uppercase tracking-tighter">{formatTime(log.created_at)}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6 text-center">
                                                     <div className="flex items-center justify-center gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all shadow-sm">
+                                                        <button className="p-3 bg-black/45 border border-white/12 rounded-xl hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all shadow-sm">
                                                             <Phone size={16} />
                                                         </button>
-                                                        <button className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm">
+                                                        <button className="p-3 bg-black/45 border border-white/12 rounded-xl hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm">
                                                             <Video size={16} />
                                                         </button>
                                                     </div>
@@ -343,23 +343,23 @@ const CallLogs = () => {
                     </div>
 
                     {/* Pagination Footer Styled like Reference */}
-                    <div className="px-8 py-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-transparent flex flex-col sm:flex-row items-center justify-between gap-6">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                            Showing <span className="text-slate-900 dark:text-white">{rangeStart} - {rangeEnd}</span> of <span className="text-slate-900 dark:text-white">{filteredLogs.length}</span> calls
+                    <div className="px-8 py-8 border-t border-white/10 bg-black/20 flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/55">
+                            Showing <span className="text-white">{rangeStart} - {rangeEnd}</span> of <span className="text-white">{filteredLogs.length}</span> calls
                         </p>
 
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                className="flex items-center gap-2 px-6 py-3 bg-black/45 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                             >
                                 <ChevronLeft size={16} /> Previous
                             </button>
                             <button
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages || totalPages === 0}
-                                className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                className="flex items-center gap-2 px-6 py-3 bg-black/45 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                             >
                                 Next <ChevronRight size={16} />
                             </button>

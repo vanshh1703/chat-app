@@ -459,7 +459,7 @@ const Home = () => {
         return null;
     }, [messages]);
 
-    const homeTabs = useMemo(() => ['All', 'Favorites', 'Work', 'Groups', 'Communities'], []);
+    const homeTabs = useMemo(() => ['All', 'Favorites'], []);
 
     const filteredSidebarUsers = useMemo(() => {
         if (activeHomeTab === 'Favorites') {
