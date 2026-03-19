@@ -436,6 +436,7 @@ const Home = () => {
     const [messageOffset, setMessageOffset] = useState(0);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
     const messageContainerRef = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
@@ -469,6 +470,24 @@ const Home = () => {
     }, [activeHomeTab, sidebarUsers]);
 
     const storyUsers = useMemo(() => filteredSidebarUsers.slice(0, 8), [filteredSidebarUsers]);
+
+    useEffect(() => {
+        const updateViewportHeight = () => {
+            const vvHeight = window.visualViewport?.height;
+            setViewportHeight(Math.round(vvHeight || window.innerHeight));
+        };
+
+        updateViewportHeight();
+        window.addEventListener('resize', updateViewportHeight);
+        window.visualViewport?.addEventListener('resize', updateViewportHeight);
+        window.visualViewport?.addEventListener('scroll', updateViewportHeight);
+
+        return () => {
+            window.removeEventListener('resize', updateViewportHeight);
+            window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+            window.visualViewport?.removeEventListener('scroll', updateViewportHeight);
+        };
+    }, []);
 
     // WebRTC & Calling State
     const [incomingCall, setIncomingCall] = useState(null);
@@ -1477,6 +1496,7 @@ const Home = () => {
 
     // Scroll to bottom on new messages
     const shouldScrollToBottomRef = useRef(true);
+    const forceScrollToBottomRef = useRef(false);
 
     // Use useLayoutEffect for scroll management to prevent "jumping"
     const lastMessageCountRef = useRef(0);
@@ -1484,6 +1504,14 @@ const Home = () => {
     React.useLayoutEffect(() => {
         const container = messageContainerRef.current;
         if (!container) return;
+
+        if (forceScrollToBottomRef.current) {
+            container.scrollTop = container.scrollHeight;
+            scrollRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+            forceScrollToBottomRef.current = false;
+            lastMessageCountRef.current = messages.length;
+            return;
+        }
 
         // If we are loading more, don't scroll to bottom
         if (!shouldScrollToBottomRef.current) {
@@ -1525,6 +1553,7 @@ const Home = () => {
 
     // Handle clicking a user (from sidebar or search)
     const handleSelectChat = async (selectedUser) => {
+        forceScrollToBottomRef.current = true;
         setActiveChat(selectedUser);
         localStorage.setItem('lastActiveChatId', String(selectedUser.id));
         setShowEmojiPicker(false);
@@ -1536,12 +1565,20 @@ const Home = () => {
         if (String(selectedUser.id) === String(ashPersona.id)) {
             const saved = localStorage.getItem('ash_messages');
             setMessages(saved ? JSON.parse(saved) : []);
+            requestAnimationFrame(() => {
+                const container = messageContainerRef.current;
+                if (container) container.scrollTop = container.scrollHeight;
+            });
             return;
         }
         try {
             await api.markAsRead({ senderId: selectedUser.id });
             const { data } = await api.getMessages(selectedUser.id, 20, 0);
             setMessages(data);
+            requestAnimationFrame(() => {
+                const container = messageContainerRef.current;
+                if (container) container.scrollTop = container.scrollHeight;
+            });
             try {
                 const wallpaperRes = await api.getChatWallpaper(selectedUser.id);
                 const resolvedWallpaper = wallpaperRes?.data?.wallpaper || 'default';
@@ -2196,7 +2233,7 @@ const Home = () => {
                     onDismiss={() => setStealthNotif(null)}
                 />
             )}
-            <div className="flex h-screen w-full bg-black overflow-hidden font-sans relative transition-colors duration-300">
+            <div className="flex w-full bg-black overflow-hidden font-sans relative transition-colors duration-300" style={{ height: `${viewportHeight}px` }}>
                 {/* Sidebar */}
                 <div className={`w-full md:w-[350px] flex flex-col bg-linear-to-b from-[#8f6a5d] via-[#2b2224] to-black border-r border-white/10 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 pb-3">
@@ -2330,13 +2367,13 @@ const Home = () => {
                 </div>
 
                 {/* Main Chat Area */}
-                <div className={`flex-1 flex flex-col relative h-full w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
+                <div className={`flex-1 flex flex-col relative h-full min-h-0 w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
                     <div className={`absolute inset-0 z-0 ${chatWallpaper === 'gradient' ? 'wallpaper-gradient' : chatWallpaper === 'stars' ? 'wallpaper-stars' : 'bg-black'}`} style={chatWallpaper.startsWith('data:') ? { backgroundImage: `url(${chatWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
                         <div className="absolute inset-0 bg-black/55"></div>
                     </div>
 
                     {
-                        activeChat ? (<div className="flex flex-col h-full relative z-10">
+                        activeChat ? (<div className="flex flex-col h-full min-h-0 relative z-10">
                             <div className="p-2.5 md:p-4 flex items-center justify-between bg-black/70 backdrop-blur-xl border-b border-white/10 z-10 sticky top-0">
                                 <div className="flex items-center gap-2 md:gap-4 flex-1">
                                     <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-white/70 hover:bg-white/10"><ArrowLeft size={20} /></button>
@@ -2413,7 +2450,7 @@ const Home = () => {
                             <div
                                 ref={messageContainerRef}
                                 onScroll={handleScroll}
-                                className="flex-1 overflow-y-auto p-3 md:p-5 space-y-2.5"
+                                className="flex-1 min-h-0 overflow-y-auto p-3 md:p-5 space-y-2.5"
                             >
                                 {isLoadingMore && (
                                     <div className="flex justify-center p-2">
