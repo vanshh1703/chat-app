@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Info } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Info, RefreshCw } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -2261,6 +2261,9 @@ const Home = () => {
                                 </button>
                                 <button onClick={() => setIsOfflineChatOpen(true)} className="w-8 h-8 rounded-full bg-white/15 text-white/85 flex items-center justify-center hover:bg-white/20 transition-colors" title="Offline Mesh Chat">
                                     <Wifi size={16} />
+                                </button>
+                                <button onClick={() => window.location.reload()} className="w-8 h-8 rounded-full bg-white/15 text-white/85 flex items-center justify-center hover:bg-white/20 transition-colors" title="Refresh">
+                                    <RefreshCw size={16} />
                                 </button>
                                 <Link to="/settings" aria-label="Settings" className="w-8 h-8 rounded-full bg-white/15 text-white/85 flex items-center justify-center hover:bg-white/20 transition-colors">
                                     <MoreVertical size={16} />
