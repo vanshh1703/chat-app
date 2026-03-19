@@ -15,7 +15,7 @@ const { pool, initializeDB } = require('./db');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const webpush = require('web-push');
-const { encryptTextForStorage, decryptTextFromStorage } = require('./messageCrypto');
+const { encryptMessageForStorage, decryptTextFromStorage } = require('./messageCrypto');
 
 const hasVapidKeys = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 
@@ -851,10 +851,21 @@ io.on('connection', (socket) => {
     socket.on('send_message', async (data) => {
         const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName } = data;
         try {
-            const encryptedContentForStorage = encryptTextForStorage(content || '');
+            const encryptedPayload = encryptMessageForStorage(content || '');
             const result = await pool.query(
-                'INSERT INTO messages (sender_id, receiver_id, content, message_type, reply_to_id, file_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-                [senderId, receiverId, encryptedContentForStorage, messageType || 'text', replyToId || null, fileUrl || null]
+                'INSERT INTO messages (sender_id, receiver_id, content, message_type, reply_to_id, file_url, encrypted_key, sender_encrypted_key, iv, encrypted_content) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+                [
+                    senderId,
+                    receiverId,
+                    encryptedPayload.content,
+                    messageType || 'text',
+                    replyToId || null,
+                    fileUrl || null,
+                    encryptedPayload.encrypted_key,
+                    encryptedPayload.sender_encrypted_key,
+                    encryptedPayload.iv,
+                    encryptedPayload.encrypted_content
+                ]
             );
             const newMessage = sanitizeMessageForClient(result.rows[0]);
 
@@ -905,13 +916,22 @@ io.on('connection', (socket) => {
     socket.on('delete_message', async (data) => {
         const { messageId, senderId, receiverId } = data;
         try {
+            const encryptedPayload = encryptMessageForStorage('');
             // Only the sender can delete their own message. We soft delete it by setting is_deleted=true.
             // Note: The prompt says "deleting message from frontend should not be deleting message from database".
             // It was already doing an UPDATE setting is_deleted = true.
             // But we can also clear file_url if we want to be thorough.
             const result = await pool.query(
-                'UPDATE messages SET is_deleted = true, content = $3, file_url = NULL WHERE id = $1 AND sender_id = $2 RETURNING *',
-                [messageId, senderId, encryptTextForStorage('')]
+                'UPDATE messages SET is_deleted = true, content = $3, encrypted_key = $4, sender_encrypted_key = $5, iv = $6, encrypted_content = $7, file_url = NULL WHERE id = $1 AND sender_id = $2 RETURNING *',
+                [
+                    messageId,
+                    senderId,
+                    encryptedPayload.content,
+                    encryptedPayload.encrypted_key,
+                    encryptedPayload.sender_encrypted_key,
+                    encryptedPayload.iv,
+                    encryptedPayload.encrypted_content
+                ]
             );
             if (result.rows.length === 0) return; // not authorised
             const deleted = result.rows[0];
@@ -932,11 +952,20 @@ io.on('connection', (socket) => {
             const { content: oldContent, created_at: oldTimestamp, edit_history: currentHistory } = currentMsgResult.rows[0];
             const oldContentPlain = decryptTextFromStorage(oldContent);
             const newHistory = [...(currentHistory || []), { content: oldContent, edited_at: oldTimestamp }];
-            const encryptedContentForStorage = encryptTextForStorage(newContent);
+            const encryptedPayload = encryptMessageForStorage(newContent);
 
             const result = await pool.query(
-                'UPDATE messages SET content = $1, is_edited = true, edit_history = $2 WHERE id = $3 AND sender_id = $4 RETURNING *',
-                [encryptedContentForStorage, JSON.stringify(newHistory.map((entry, idx) => idx === newHistory.length - 1 ? { ...entry, content: oldContentPlain } : entry)), messageId, senderId]
+                'UPDATE messages SET content = $1, encrypted_key = $2, sender_encrypted_key = $3, iv = $4, encrypted_content = $5, is_edited = true, edit_history = $6 WHERE id = $7 AND sender_id = $8 RETURNING *',
+                [
+                    encryptedPayload.content,
+                    encryptedPayload.encrypted_key,
+                    encryptedPayload.sender_encrypted_key,
+                    encryptedPayload.iv,
+                    encryptedPayload.encrypted_content,
+                    JSON.stringify(newHistory.map((entry, idx) => idx === newHistory.length - 1 ? { ...entry, content: oldContentPlain } : entry)),
+                    messageId,
+                    senderId
+                ]
             );
             if (result.rows.length === 0) return; // not authorised
 
@@ -960,9 +989,19 @@ io.on('connection', (socket) => {
         const { senderId, receiverId, senderName } = data;
         try {
             const content = `${senderName} took a screenshot`;
+            const encryptedPayload = encryptMessageForStorage(content);
             const result = await pool.query(
-                'INSERT INTO messages (sender_id, receiver_id, content, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
-                [senderId, receiverId, encryptTextForStorage(content), 'system']
+                'INSERT INTO messages (sender_id, receiver_id, content, message_type, encrypted_key, sender_encrypted_key, iv, encrypted_content) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+                [
+                    senderId,
+                    receiverId,
+                    encryptedPayload.content,
+                    'system',
+                    encryptedPayload.encrypted_key,
+                    encryptedPayload.sender_encrypted_key,
+                    encryptedPayload.iv,
+                    encryptedPayload.encrypted_content
+                ]
             );
             const newMessage = sanitizeMessageForClient(result.rows[0]);
             const payload = { ...newMessage, senderName: 'System' };

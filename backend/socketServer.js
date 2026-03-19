@@ -1,5 +1,5 @@
 const { pool } = require('./db');
-const { encryptTextForStorage, decryptTextFromStorage } = require('./messageCrypto');
+const { encryptMessageForStorage, decryptTextFromStorage } = require('./messageCrypto');
 
 module.exports = (io, socket, options = {}) => {
     const { sendPushNotification } = options;
@@ -35,9 +35,19 @@ module.exports = (io, socket, options = {}) => {
             // Mark as logged FIRST to prevent race conditions
             await pool.query('UPDATE call_logs SET is_chat_logged = TRUE WHERE id = $1', [callId]);
 
+            const encryptedPayload = encryptMessageForStorage(content);
             const result = await pool.query(
-                'INSERT INTO messages (sender_id, receiver_id, content, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
-                [callerId, receiverId, encryptTextForStorage(content), 'call']
+                'INSERT INTO messages (sender_id, receiver_id, content, message_type, encrypted_key, sender_encrypted_key, iv, encrypted_content) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+                [
+                    callerId,
+                    receiverId,
+                    encryptedPayload.content,
+                    'call',
+                    encryptedPayload.encrypted_key,
+                    encryptedPayload.sender_encrypted_key,
+                    encryptedPayload.iv,
+                    encryptedPayload.encrypted_content
+                ]
             );
 
             const newMessage = {
