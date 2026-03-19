@@ -436,7 +436,6 @@ const Home = () => {
     const [messageOffset, setMessageOffset] = useState(0);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
-    const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
     const messageContainerRef = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
@@ -470,24 +469,6 @@ const Home = () => {
     }, [activeHomeTab, sidebarUsers]);
 
     const storyUsers = useMemo(() => filteredSidebarUsers.slice(0, 8), [filteredSidebarUsers]);
-
-    useEffect(() => {
-        const updateViewportHeight = () => {
-            const vvHeight = window.visualViewport?.height;
-            setViewportHeight(Math.round(vvHeight || window.innerHeight));
-        };
-
-        updateViewportHeight();
-        window.addEventListener('resize', updateViewportHeight);
-        window.visualViewport?.addEventListener('resize', updateViewportHeight);
-        window.visualViewport?.addEventListener('scroll', updateViewportHeight);
-
-        return () => {
-            window.removeEventListener('resize', updateViewportHeight);
-            window.visualViewport?.removeEventListener('resize', updateViewportHeight);
-            window.visualViewport?.removeEventListener('scroll', updateViewportHeight);
-        };
-    }, []);
 
     // WebRTC & Calling State
     const [incomingCall, setIncomingCall] = useState(null);
@@ -2233,7 +2214,7 @@ const Home = () => {
                     onDismiss={() => setStealthNotif(null)}
                 />
             )}
-            <div className="flex w-full bg-black overflow-hidden font-sans relative transition-colors duration-300" style={{ height: `${viewportHeight}px` }}>
+            <div className="flex h-dvh md:h-screen w-full bg-black overflow-hidden font-sans relative transition-colors duration-300">
                 {/* Sidebar */}
                 <div className={`w-full md:w-[350px] flex flex-col bg-linear-to-b from-[#8f6a5d] via-[#2b2224] to-black border-r border-white/10 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 pb-3">
@@ -2367,13 +2348,13 @@ const Home = () => {
                 </div>
 
                 {/* Main Chat Area */}
-                <div className={`flex-1 flex flex-col relative h-full min-h-0 w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
+                <div className={`flex-1 flex flex-col relative h-full min-h-0 w-full overflow-hidden ${activeChat ? 'flex' : 'hidden md:flex'}`}>
                     <div className={`absolute inset-0 z-0 ${chatWallpaper === 'gradient' ? 'wallpaper-gradient' : chatWallpaper === 'stars' ? 'wallpaper-stars' : 'bg-black'}`} style={chatWallpaper.startsWith('data:') ? { backgroundImage: `url(${chatWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
                         <div className="absolute inset-0 bg-black/55"></div>
                     </div>
 
                     {
-                        activeChat ? (<div className="flex flex-col h-full min-h-0 relative z-10">
+                        activeChat ? (<div className="flex flex-col h-full min-h-0 relative z-10 overflow-hidden">
                             <div className="p-2.5 md:p-4 flex items-center justify-between bg-black/70 backdrop-blur-xl border-b border-white/10 z-10 sticky top-0">
                                 <div className="flex items-center gap-2 md:gap-4 flex-1">
                                     <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-white/70 hover:bg-white/10"><ArrowLeft size={20} /></button>
@@ -2450,7 +2431,7 @@ const Home = () => {
                             <div
                                 ref={messageContainerRef}
                                 onScroll={handleScroll}
-                                className="flex-1 min-h-0 overflow-y-auto p-3 md:p-5 space-y-2.5"
+                                className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 md:p-5 space-y-2.5"
                             >
                                 {isLoadingMore && (
                                     <div className="flex justify-center p-2">
@@ -2580,7 +2561,7 @@ const Home = () => {
                                 <button onClick={() => setAttachPreview(null)} className="text-white/60"><X size={18} /></button>
                             </div>)}
 
-                            <div className="p-2.5 md:p-4 bg-black/70 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.4rem)' }}>
+                            <div className="sticky bottom-0 z-10 p-2.5 md:p-4 bg-black/70 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                                 <div className="w-full">
                                     {replyingTo && (<div className="flex justify-between items-center bg-white/10 p-2 rounded-xl mb-2 text-xs text-white/80 border border-white/10">
                                         <div className="truncate"><span className="font-bold text-blue-300">Reply to: </span>
