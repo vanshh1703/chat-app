@@ -2580,7 +2580,7 @@ const Home = () => {
                                 <button onClick={() => setAttachPreview(null)} className="text-white/60"><X size={18} /></button>
                             </div>)}
 
-                            <div className="p-2.5 md:p-4 bg-black/70 backdrop-blur-xl border-t border-white/10">
+                            <div className="p-2.5 md:p-4 bg-black/70 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.4rem)' }}>
                                 <div className="w-full">
                                     {replyingTo && (<div className="flex justify-between items-center bg-white/10 p-2 rounded-xl mb-2 text-xs text-white/80 border border-white/10">
                                         <div className="truncate"><span className="font-bold text-blue-300">Reply to: </span>
@@ -2597,7 +2597,7 @@ const Home = () => {
                                         <div className="truncate"><span className="font-bold text-blue-300">Editing: </span>{editingMsg.content}</div>
                                         <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                                     </div>)}
-                                    <form onSubmit={handleSendMessage} className="flex gap-1.5 md:gap-2 items-center bg-black/85 p-1.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15">
+                                    <form onSubmit={handleSendMessage} className="flex w-full min-w-0 gap-1 md:gap-1.5 items-center bg-black/85 p-1.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15 overflow-hidden">
                                         {isRecording ? (<div className="flex-1 flex items-center justify-between px-2 text-red-500">
                                             <span>Recording... {formatRecordingTime(recordingTime)}</span>
                                             <div className="flex gap-2">
@@ -2616,7 +2616,7 @@ const Home = () => {
                                             />
 
                                             {/* Mobile Responsive Input Bar */}
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-0.5 shrink-0">
                                                 {/* Plus button - Desktop: File upload, Mobile: Popover */}
                                                 <button
                                                     type="button"
@@ -2627,12 +2627,12 @@ const Home = () => {
                                                             fileInputRef.current.click();
                                                         }
                                                     }}
-                                                    className={`p-2 transition-colors ${isAttachmentOpen ? 'text-amber-300 bg-white/10 rounded-full' : 'text-white/60 hover:text-white'}`}
+                                                    className={`p-1.5 md:p-2 transition-colors ${isAttachmentOpen ? 'text-amber-300 bg-white/10 rounded-full' : 'text-white/60 hover:text-white'}`}
                                                 >
-                                                    <Plus size={20} />
+                                                    <Plus size={18} />
                                                 </button>
 
-                                                <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-white/60 hover:text-white transition-colors"><Camera size={20} /></button>
+                                                <button type="button" onClick={() => setIsCameraOpen(true)} className="p-1.5 md:p-2 text-white/60 hover:text-white transition-colors"><Camera size={18} /></button>
 
                                                 {/* Desktop Only Icons */}
                                                 <div className="hidden md:flex items-center">
@@ -2642,14 +2642,14 @@ const Home = () => {
                                                 </div>
                                             </div>
 
-                                            <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type your message" className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/40 px-1" />
+                                            <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type your message" className="flex-1 min-w-0 bg-transparent outline-none text-sm text-white placeholder:text-white/40 px-1" />
 
-                                            <div className="flex items-center">
-                                                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-white/60 hover:text-yellow-300 transition-colors"><Smile size={20} /></button>
+                                            <div className="flex items-center shrink-0">
+                                                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-1.5 md:p-2 text-white/60 hover:text-yellow-300 transition-colors"><Smile size={18} /></button>
                                                 {messageText.trim() || attachPreview ? (
-                                                    <button type="submit" className="p-2.5 bg-[#f59e0b] text-black rounded-full shadow-lg"><Send size={18} /></button>
+                                                    <button type="submit" className="p-2 md:p-2.5 bg-[#f59e0b] text-black rounded-full shadow-lg"><Send size={17} /></button>
                                                 ) : (
-                                                    <button type="button" onClick={startRecording} className="p-2 text-white/60 hover:text-white transition-colors"><Mic size={20} /></button>
+                                                    <button type="button" onClick={startRecording} className="p-1.5 md:p-2 text-white/60 hover:text-white transition-colors"><Mic size={18} /></button>
                                                 )}
                                             </div>
                                         </>)}
