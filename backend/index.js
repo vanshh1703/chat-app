@@ -315,32 +315,19 @@ app.post('/api/auth/login', async (req, res) => {
 
         const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // Record Login Activity
-        const userAgent = req.headers['user-agent'] || 'Unknown Device';
-        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-        let location = 'Unknown';
-
-        try {
-            // Only try to fetch location for non-local IPs
-            if (ip && ip !== '::1' && ip !== '127.0.0.1' && !ip.startsWith('192.168.')) {
-                const geo = await axios.get(`http://ip-api.com/json/${ip}?fields=status,city,country`);
-                if (geo.data.status === 'success') {
-                    location = `${geo.data.city}, ${geo.data.country}`;
-                }
-            } else {
-                location = 'Local Host';
-            }
-        } catch (geoipErr) {
-            console.error('GeoIP error:', geoipErr.message);
-        }
-
-        await pool.query(
-            'INSERT INTO login_activities (user_id, device_name, ip_address, location, last_active, is_current) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5)',
-            [user.id, userAgent, ip, location, true] // We'll handle 'is_current' differently on fetch if needed
-        );
-
         const normalizedUser = mapUserAvatarForClient(user);
         res.json({ token, user: { id: normalizedUser.id, username: normalizedUser.username, email: normalizedUser.email, avatar_url: normalizedUser.avatar_url, bio: normalizedUser.bio } });
+
+        const loginReqMeta = {
+            headers: req.headers,
+            socket: { remoteAddress: req.socket?.remoteAddress }
+        };
+
+        setImmediate(() => {
+            recordLoginActivity(user.id, loginReqMeta).catch((activityErr) => {
+                console.error('Background login activity error:', activityErr?.message || activityErr);
+            });
+        });
     } catch (err) {
         console.error(err);
         res.status(500).send('Login error');
@@ -585,12 +572,13 @@ async function sendPushNotification(receiverId, payload) {
 // Helper to record login activity
 async function recordLoginActivity(userId, req) {
     const userAgent = req.headers['user-agent'] || 'Unknown Device';
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const forwardedFor = req.headers['x-forwarded-for'] || '';
+    const ip = String(forwardedFor).split(',')[0].trim() || req.socket?.remoteAddress || '';
     let location = 'Unknown';
 
     try {
         if (ip && ip !== '::1' && ip !== '127.0.0.1' && !ip.startsWith('192.168.')) {
-            const geo = await axios.get(`http://ip-api.com/json/${ip}?fields=status,city,country`);
+            const geo = await axios.get(`http://ip-api.com/json/${ip}?fields=status,city,country`, { timeout: 1500 });
             if (geo.data.status === 'success') {
                 location = `${geo.data.city}, ${geo.data.country}`;
             }

@@ -40,12 +40,13 @@ function Login() {
         try {
             const { data } = await api.signIn(payload);
             localStorage.setItem('profile', JSON.stringify(data));
-            try {
-                await subscribeToPush();
-            } catch (pushErr) {
-                console.error('Push subscribe after login failed:', pushErr);
-            }
             navigate('/home');
+
+            setTimeout(() => {
+                subscribeToPush().catch((pushErr) => {
+                    console.error('Push subscribe after login failed:', pushErr);
+                });
+            }, 0);
         } catch (err) {
             const message = err?.response?.data?.error || err?.response?.data?.message;
             setError(message || 'Invalid username or password.');
