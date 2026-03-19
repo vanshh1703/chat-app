@@ -2289,9 +2289,9 @@ const Home = () => {
 
                     {
                         activeChat ? (<div className="flex flex-col h-full relative z-10">
-                            <div className="p-3 md:p-4 flex items-center justify-between bg-black/35 backdrop-blur-xl border-b border-white/10 z-10 sticky top-0">
+                            <div className="p-2.5 md:p-4 flex items-center justify-between bg-black/40 backdrop-blur-xl border-b border-white/10 z-10 sticky top-0">
                                 <div className="flex items-center gap-2 md:gap-4 flex-1">
-                                    <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-gray-500"><ArrowLeft size={20} /></button>
+                                    <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-white/70 hover:bg-white/10"><ArrowLeft size={20} /></button>
                                     {String(activeChat.id) === String(ashPersona.id) ? (
                                         <div
                                             className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0 cursor-pointer hover:scale-105 transition-transform"
@@ -2347,7 +2347,7 @@ const Home = () => {
                             </div>
 
                             {/* Pinned Messages Banner */}
-                            {latestPinnedMessage && (<div className="px-4 py-2 bg-black/35 border-b border-amber-400/20 flex items-center justify-between z-10 sticky top-[60px] md:top-[73px] backdrop-blur-xl">
+                            {latestPinnedMessage && (<div className="px-4 py-2 bg-black/45 border-b border-amber-400/20 flex items-center justify-between z-10 sticky top-[58px] md:top-[73px] backdrop-blur-xl">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="p-1.5 bg-amber-500/20 rounded-lg text-amber-300">
                                         <Pin size={14} fill="currentColor" />
@@ -2365,7 +2365,7 @@ const Home = () => {
                             <div
                                 ref={messageContainerRef}
                                 onScroll={handleScroll}
-                                className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3"
+                                className="flex-1 overflow-y-auto p-3 md:p-5 space-y-2.5"
                             >
                                 {isLoadingMore && (
                                     <div className="flex justify-center p-2">
@@ -2378,8 +2378,8 @@ const Home = () => {
                                             <div className="px-4 py-1.5 bg-black/30 backdrop-blur-md rounded-full text-[11px] font-semibold text-white/70 border border-white/10">{msg.content}</div>
                                         ) : (
                                             <SwipeableMessage onSwipeToReply={() => handleStartReply(msg)} isMine={msg.sender_id === user.id}>
-                                                <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
-                                                    <div className={`px-4 py-3 rounded-2xl relative shadow-sm backdrop-blur-md border ${msg.is_deleted ? 'bg-white/10 italic text-white/40 border-white/10' : msg.is_pinned ? 'bg-amber-500/10 border-amber-300/30 text-white' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-violet-700/80 to-indigo-700/80 text-white border-violet-400/30 shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-black/55 text-white border-white/10' : 'bg-[#3a2b2b]/75 text-white border-[#6b4c4c]/45'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}>
+                                                <div className={`flex flex-col max-w-[80%] md:max-w-[68%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
+                                                    <div className={`px-3.5 md:px-4 py-2.5 md:py-3 rounded-2xl relative shadow-sm backdrop-blur-md border ${msg.is_deleted ? 'bg-white/10 italic text-white/40 border-white/10' : msg.is_pinned ? 'bg-amber-500/10 border-amber-300/30 text-white' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-violet-700/80 to-indigo-700/80 text-white border-violet-400/30 shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-[#6b4b3d]/80 text-white border-[#8d6a58]/50' : 'bg-[#1f2937]/78 text-white border-white/10'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}>
                                                         {msg.is_deleted ? 'This message was deleted' : (
                                                             <>
                                                                 {msg.reply_to_msg && (
@@ -2395,7 +2395,7 @@ const Home = () => {
                                                                         </p>
                                                                     </div>
                                                                 )}
-                                                                {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
+                                                                {msg.is_pinned && <div className="flex items-center gap-1 text-[9px] font-bold text-amber-300 mb-1"><Pin size={10} fill="currentColor" /> PINNED</div>}
                                                                 {msg.message_type === 'call' && msg.content ? (
                                                                     <div className="flex items-center gap-3 py-1">
                                                                         <div className={`p-2.5 rounded-xl ${msg.content.includes('Missed') ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
@@ -2462,7 +2462,7 @@ const Home = () => {
                                                                     </div>
                                                                 )}
                                                                 {reactionPickerMsgId === msg.id && (
-                                                                    <div className="absolute top-0 -translate-y-full flex gap-1 p-2 bg-white rounded-2xl shadow-2xl z-30 border border-gray-100">
+                                                                    <div className="absolute top-0 -translate-y-full flex gap-1 p-2 bg-black/85 backdrop-blur-xl rounded-2xl shadow-2xl z-30 border border-white/10">
                                                                         {QUICK_REACTIONS.map(e => <button key={e} onClick={() => handleReact(msg.id, e)} className="text-xl hover:scale-125 transition-transform">{e}</button>)}
                                                                     </div>
                                                                 )}
@@ -2472,11 +2472,11 @@ const Home = () => {
                                                     {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                                                         <div className="flex gap-1 mt-1">
                                                             {Object.entries(Object.values(msg.reactions).reduce((acc, e) => { acc[e] = (acc[e] || 0) + 1; return acc; }, {})).map(([e, c]) => (
-                                                                <span key={e} className="text-[10px] bg-white rounded-full px-1.5 py-0.5 border shadow-sm">{e} {c > 1 ? c : ''}</span>
+                                                                <span key={e} className="text-[10px] bg-black/55 text-white/90 rounded-full px-1.5 py-0.5 border border-white/10 shadow-sm">{e} {c > 1 ? c : ''}</span>
                                                             ))}
                                                         </div>
                                                     )}
-                                                    <div className="mt-1 flex items-center gap-1 text-[10px] text-white/55">
+                                                    <div className="mt-1 flex items-center gap-1 text-[10px] text-white/45 px-0.5">
                                                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         {msg.sender_id === user.id && (msg.is_read ? <CheckCheck size={12} className="text-blue-500" /> : <Check size={12} />)}
                                                     </div>
@@ -2495,7 +2495,7 @@ const Home = () => {
                                 <button onClick={() => setAttachPreview(null)} className="text-white/60"><X size={18} /></button>
                             </div>)}
 
-                            <div className="p-3 md:p-4 bg-black/35 backdrop-blur-xl border-t border-white/10">
+                            <div className="p-2.5 md:p-4 bg-black/40 backdrop-blur-xl border-t border-white/10">
                                 <div className="w-full">
                                     {replyingTo && (<div className="flex justify-between items-center bg-white/10 p-2 rounded-xl mb-2 text-xs text-white/80 border border-white/10">
                                         <div className="truncate"><span className="font-bold text-blue-300">Reply to: </span>
@@ -2512,7 +2512,7 @@ const Home = () => {
                                         <div className="truncate"><span className="font-bold text-blue-300">Editing: </span>{editingMsg.content}</div>
                                         <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                                     </div>)}
-                                    <form onSubmit={handleSendMessage} className="flex gap-2 items-center bg-[#1f2937]/85 p-2 rounded-full shadow-xl border border-white/15">
+                                    <form onSubmit={handleSendMessage} className="flex gap-1.5 md:gap-2 items-center bg-[#1f2937]/88 p-1.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15">
                                         {isRecording ? (<div className="flex-1 flex items-center justify-between px-2 text-red-500">
                                             <span>Recording... {formatRecordingTime(recordingTime)}</span>
                                             <div className="flex gap-2">
@@ -2542,27 +2542,27 @@ const Home = () => {
                                                             fileInputRef.current.click();
                                                         }
                                                     }}
-                                                    className={`p-2 transition-colors ${isAttachmentOpen ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-full' : 'text-gray-400 hover:text-blue-600'}`}
+                                                    className={`p-2 transition-colors ${isAttachmentOpen ? 'text-amber-300 bg-white/10 rounded-full' : 'text-white/60 hover:text-white'}`}
                                                 >
                                                     <Plus size={20} />
                                                 </button>
 
-                                                <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Camera size={20} /></button>
+                                                <button type="button" onClick={() => setIsCameraOpen(true)} className="p-2 text-white/60 hover:text-white transition-colors"><Camera size={20} /></button>
 
                                                 {/* Desktop Only Icons */}
                                                 <div className="hidden md:flex items-center">
-                                                    <button type="button" onClick={() => { setDrawingInitialImage(null); setIsDrawingOpen(true); }} className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Draw Message"><PenTool size={20} /></button>
-                                                    <button type="button" onClick={() => setShowTelepathyPicker(!showTelepathyPicker)} className={`p-2 transition-colors ${showTelepathyPicker ? 'text-blue-500' : 'text-gray-400 hover:text-blue-600'}`} title="Telepathy Mode"><Brain size={20} /></button>
-                                                    <button type="button" onClick={() => setIsPowerModalOpen(true)} className="p-2 text-gray-400 hover:text-rose-500 transition-colors" title="Send Sorry Power"><Zap size={20} /></button>
+                                                    <button type="button" onClick={() => { setDrawingInitialImage(null); setIsDrawingOpen(true); }} className="p-2 text-white/60 hover:text-white transition-colors" title="Draw Message"><PenTool size={20} /></button>
+                                                    <button type="button" onClick={() => setShowTelepathyPicker(!showTelepathyPicker)} className={`p-2 transition-colors ${showTelepathyPicker ? 'text-amber-300' : 'text-white/60 hover:text-white'}`} title="Telepathy Mode"><Brain size={20} /></button>
+                                                    <button type="button" onClick={() => setIsPowerModalOpen(true)} className="p-2 text-white/60 hover:text-rose-300 transition-colors" title="Send Sorry Power"><Zap size={20} /></button>
                                                 </div>
                                             </div>
 
-                                            <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type here" className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/40" />
+                                            <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type your message" className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/40 px-1" />
 
                                             <div className="flex items-center">
-                                                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"><Smile size={20} /></button>
+                                                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-white/60 hover:text-yellow-300 transition-colors"><Smile size={20} /></button>
                                                 {messageText.trim() || attachPreview ? (
-                                                    <button type="submit" className="p-2 bg-[#f59e0b] text-black rounded-full shadow-lg"><Send size={18} /></button>
+                                                    <button type="submit" className="p-2.5 bg-[#f59e0b] text-black rounded-full shadow-lg"><Send size={18} /></button>
                                                 ) : (
                                                     <button type="button" onClick={startRecording} className="p-2 text-white/60 hover:text-white transition-colors"><Mic size={20} /></button>
                                                 )}
@@ -2579,7 +2579,7 @@ const Home = () => {
                                                 onClick={() => setIsAttachmentOpen(false)}
                                             ></div>
                                             <div className="absolute bottom-full mb-4 left-0 z-50 md:hidden w-72 animate-in slide-in-from-bottom-4 duration-300">
-                                                <div className="bg-white/95 dark:bg-slate-900/95  border border-white/20 dark:border-slate-700/50 p-5 rounded-[32px] shadow-2xl">
+                                                <div className="bg-black/85 backdrop-blur-xl border border-white/15 p-5 rounded-[32px] shadow-2xl">
                                                     <div className="grid grid-cols-2 gap-4">
                                                         {[
                                                             {
@@ -2610,12 +2610,12 @@ const Home = () => {
                                                             <button
                                                                 key={idx}
                                                                 onClick={item.onClick}
-                                                                className="flex flex-col items-center gap-2 group p-2 hover:bg-gray-50 dark:hover:bg-slate-800 rounded-2xl transition-all"
+                                                                className="flex flex-col items-center gap-2 group p-2 hover:bg-white/10 rounded-2xl transition-all"
                                                             >
                                                                 <div className={`w-12 h-12 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110 active:scale-95`}>
                                                                     <item.icon size={22} />
                                                                 </div>
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white/70">
                                                                     {item.label}
                                                                 </span>
                                                             </button>
@@ -2627,10 +2627,10 @@ const Home = () => {
                                     )}
 
                                     {showTelepathyPicker && (<div className="absolute bottom-full mb-4 right-0 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                                        <div className="bg-white/95 dark:bg-slate-900/95  border border-white/20 dark:border-slate-700/50 p-4 rounded-[32px] shadow-2xl w-72">
+                                        <div className="bg-black/85 backdrop-blur-xl border border-white/15 p-4 rounded-[32px] shadow-2xl w-72">
                                             <div className="flex items-center justify-between mb-4 px-2">
-                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Telepathy Mode</h4>
-                                                <button onClick={() => setShowTelepathyPicker(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={14} /></button>
+                                                <h4 className="text-[10px] font-black text-white/60 uppercase tracking-widest">Telepathy Mode</h4>
+                                                <button onClick={() => setShowTelepathyPicker(false)} className="text-white/60 hover:text-white transition-colors"><X size={14} /></button>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
                                                 {telepathySignals.map((sig, idx) => (<button
