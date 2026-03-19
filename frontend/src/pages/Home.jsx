@@ -393,6 +393,10 @@ const Home = () => {
     const [onlineUsers, setOnlineUsers] = useState({});
     const typingTimeoutRef = useRef(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showGifPicker, setShowGifPicker] = useState(false);
+    const [gifQuery, setGifQuery] = useState('');
+    const [gifResults, setGifResults] = useState([]);
+    const [gifLoading, setGifLoading] = useState(false);
     const [hoveredMsgId, setHoveredMsgId] = useState(null);
     const [reactionPickerMsgId, setReactionPickerMsgId] = useState(null);
     const emojiPickerRef = useRef();
@@ -537,6 +541,7 @@ const Home = () => {
     const incomingCallTimeoutRef = useRef(null);
     const connectionRecoveryTimeoutRef = useRef(null);
     const endCallRef = useRef(null);
+    const pendingOutgoingStreamRef = useRef(null);
 
     const clearCallTimers = () => {
         if (outgoingCallTimeoutRef.current) {
@@ -871,12 +876,13 @@ const Home = () => {
             try {
                 // Use refs to get latest state
                 const callType = incomingCallRef.current?.type || 'video';
-                const stream = await webrtc.getMediaStream(callType);
+                const stream = pendingOutgoingStreamRef.current || await webrtc.getMediaStream(callType);
+                pendingOutgoingStreamRef.current = null;
                 setLocalStream(stream);
                 attachStreamEndHandlers(stream);
                 setIsAudioOnlyCall(callType === 'voice');
 
-                const partnerId = activeChatRef.current?.id || incomingCallRef.current?.from || data?.from;
+                const partnerId = data?.from || activeChatRef.current?.id || incomingCallRef.current?.to || incomingCallRef.current?.from;
 
                 peerConnection.current = webrtc.createPeerConnection(
                     (candidate) => signaling.emitIceCandidate(s, { to: partnerId, candidate }),
@@ -984,6 +990,12 @@ const Home = () => {
             return;
         }
         try {
+            // Request media on direct user interaction so first-call permissions work reliably.
+            const preflightStream = await webrtc.getMediaStream(type, facingMode);
+            pendingOutgoingStreamRef.current = preflightStream;
+            setLocalStream(preflightStream);
+            attachStreamEndHandlers(preflightStream);
+
             // First notify the other user
             signaling.emitCallUser(socket.current, {
                 to: chatTarget.id,
@@ -1019,10 +1031,11 @@ const Home = () => {
             ringback.play().catch(e => console.error("Ringback failed", e));
             window.ringbackTone = ringback;
 
-            // Note: We wait for 'accept-call' before starting the WebRTC stream to save resources 
-            // and avoid camera activation until the other person is ready.
         } catch (err) {
             console.error("Start call error", err);
+            alert("Could not access camera/microphone.");
+            pendingOutgoingStreamRef.current = null;
+            if (endCallRef.current) endCallRef.current(false);
         }
     };
 
@@ -1084,6 +1097,10 @@ const Home = () => {
 
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+        if (pendingOutgoingStreamRef.current) {
+            pendingOutgoingStreamRef.current.getTracks().forEach(track => track.stop());
+            pendingOutgoingStreamRef.current = null;
         }
         if (screenStreamRef.current) {
             screenStreamRef.current.getTracks().forEach(track => track.stop());
@@ -1588,12 +1605,38 @@ const Home = () => {
         return () => clearTimeout(delaySearch);
     }, [searchTerm]);
 
+    useEffect(() => {
+        if (!showGifPicker) return;
+
+        let isCancelled = false;
+        const delayFetch = setTimeout(async () => {
+            setGifLoading(true);
+            try {
+                const gifs = await api.searchGifs(gifQuery, 24);
+                if (!isCancelled) setGifResults(gifs);
+            } catch (err) {
+                if (!isCancelled) {
+                    setGifResults([]);
+                    console.error('GIF search error', err);
+                }
+            } finally {
+                if (!isCancelled) setGifLoading(false);
+            }
+        }, 300);
+
+        return () => {
+            isCancelled = true;
+            clearTimeout(delayFetch);
+        };
+    }, [gifQuery, showGifPicker]);
+
     // Handle clicking a user (from sidebar or search)
     const handleSelectChat = async (selectedUser) => {
         forceScrollToBottomRef.current = true;
         setActiveChat(selectedUser);
         localStorage.setItem('lastActiveChatId', String(selectedUser.id));
         setShowEmojiPicker(false);
+        setShowGifPicker(false);
         setShowTelepathyPicker(false);
         setSearchTerm('');
         setSearchResults([]);
@@ -1805,6 +1848,7 @@ const Home = () => {
     const handleSendMessage = async (e) => {
         if (e) e.preventDefault();
         setShowEmojiPicker(false);
+        setShowGifPicker(false);
         setShowTelepathyPicker(false);
         if (!messageText.trim() || !activeChat) return;
 
@@ -2103,6 +2147,28 @@ const Home = () => {
     const handleEmojiClick = (emojiData) => {
         setMessageText(prev => prev + emojiData.emoji);
         setShowEmojiPicker(false);
+    };
+
+    const handleSendGif = (gif) => {
+        if (!activeChat || !gif?.url) return;
+
+        socket.current.emit('send_message', {
+            senderId: user.id,
+            receiverId: activeChat.id,
+            content: gif.title || 'GIF',
+            messageType: 'image',
+            fileUrl: gif.url,
+            replyToId: replyingTo ? replyingTo.id : null,
+            senderName: user.username
+        });
+
+        setShowGifPicker(false);
+        setGifQuery('');
+        setReplyingTo(null);
+
+        if (!sidebarUsers.find(u => u.id === activeChat.id)) {
+            fetchSidebar();
+        }
     };
 
     const handleReact = (msgId, emoji) => {
@@ -2775,6 +2841,18 @@ const Home = () => {
                                                 {/* Desktop Only Icons */}
                                                 <div className="hidden md:flex items-center">
                                                     <button type="button" onClick={() => { setDrawingInitialImage(null); setIsDrawingOpen(true); }} className="p-2 text-white/60 hover:text-white transition-colors" title="Draw Message"><PenTool size={20} /></button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setShowGifPicker((prev) => !prev);
+                                                            setShowEmojiPicker(false);
+                                                            setShowTelepathyPicker(false);
+                                                        }}
+                                                        className={`p-2 transition-colors ${showGifPicker ? 'text-amber-300' : 'text-white/60 hover:text-white'}`}
+                                                        title="GIFs"
+                                                    >
+                                                        <Film size={20} />
+                                                    </button>
                                                     <button type="button" onClick={() => setShowTelepathyPicker(!showTelepathyPicker)} className={`p-2 transition-colors ${showTelepathyPicker ? 'text-amber-300' : 'text-white/60 hover:text-white'}`} title="Telepathy Mode"><Brain size={20} /></button>
                                                     <button type="button" onClick={() => setIsPowerModalOpen(true)} className="p-2 text-white/60 hover:text-rose-300 transition-colors" title="Send Sorry Power"><Zap size={20} /></button>
                                                 </div>
@@ -2783,7 +2861,28 @@ const Home = () => {
                                             <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type your message" className="flex-1 min-w-0 bg-transparent outline-none text-sm text-white placeholder:text-white/40 px-1" />
 
                                             <div className="flex items-center shrink-0">
-                                                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-1.5 md:p-2 text-white/60 hover:text-yellow-300 transition-colors"><Smile size={18} /></button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setShowGifPicker((prev) => !prev);
+                                                        setShowEmojiPicker(false);
+                                                        setShowTelepathyPicker(false);
+                                                    }}
+                                                    className={`p-1.5 md:p-2 transition-colors ${showGifPicker ? 'text-amber-300' : 'text-white/60 hover:text-white'}`}
+                                                    title="GIFs"
+                                                >
+                                                    <Film size={18} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setShowEmojiPicker(!showEmojiPicker);
+                                                        setShowGifPicker(false);
+                                                    }}
+                                                    className="p-1.5 md:p-2 text-white/60 hover:text-yellow-300 transition-colors"
+                                                >
+                                                    <Smile size={18} />
+                                                </button>
                                                 {messageText.trim() || attachPreview ? (
                                                     <button type="submit" className="p-2 md:p-2.5 bg-[#f59e0b] text-black rounded-full shadow-lg"><Send size={17} /></button>
                                                 ) : (
@@ -2792,6 +2891,50 @@ const Home = () => {
                                             </div>
                                         </>)}
                                     </form>
+                                    {showGifPicker && (
+                                        <div className="absolute bottom-full mb-2 right-0 z-50 w-[320px] max-w-[92vw] bg-black/90 backdrop-blur-xl border border-white/15 rounded-3xl p-3 shadow-2xl">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input
+                                                    type="text"
+                                                    value={gifQuery}
+                                                    onChange={(e) => setGifQuery(e.target.value)}
+                                                    placeholder="Search GIFs"
+                                                    className="w-full bg-white/10 border border-white/15 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none"
+                                                />
+                                                <button
+                                                    onClick={() => setShowGifPicker(false)}
+                                                    className="p-2 text-white/60 hover:text-white"
+                                                    type="button"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="max-h-72 overflow-y-auto grid grid-cols-2 gap-2 pr-1">
+                                                {gifLoading ? (
+                                                    <div className="col-span-2 py-8 text-center text-xs text-white/60">Loading GIFs...</div>
+                                                ) : gifResults.length === 0 ? (
+                                                    <div className="col-span-2 py-8 text-center text-xs text-white/60">No GIFs found</div>
+                                                ) : (
+                                                    gifResults.map((gif) => (
+                                                        <button
+                                                            key={gif.id}
+                                                            type="button"
+                                                            onClick={() => handleSendGif(gif)}
+                                                            className="rounded-xl overflow-hidden border border-white/10 hover:border-amber-300/50 transition-all"
+                                                            title={gif.title}
+                                                        >
+                                                            <img
+                                                                src={gif.previewUrl || gif.url}
+                                                                alt={gif.title}
+                                                                loading="lazy"
+                                                                className="w-full h-24 object-cover"
+                                                            />
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                     {showEmojiPicker && <div className="absolute bottom-full mb-2 right-0 z-50"><Suspense fallback={<div className="w-[300px] h-[350px] flex items-center justify-center bg-white shadow-lg rounded-lg"><div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div></div>}><EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} /></Suspense></div>}
 
                                     {/* Mobile Attachment Popover */}
@@ -2822,6 +2965,17 @@ const Home = () => {
                                                                 label: 'Telepathy',
                                                                 color: 'bg-cyan-500',
                                                                 onClick: () => { setIsAttachmentOpen(false); setShowTelepathyPicker(true); }
+                                                            },
+                                                            {
+                                                                icon: Film,
+                                                                label: 'GIFs',
+                                                                color: 'bg-fuchsia-500',
+                                                                onClick: () => {
+                                                                    setIsAttachmentOpen(false);
+                                                                    setShowGifPicker(true);
+                                                                    setShowEmojiPicker(false);
+                                                                    setShowTelepathyPicker(false);
+                                                                }
                                                             },
                                                             {
                                                                 icon: Zap,

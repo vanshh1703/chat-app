@@ -69,4 +69,36 @@ export const unsubscribePush = (subscription) => API.post('push/unsubscribe', { 
 export const resetPushSubscriptions = () => API.post('push/reset');
 export const testPush = (message) => API.post('push/test', { message });
 
+export const searchGifs = async (query = '', limit = 20) => {
+    const key = import.meta.env.VITE_TENOR_API_KEY || 'LIVDSRZULELA';
+    const clientKey = import.meta.env.VITE_TENOR_CLIENT_KEY || 'chat-app';
+    const endpoint = query?.trim()
+        ? 'https://tenor.googleapis.com/v2/search'
+        : 'https://tenor.googleapis.com/v2/featured';
+
+    const { data } = await axios.get(endpoint, {
+        params: {
+            key,
+            client_key: clientKey,
+            q: query?.trim() || undefined,
+            limit,
+            media_filter: 'gif,tinygif'
+        }
+    });
+
+    const items = Array.isArray(data?.results) ? data.results : [];
+    return items
+        .map((item) => {
+            const gifUrl = item?.media_formats?.gif?.url || item?.media_formats?.tinygif?.url;
+            if (!gifUrl) return null;
+            return {
+                id: item.id,
+                title: item.content_description || item.title || 'GIF',
+                url: gifUrl,
+                previewUrl: item?.media_formats?.tinygif?.url || gifUrl
+            };
+        })
+        .filter(Boolean);
+};
+
 export default API;
