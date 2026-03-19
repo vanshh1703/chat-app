@@ -436,6 +436,8 @@ const Home = () => {
     const [messageOffset, setMessageOffset] = useState(0);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [visualViewportHeight, setVisualViewportHeight] = useState(window.visualViewport?.height || window.innerHeight);
+    const [visualViewportOffsetTop, setVisualViewportOffsetTop] = useState(window.visualViewport?.offsetTop || 0);
     const messageContainerRef = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
@@ -469,6 +471,25 @@ const Home = () => {
     }, [activeHomeTab, sidebarUsers]);
 
     const storyUsers = useMemo(() => filteredSidebarUsers.slice(0, 8), [filteredSidebarUsers]);
+
+    useEffect(() => {
+        const updateVisualViewport = () => {
+            const vv = window.visualViewport;
+            setVisualViewportHeight(vv?.height || window.innerHeight);
+            setVisualViewportOffsetTop(vv?.offsetTop || 0);
+        };
+
+        updateVisualViewport();
+        window.addEventListener('resize', updateVisualViewport);
+        window.visualViewport?.addEventListener('resize', updateVisualViewport);
+        window.visualViewport?.addEventListener('scroll', updateVisualViewport);
+
+        return () => {
+            window.removeEventListener('resize', updateVisualViewport);
+            window.visualViewport?.removeEventListener('resize', updateVisualViewport);
+            window.visualViewport?.removeEventListener('scroll', updateVisualViewport);
+        };
+    }, []);
 
     // WebRTC & Calling State
     const [incomingCall, setIncomingCall] = useState(null);
@@ -2230,7 +2251,7 @@ const Home = () => {
                     onDismiss={() => setStealthNotif(null)}
                 />
             )}
-            <div className="fixed inset-0 flex h-dvh w-full bg-black overflow-hidden font-sans relative transition-colors duration-300">
+            <div className="fixed inset-0 flex w-full bg-black overflow-hidden font-sans relative transition-colors duration-300" style={{ height: `${Math.round(visualViewportHeight)}px`, top: `${Math.round(visualViewportOffsetTop)}px` }}>
                 {/* Sidebar */}
                 <div className={`w-full md:w-[350px] flex flex-col bg-linear-to-b from-[#8f6a5d] via-[#2b2224] to-black border-r border-white/10 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 pb-3">
@@ -2371,7 +2392,7 @@ const Home = () => {
 
                     {
                         activeChat ? (<div className="flex flex-col h-full min-h-0 relative z-10 overflow-hidden">
-                            <div className="p-2.5 md:p-4 flex items-center justify-between bg-black/70 backdrop-blur-xl border-b border-white/10 z-10 sticky top-0">
+                            <div className="shrink-0 p-2.5 md:p-4 flex items-center justify-between bg-black/70 backdrop-blur-xl border-b border-white/10 z-10">
                                 <div className="flex items-center gap-2 md:gap-4 flex-1">
                                     <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-white/70 hover:bg-white/10"><ArrowLeft size={20} /></button>
                                     {String(activeChat.id) === String(ashPersona.id) ? (
@@ -2429,7 +2450,7 @@ const Home = () => {
                             </div>
 
                             {/* Pinned Messages Banner */}
-                            {latestPinnedMessage && (<div className="px-4 py-2 bg-black/70 border-b border-amber-400/20 flex items-center justify-between z-10 sticky top-[58px] md:top-[73px] backdrop-blur-xl">
+                            {latestPinnedMessage && (<div className="shrink-0 px-4 py-2 bg-black/70 border-b border-amber-400/20 flex items-center justify-between z-10 backdrop-blur-xl">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="p-1.5 bg-amber-500/20 rounded-lg text-amber-300">
                                         <Pin size={14} fill="currentColor" />
