@@ -1,7 +1,19 @@
 import axios from 'axios';
 
 // Ensure baseURL always ends with '/' so relative paths append correctly
-const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const getDefaultApiOrigin = () => {
+    if (typeof window === 'undefined') {
+        return 'http://localhost:5000';
+    }
+
+    const { protocol, hostname } = window.location;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    if (isLocalhost) return 'http://localhost:5000';
+
+    return `${protocol}//${hostname}`;
+};
+
+const rawUrl = import.meta.env.VITE_API_URL || getDefaultApiOrigin();
 // Strip any trailing /api or /api/ that may already be in the env var, then add /api/
 const BASE_URL = rawUrl.replace(/\/api\/?$/, '') + '/api/';
 

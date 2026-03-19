@@ -488,8 +488,17 @@ const Home = () => {
 
     // Separate useEffect for socket connection to avoid reconnecting on chat switch
     useEffect(() => {
-        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
-        socket.current = io(socketUrl);
+        const getDefaultSocketUrl = () => {
+            const { protocol, hostname } = window.location;
+            const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+            if (isLocalhost) return 'http://localhost:5000';
+            return `${protocol}//${hostname}`;
+        };
+
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || getDefaultSocketUrl();
+        socket.current = io(socketUrl, {
+            secure: window.location.protocol === 'https:'
+        });
         return () => socket.current.disconnect();
     }, []);
 
@@ -1639,9 +1648,20 @@ const Home = () => {
         const file = e.target.files[0];
         if (!file) return;
         const url = URL.createObjectURL(file);
+        const fileName = file.name || '';
+        const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+
+        const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+        const videoExts = ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv', '3gp'];
+        const audioExts = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'webm'];
+
         let type = 'file';
         if (file.type.startsWith('image/')) type = 'image';
         else if (file.type.startsWith('video/')) type = 'video';
+        else if (file.type.startsWith('audio/')) type = 'audio';
+        else if (imageExts.includes(extension)) type = 'image';
+        else if (videoExts.includes(extension)) type = 'video';
+        else if (audioExts.includes(extension)) type = 'audio';
         setAttachPreview({ file, url, type, name: file.name });
         e.target.value = '';
     };
@@ -2205,8 +2225,8 @@ const Home = () => {
                                                                     </div>
                                                                 ) : msg.message_type === 'text' ? (
                                                                     <>
-                                                                        <div className="flex flex-col">
-                                                                            <span>{msg.content}</span>
+                                                                        <div className="flex flex-col min-w-0">
+                                                                            <span className="whitespace-pre-wrap wrap-anywhere">{msg.content}</span>
                                                                             {msg.is_edited && (
                                                                                 <button
                                                                                     onClick={() => setHistoryMsg(msg)}
@@ -2321,7 +2341,7 @@ const Home = () => {
                                             <input
                                                 ref={fileInputRef}
                                                 type="file"
-                                                accept="image/*,image/gif"
+                                                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar"
                                                 className="hidden"
                                                 style={{}}
                                                 onChange={handleFileSelect}
