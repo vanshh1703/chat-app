@@ -2184,7 +2184,7 @@ const Home = () => {
                     onDismiss={() => setStealthNotif(null)}
                 />
             )}
-            <div className="flex h-screen w-full bg-[#f0f2f5] dark:bg-[#0f172a] overflow-hidden font-sans relative transition-colors duration-300">
+            <div className="flex h-screen w-full bg-[#0b0f14] overflow-hidden font-sans relative transition-colors duration-300">
                 {/* Sidebar */}
                 <div className={`w-full md:w-[350px] flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 flex items-center justify-between">
@@ -2283,13 +2283,13 @@ const Home = () => {
 
                 {/* Main Chat Area */}
                 <div className={`flex-1 flex flex-col relative h-full w-full ${activeChat ? 'flex' : 'hidden md:flex'}`}>
-                    <div className={`absolute inset-0 z-0 ${chatWallpaper === 'gradient' ? 'wallpaper-gradient' : chatWallpaper === 'stars' ? 'wallpaper-stars' : 'bg-[#f0f2f5] dark:bg-[#0f172a]'}`} style={chatWallpaper.startsWith('data:') ? { backgroundImage: `url(${chatWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
-                        {chatWallpaper !== 'default' && <div className="absolute inset-0 bg-white/30 dark:bg-slate-900/40"></div>}
+                    <div className={`absolute inset-0 z-0 ${chatWallpaper === 'gradient' ? 'wallpaper-gradient' : chatWallpaper === 'stars' ? 'wallpaper-stars' : 'bg-linear-to-b from-[#111827] via-[#0f172a] to-[#0b1220]'}`} style={chatWallpaper.startsWith('data:') ? { backgroundImage: `url(${chatWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
+                        <div className="absolute inset-0 bg-black/35"></div>
                     </div>
 
                     {
                         activeChat ? (<div className="flex flex-col h-full relative z-10">
-                            <div className="p-3 md:p-4 flex items-center justify-between bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-700/30 z-10 sticky top-0">
+                            <div className="p-3 md:p-4 flex items-center justify-between bg-black/35 backdrop-blur-xl border-b border-white/10 z-10 sticky top-0">
                                 <div className="flex items-center gap-2 md:gap-4 flex-1">
                                     <button onClick={() => setActiveChat(null)} className="md:hidden p-2 -ml-2 rounded-xl text-gray-500"><ArrowLeft size={20} /></button>
                                     {String(activeChat.id) === String(ashPersona.id) ? (
@@ -2315,57 +2315,57 @@ const Home = () => {
                                         >
                                             <div className="flex items-center gap-2">
                                                 <h3
-                                                    className="font-bold text-gray-800 dark:text-white text-base flex items-center gap-1.5"
+                                                    className="font-bold text-white text-base flex items-center gap-1.5"
                                                 >
                                                     {activeChat.alias || activeChat.username}
                                                 </h3>
                                             </div>
-                                            <p className="text-[12px] text-gray-500 ml-0.5 mt-0.5">{getStatusText(activeChat.id)}</p>
+                                            <p className="text-[12px] text-white/60 ml-0.5 mt-0.5">{getStatusText(activeChat.id)}</p>
                                         </div>
                                     ) : (<div className="flex-1 max-w-md relative">
-                                        <input autoFocus type="text" placeholder="Search messages..." value={chatSearchTerm} onChange={(e) => setChatSearchTerm(e.target.value)} className="w-full pl-4 pr-10 py-1.5 bg-gray-100 rounded-xl text-sm outline-none" />
-                                        <button onClick={() => { setShowChatSearch(false); setChatSearchTerm(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"><X size={16} /></button>
+                                        <input autoFocus type="text" placeholder="Search messages..." value={chatSearchTerm} onChange={(e) => setChatSearchTerm(e.target.value)} className="w-full pl-4 pr-10 py-1.5 bg-black/35 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 outline-none" />
+                                        <button onClick={() => { setShowChatSearch(false); setChatSearchTerm(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60"><X size={16} /></button>
                                     </div>)}
                                 </div>
                                 <div className="flex items-center gap-1 md:gap-2">
                                     <button
                                         onPointerDown={() => handleViewProfile(activeChat)}
-                                        className={`hidden md:flex p-2 rounded-xl transition-all ${viewingProfile ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                                        className={`hidden md:flex p-2 rounded-xl transition-all ${viewingProfile ? 'text-amber-300 bg-white/10' : 'text-white/70 hover:bg-white/10'}`}
                                         title="Shared Media"
                                     ><ImageIcon size={18} /></button>
-                                    <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl transition-all ${showChatSearch ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}><Search size={18} /></button>
+                                    <button onClick={() => setShowChatSearch(p => !p)} className={`p-2 rounded-xl transition-all ${showChatSearch ? 'text-amber-300 bg-white/10' : 'text-white/70 hover:bg-white/10'}`}><Search size={18} /></button>
                                     <button
                                         onClick={() => handleToggleMute(activeChat.id)}
-                                        className={`p-2 rounded-xl transition-all ${activeChat.is_muted ? 'text-rose-600 bg-rose-50 dark:bg-rose-900/30' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                                        className={`p-2 rounded-xl transition-all ${activeChat.is_muted ? 'text-rose-300 bg-rose-500/20' : 'text-white/70 hover:bg-white/10'}`}
                                         title={activeChat.is_muted ? "Unmute notifications" : "Mute notifications"}
                                     >
                                         {activeChat.is_muted ? <BellOff size={18} /> : <Bell size={18} />}
                                     </button>
-                                    <button onClick={() => handleStartCall('voice')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Phone size={18} /></button>
-                                    <button onClick={() => handleStartCall('video')} className="p-2 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"><Video size={18} /></button>
+                                    <button onClick={() => handleStartCall('voice')} className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"><Phone size={18} /></button>
+                                    <button onClick={() => handleStartCall('video')} className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"><Video size={18} /></button>
                                 </div>
                             </div>
 
                             {/* Pinned Messages Banner */}
-                            {latestPinnedMessage && (<div className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20  border-b border-amber-100 dark:border-amber-800 flex items-center justify-between z-10 sticky top-[60px] md:top-[73px]">
+                            {latestPinnedMessage && (<div className="px-4 py-2 bg-black/35 border-b border-amber-400/20 flex items-center justify-between z-10 sticky top-[60px] md:top-[73px] backdrop-blur-xl">
                                 <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="p-1.5 bg-amber-100 dark:bg-amber-800 rounded-lg text-amber-600 dark:text-amber-400">
+                                    <div className="p-1.5 bg-amber-500/20 rounded-lg text-amber-300">
                                         <Pin size={14} fill="currentColor" />
                                     </div>
                                     <div className="flex-1 truncate">
-                                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Pinned Message</p>
-                                        <p className="text-xs text-gray-700 dark:text-slate-300 truncate font-medium">
+                                        <p className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Pinned Message</p>
+                                        <p className="text-xs text-white/80 truncate font-medium">
                                             {latestPinnedMessage.content || "Attachment"}
                                         </p>
                                     </div>
                                 </div>
-                                <button onClick={() => scrollToMessage(latestPinnedMessage.id)} className="text-[10px] font-bold text-amber-600 hover:scale-105 transition-transform px-3 py-1 bg-white dark:bg-slate-800 rounded-lg border border-amber-200">View</button>
+                                <button onClick={() => scrollToMessage(latestPinnedMessage.id)} className="text-[10px] font-bold text-amber-200 hover:scale-105 transition-transform px-3 py-1 bg-white/10 rounded-lg border border-amber-300/30">View</button>
                             </div>)}
 
                             <div
                                 ref={messageContainerRef}
                                 onScroll={handleScroll}
-                                className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4"
+                                className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3"
                             >
                                 {isLoadingMore && (
                                     <div className="flex justify-center p-2">
@@ -2375,15 +2375,15 @@ const Home = () => {
                                 {filteredChatMessages.map((msg, i) => (
                                     <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : String(msg.sender_id) === String(user.id) ? 'justify-end' : 'justify-start'}`}>
                                         {msg.message_type === 'system' ? (
-                                            <div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>
+                                            <div className="px-4 py-1.5 bg-black/30 backdrop-blur-md rounded-full text-[11px] font-semibold text-white/70 border border-white/10">{msg.content}</div>
                                         ) : (
                                             <SwipeableMessage onSwipeToReply={() => handleStartReply(msg)} isMine={msg.sender_id === user.id}>
                                                 <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${msg.sender_id === user.id ? 'ml-auto items-end' : 'mr-auto items-start'}`} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
-                                                    <div className={`px-4 py-3 rounded-2xl relative shadow-sm ${msg.is_deleted ? 'bg-gray-100 italic text-gray-400' : msg.is_pinned ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}>
+                                                    <div className={`px-4 py-3 rounded-2xl relative shadow-sm backdrop-blur-md border ${msg.is_deleted ? 'bg-white/10 italic text-white/40 border-white/10' : msg.is_pinned ? 'bg-amber-500/10 border-amber-300/30 text-white' : String(msg.sender_id) === String(ashPersona.id) ? 'bg-linear-to-br from-violet-700/80 to-indigo-700/80 text-white border-violet-400/30 shadow-[0_0_20px_rgba(99,102,241,0.3)]' : String(msg.sender_id) === String(user.id) ? 'bg-black/55 text-white border-white/10' : 'bg-[#3a2b2b]/75 text-white border-[#6b4c4c]/45'} ${highlightedMsgId === msg.id ? 'ring-4 ring-blue-400/70 z-10 transition-all duration-300' : ''}`}>
                                                         {msg.is_deleted ? 'This message was deleted' : (
                                                             <>
                                                                 {msg.reply_to_msg && (
-                                                                    <div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/20 border-white' : 'bg-gray-50 border-blue-500 text-gray-500'}`}>
+                                                                    <div onClick={() => scrollToMessage(msg.reply_to_msg.id)} className={`mb-2 p-2 rounded-xl border-l-4 text-xs cursor-pointer ${msg.sender_id === user.id ? 'bg-white/15 border-white text-white/80' : 'bg-black/20 border-amber-300 text-white/70'}`}>
                                                                         <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
                                                                         <p className="truncate">
                                                                             {msg.reply_to_msg.message_type === 'text'
@@ -2413,7 +2413,7 @@ const Home = () => {
                                                                             {msg.is_edited && (
                                                                                 <button
                                                                                     onClick={() => setHistoryMsg(msg)}
-                                                                                    className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white' : 'text-gray-500'}`}
+                                                                                    className={`text-[9px] mt-0.5 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-0.5 ${msg.sender_id === user.id ? 'text-white/80' : 'text-white/60'}`}
                                                                                 >
                                                                                     <History size={10} /> (edited)
                                                                                 </button>
@@ -2436,10 +2436,10 @@ const Home = () => {
                                                                 ) : msg.message_type === 'template' ? renderTemplateMessage(msg) : msg.message_type === 'telepathy' ? renderTelepathyMessage(msg) : renderFileMessage(msg)}
 
                                                                 {hoveredMsgId === msg.id && !msg.is_deleted && (
-                                                                    <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-white rounded-lg shadow-xl z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
-                                                                        <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-gray-100 rounded" title="React">😊</button>
-                                                                        <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-gray-100 rounded text-gray-500" title="Reply"><CornerUpLeft size={14} /></button>
-                                                                        <button onClick={() => handlePinMessage(msg.id)} className={`p-1 hover:bg-gray-100 rounded ${msg.is_pinned ? 'text-amber-500' : 'text-gray-500'}`} title={msg.is_pinned ? 'Unpin' : 'Pin'}>
+                                                                    <div className={`absolute top-0 -translate-y-full flex gap-1 p-1 bg-black/75 backdrop-blur-xl rounded-lg shadow-xl border border-white/10 z-20 ${msg.sender_id === user.id ? 'right-0' : 'left-0'}`}>
+                                                                        <button onClick={() => setReactionPickerMsgId(msg.id)} className="p-1 hover:bg-white/10 rounded" title="React">😊</button>
+                                                                        <button onClick={() => handleStartReply(msg)} className="p-1 hover:bg-white/10 rounded text-white/70" title="Reply"><CornerUpLeft size={14} /></button>
+                                                                        <button onClick={() => handlePinMessage(msg.id)} className={`p-1 hover:bg-white/10 rounded ${msg.is_pinned ? 'text-amber-300' : 'text-white/70'}`} title={msg.is_pinned ? 'Unpin' : 'Pin'}>
                                                                             {msg.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
                                                                         </button>
                                                                         {msg.sender_id === user.id && msg.message_type === 'text' && (
@@ -2449,16 +2449,16 @@ const Home = () => {
                                                                                     setMessageText(msg.content);
                                                                                     inputRef.current?.focus();
                                                                                 }}
-                                                                                className="p-1 hover:bg-gray-100 rounded text-blue-500"
+                                                                                className="p-1 hover:bg-white/10 rounded text-blue-300"
                                                                                 title="Edit"
                                                                             >
                                                                                 <Edit2 size={14} />
                                                                             </button>
                                                                         )}
-                                                                        <button onClick={() => handleCopyMessage(msg)} className="p-1 hover:bg-gray-100 rounded text-blue-500" title="Copy">
+                                                                        <button onClick={() => handleCopyMessage(msg)} className="p-1 hover:bg-white/10 rounded text-blue-300" title="Copy">
                                                                             <Copy size={14} />
                                                                         </button>
-                                                                        {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" title="Delete"><Trash2 size={14} /></button>}
+                                                                        {msg.sender_id === user.id && <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-white/10 rounded text-red-300" title="Delete"><Trash2 size={14} /></button>}
                                                                     </div>
                                                                 )}
                                                                 {reactionPickerMsgId === msg.id && (
@@ -2476,7 +2476,7 @@ const Home = () => {
                                                             ))}
                                                         </div>
                                                     )}
-                                                    <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+                                                    <div className="mt-1 flex items-center gap-1 text-[10px] text-white/55">
                                                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         {msg.sender_id === user.id && (msg.is_read ? <CheckCheck size={12} className="text-blue-500" /> : <Check size={12} />)}
                                                     </div>
@@ -2488,17 +2488,17 @@ const Home = () => {
                                 <div ref={scrollRef} />
                             </div>
 
-                            {attachPreview && (<div className="p-3 bg-white/50  flex items-center gap-3 border-t">
+                            {attachPreview && (<div className="p-3 bg-black/30 backdrop-blur-xl flex items-center gap-3 border-t border-white/10">
                                 {attachPreview.type === 'image' && <img src={attachPreview.url} className="w-12 h-12 rounded object-cover" alt="" />}
-                                <div className="flex-1 truncate"><p className="text-sm font-bold truncate">{attachPreview.name}</p></div>
-                                <button onClick={handleSendFile} className="p-2 bg-blue-600 text-white rounded-lg"><Send size={18} /></button>
-                                <button onClick={() => setAttachPreview(null)} className="text-gray-400"><X size={18} /></button>
+                                <div className="flex-1 truncate"><p className="text-sm font-semibold truncate text-white/90">{attachPreview.name}</p></div>
+                                <button onClick={handleSendFile} className="p-2 bg-white/15 text-white rounded-lg border border-white/15"><Send size={18} /></button>
+                                <button onClick={() => setAttachPreview(null)} className="text-white/60"><X size={18} /></button>
                             </div>)}
 
-                            <div className="p-3 md:p-4 bg-white/80 backdrop-blur-md border-t border-gray-100 dark:border-slate-700/30">
+                            <div className="p-3 md:p-4 bg-black/35 backdrop-blur-xl border-t border-white/10">
                                 <div className="w-full">
-                                    {replyingTo && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
-                                        <div className="truncate"><span className="font-bold text-blue-600">Reply to: </span>
+                                    {replyingTo && (<div className="flex justify-between items-center bg-white/10 p-2 rounded-xl mb-2 text-xs text-white/80 border border-white/10">
+                                        <div className="truncate"><span className="font-bold text-blue-300">Reply to: </span>
                                             {replyingTo.message_type === 'text'
                                                 ? replyingTo.content
                                                 : replyingTo.message_type === 'image' ? '📷 Photo'
@@ -2508,11 +2508,11 @@ const Home = () => {
                                         </div>
                                         <button onClick={() => setReplyingTo(null)}><X size={14} /></button>
                                     </div>)}
-                                    {editingMsg && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
-                                        <div className="truncate"><span className="font-bold text-blue-600">Editing: </span>{editingMsg.content}</div>
+                                    {editingMsg && (<div className="flex justify-between items-center bg-white/10 p-2 rounded-xl mb-2 text-xs text-white/80 border border-white/10">
+                                        <div className="truncate"><span className="font-bold text-blue-300">Editing: </span>{editingMsg.content}</div>
                                         <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                                     </div>)}
-                                    <form onSubmit={handleSendMessage} className="flex gap-2 items-center bg-white p-2 rounded-2xl shadow-sm border">
+                                    <form onSubmit={handleSendMessage} className="flex gap-2 items-center bg-[#1f2937]/85 p-2 rounded-full shadow-xl border border-white/15">
                                         {isRecording ? (<div className="flex-1 flex items-center justify-between px-2 text-red-500">
                                             <span>Recording... {formatRecordingTime(recordingTime)}</span>
                                             <div className="flex gap-2">
@@ -2557,14 +2557,14 @@ const Home = () => {
                                                 </div>
                                             </div>
 
-                                            <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type a message..." className="flex-1 bg-transparent outline-none text-sm" />
+                                            <input ref={inputRef} value={messageText} onChange={e => { setMessageText(e.target.value); handleTyping(); }} placeholder="Type here" className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/40" />
 
                                             <div className="flex items-center">
                                                 <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"><Smile size={20} /></button>
                                                 {messageText.trim() || attachPreview ? (
-                                                    <button type="submit" className="p-2 bg-blue-600 text-white rounded-xl"><Send size={18} /></button>
+                                                    <button type="submit" className="p-2 bg-[#f59e0b] text-black rounded-full shadow-lg"><Send size={18} /></button>
                                                 ) : (
-                                                    <button type="button" onClick={startRecording} className="p-2 text-gray-400 hover:text-blue-600 transition-colors"><Mic size={20} /></button>
+                                                    <button type="button" onClick={startRecording} className="p-2 text-white/60 hover:text-white transition-colors"><Mic size={20} /></button>
                                                 )}
                                             </div>
                                         </>)}
