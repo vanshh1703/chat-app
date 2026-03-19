@@ -1565,7 +1565,7 @@ const Home = () => {
     };
 
     // Send logic
-    const handleSendMessage = (e) => {
+    const handleSendMessage = async (e) => {
         if (e) e.preventDefault();
         setShowEmojiPicker(false);
         setShowTelepathyPicker(false);
@@ -1636,6 +1636,8 @@ const Home = () => {
             return;
         }
 
+        let didSend = false;
+
         if (editingMsg) {
             socket.current.emit('edit_message', {
                 messageId: editingMsg.id,
@@ -1644,22 +1646,46 @@ const Home = () => {
                 newContent: messageText
             });
             setEditingMsg(null);
-            setMessageText(''); // Clear text after edit
+            didSend = true;
         } else {
             const sendFlow = async () => {
-                let msgData = {
-                    senderId: user.id,
-                    receiverId: activeChat.id,
-                    content: messageText,
-                    messageType: 'text',
-                    replyToId: replyingTo ? replyingTo.id : null,
-                    senderName: user.username
-                };
-                // Instantly send text to backend, no frontend encryption
-                socket.current.emit('send_message', msgData);
+                if (!encryptionReady) {
+                    alert('Encryption is still initializing. Please wait a moment and try again.');
+                    return false;
+                }
+
+                try {
+                    const encryptedPayload = await encrypt(messageText, activeChat.id);
+                    if (!encryptedPayload?.isEncrypted || !encryptedPayload.encryptedContent || !encryptedPayload.encryptedKey || !encryptedPayload.iv) {
+                        alert('Message could not be encrypted. Please verify both users have encryption keys.');
+                        return false;
+                    }
+
+                    const msgData = {
+                        senderId: user.id,
+                        receiverId: activeChat.id,
+                        content: encryptedPayload.content || '[Encrypted Message]',
+                        messageType: 'text',
+                        replyToId: replyingTo ? replyingTo.id : null,
+                        senderName: user.username,
+                        encrypted_key: encryptedPayload.encryptedKey,
+                        sender_encrypted_key: encryptedPayload.senderEncryptedKey || null,
+                        iv: encryptedPayload.iv,
+                        encrypted_content: encryptedPayload.encryptedContent
+                    };
+
+                    socket.current.emit('send_message', msgData);
+                    return true;
+                } catch (err) {
+                    console.error('Text encryption send error:', err);
+                    alert('Failed to encrypt and send message. Please try again.');
+                    return false;
+                }
             };
-            sendFlow();
+            didSend = await sendFlow();
         }
+
+        if (!didSend) return;
 
         setMessageText('');
         setReplyingTo(null);
@@ -1728,20 +1754,44 @@ const Home = () => {
 
     const handleSendFile = async () => {
         if (!attachPreview || !activeChat) return;
-        // Instantly send file to backend, no frontend encryption
         try {
+            if (!encryptionReady) {
+                alert('Encryption is still initializing. Please wait a moment and try again.');
+                return;
+            }
+
+            const recipientPublicKey = await keyManager.fetchFriendPublicKey(activeChat.id);
+            const myKeys = await keyManager.getMyKeys(user.id);
+            if (!recipientPublicKey || !myKeys?.publicKey) {
+                alert('Recipient encryption key not found. Ask the contact to open the app once, then try again.');
+                return;
+            }
+
+            const mediaPayload = await encryptFile(attachPreview.file, recipientPublicKey, myKeys.publicKey);
+            const encryptedFile = new File(
+                [mediaPayload.encryptedBlob],
+                `${attachPreview.file.name}.enc`,
+                { type: 'application/octet-stream' }
+            );
+
             const formData = new FormData();
-            formData.append('file', attachPreview.file);
+            formData.append('file', encryptedFile);
             const { data } = await api.uploadFile(formData);
+
             socket.current.emit('send_message', {
                 senderId: user.id,
                 receiverId: activeChat.id,
-                content: data.originalName,
+                content: attachPreview.file.name,
                 messageType: attachPreview.type || data.messageType || 'file',
                 fileUrl: data.fileUrl,
                 replyToId: replyingTo ? replyingTo.id : null,
-                senderName: user.username
+                senderName: user.username,
+                encrypted_key: mediaPayload.encryptedKey,
+                sender_encrypted_key: mediaPayload.senderEncryptedKey || null,
+                iv: mediaPayload.iv,
+                is_media_encrypted: true
             });
+
             setAttachPreview(null);
             setReplyingTo(null);
             if (!sidebarUsers.find(u => u.id === activeChat.id)) fetchSidebar();
