@@ -2185,11 +2185,25 @@ const Home = () => {
                                         {typingUsers[chat.id] ? (
                                             <span className="text-blue-500 italic">typing...</span>
                                         ) : (
-                                            decryptedMessages[chat.lastMsgData?.id] || (
-                                                chat.lastmsgtype === 'text' || !chat.lastmsgtype
+                                            (() => {
+                                                const hasDecryptedText = !!decryptedMessages[chat.lastMsgData?.id];
+                                                const isEncryptedText =
+                                                    (chat.lastmsgtype === 'text' || !chat.lastmsgtype) &&
+                                                    !!(chat.lastMsgData?.encrypted_key || chat.lastMsgData?.sender_encrypted_key) &&
+                                                    !!chat.lastMsgData?.iv;
+
+                                                if (hasDecryptedText) {
+                                                    return decryptedMessages[chat.lastMsgData?.id];
+                                                }
+
+                                                if (isEncryptedText) {
+                                                    return '🔒 Encrypted message';
+                                                }
+
+                                                return (chat.lastmsgtype === 'text' || !chat.lastmsgtype)
                                                     ? (chat.lastmsg || 'No messages yet')
-                                                    : `[${chat.lastmsgtype.charAt(0).toUpperCase() + chat.lastmsgtype.slice(1)}]`
-                                            )
+                                                    : `[${chat.lastmsgtype.charAt(0).toUpperCase() + chat.lastmsgtype.slice(1)}]`;
+                                            })()
                                         )}
                                     </p>
                                 </div>
