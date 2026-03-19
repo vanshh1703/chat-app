@@ -112,7 +112,7 @@ const CallLogs = () => {
 
     const groupedOrder = useMemo(() => Object.keys(groupedLogs), [groupedLogs]);
 
-    const phoneLine = user?.phone || user?.mobile || '+123-456-7890';
+    
 
     const renderCallMeta = (log) => {
         const isOutgoing = log.caller_id === user.id;
@@ -150,7 +150,7 @@ const CallLogs = () => {
                 <div className="flex items-start justify-between">
                     <div>
                         <h1 className="text-4xl font-bold text-white tracking-tight">Calls</h1>
-                        <p className="text-sm text-white/60 mt-1">{phoneLine}</p>
+                        
                     </div>
                     <button
                         onClick={() => setShowSearch((prev) => !prev)}
