@@ -20,7 +20,7 @@ export const MEDIA_CONSTRAINTS = {
     audio: true
 };
 
-export const createPeerConnection = (onIceCandidate, onTrack) => {
+export const createPeerConnection = (onIceCandidate, onTrack, onStateChange) => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
     pc.onicecandidate = (event) => {
@@ -32,6 +32,24 @@ export const createPeerConnection = (onIceCandidate, onTrack) => {
     pc.ontrack = (event) => {
         if (onTrack) {
             onTrack(event.streams[0]);
+        }
+    };
+
+    pc.onconnectionstatechange = () => {
+        if (onStateChange) {
+            onStateChange({
+                connectionState: pc.connectionState,
+                iceConnectionState: pc.iceConnectionState
+            });
+        }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+        if (onStateChange) {
+            onStateChange({
+                connectionState: pc.connectionState,
+                iceConnectionState: pc.iceConnectionState
+            });
         }
     };
 

@@ -3,6 +3,13 @@ const { encryptMessageForStorage, decryptTextFromStorage } = require('./messageC
 
 module.exports = (io, socket, options = {}) => {
     const { sendPushNotification } = options;
+    const clearMissedCallTimer = () => {
+        if (socket.missedCallTimer) {
+            clearTimeout(socket.missedCallTimer);
+            socket.missedCallTimer = null;
+        }
+    };
+
     // Helper to safely emit to a target
     const safeEmit = (to, event, payload) => {
         if (!to) return;
@@ -76,6 +83,29 @@ module.exports = (io, socket, options = {}) => {
             const callId = result.rows[0].id;
             socket.currentCallId = callId;
 
+            clearMissedCallTimer();
+            socket.missedCallTimer = setTimeout(async () => {
+                try {
+                    const callRes = await pool.query('SELECT id, caller_id, receiver_id, call_type, status, ended_at FROM call_logs WHERE id = $1', [callId]);
+                    const call = callRes.rows[0];
+                    if (!call || call.status !== 'missed') return;
+
+                    if (!call.ended_at) {
+                        await pool.query('UPDATE call_logs SET ended_at = CURRENT_TIMESTAMP WHERE id = $1', [callId]);
+                    }
+
+                    await logCallToChat(callId, call.caller_id, call.receiver_id, call.call_type, 'missed');
+
+                    safeEmit(call.caller_id, 'end-call', { from: call.receiver_id, reason: 'no-answer' });
+                    safeEmit(call.receiver_id, 'end-call', { from: call.caller_id, reason: 'no-answer' });
+                } catch (err) {
+                    console.error('Error auto-ending unanswered call:', err);
+                } finally {
+                    clearMissedCallTimer();
+                    socket.currentCallId = null;
+                }
+            }, 35000);
+
             // Send callId to both caller and receiver
             socket.emit('call-initiated', { callId });
             safeEmit(to, 'incoming-call', { from, name, avatar, type, callId });
@@ -101,6 +131,7 @@ module.exports = (io, socket, options = {}) => {
     // 2. Call Accepted
     socket.on('accept-call', async (data) => {
         try {
+            clearMissedCallTimer();
             const { to, callId } = data;
             if (!to) return;
             const cid = callId || socket.currentCallId;
@@ -120,6 +151,7 @@ module.exports = (io, socket, options = {}) => {
     // 3. Call Rejected
     socket.on('reject-call', async (data) => {
         try {
+            clearMissedCallTimer();
             const { to, callId } = data;
             if (!to) return;
             const cid = callId || socket.currentCallId;
@@ -180,6 +212,7 @@ module.exports = (io, socket, options = {}) => {
     // 7. End Call
     socket.on('end-call', async (data) => {
         try {
+            clearMissedCallTimer();
             const { to, callId } = data;
             if (!to) return;
             const cid = callId || socket.currentCallId;
@@ -213,6 +246,7 @@ module.exports = (io, socket, options = {}) => {
 
     // Handle abrupt disconnect
     socket.on('disconnect', async () => {
+        clearMissedCallTimer();
         if (socket.currentCallId) {
             const cid = socket.currentCallId;
             try {

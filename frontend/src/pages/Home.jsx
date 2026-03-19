@@ -480,6 +480,80 @@ const Home = () => {
     const [isSharingScreen, setIsSharingScreen] = useState(false);
     const screenStreamRef = useRef(null);
     const wallpaperSyncInFlightRef = useRef(false);
+    const outgoingCallTimeoutRef = useRef(null);
+    const incomingCallTimeoutRef = useRef(null);
+    const connectionRecoveryTimeoutRef = useRef(null);
+    const endCallRef = useRef(null);
+
+    const clearCallTimers = () => {
+        if (outgoingCallTimeoutRef.current) {
+            clearTimeout(outgoingCallTimeoutRef.current);
+            outgoingCallTimeoutRef.current = null;
+        }
+        if (incomingCallTimeoutRef.current) {
+            clearTimeout(incomingCallTimeoutRef.current);
+            incomingCallTimeoutRef.current = null;
+        }
+        if (connectionRecoveryTimeoutRef.current) {
+            clearTimeout(connectionRecoveryTimeoutRef.current);
+            connectionRecoveryTimeoutRef.current = null;
+        }
+    };
+
+    const stopCallTones = () => {
+        if (window.ringbackTone) {
+            window.ringbackTone.pause();
+            window.ringbackTone = null;
+        }
+        if (window.incomingRingtone) {
+            window.incomingRingtone.pause();
+            window.incomingRingtone = null;
+        }
+    };
+
+    const attachStreamEndHandlers = (stream) => {
+        if (!stream) return;
+        stream.getTracks().forEach((track) => {
+            track.onended = () => {
+                const hasLiveTrack = (localStreamRef.current?.getTracks() || []).some((t) => t.readyState === 'live');
+                if (!hasLiveTrack && endCallRef.current) {
+                    endCallRef.current(false);
+                }
+            };
+        });
+    };
+
+    const handlePeerConnectionState = ({ connectionState, iceConnectionState }) => {
+        const terminalState = ['failed', 'closed'];
+        const unstableState = ['disconnected'];
+
+        if (terminalState.includes(connectionState) || terminalState.includes(iceConnectionState)) {
+            if (endCallRef.current) endCallRef.current(false);
+            return;
+        }
+
+        if (unstableState.includes(connectionState) || unstableState.includes(iceConnectionState)) {
+            if (!connectionRecoveryTimeoutRef.current) {
+                connectionRecoveryTimeoutRef.current = setTimeout(() => {
+                    connectionRecoveryTimeoutRef.current = null;
+                    const pc = peerConnection.current;
+                    if (!pc) return;
+                    const isRecovered = ['connected', 'completed'].includes(pc.iceConnectionState) || pc.connectionState === 'connected';
+                    if (!isRecovered && endCallRef.current) {
+                        endCallRef.current(false);
+                    }
+                }, 8000);
+            }
+            return;
+        }
+
+        if (connectionRecoveryTimeoutRef.current && (
+            connectionState === 'connected' || ['connected', 'completed'].includes(iceConnectionState)
+        )) {
+            clearTimeout(connectionRecoveryTimeoutRef.current);
+            connectionRecoveryTimeoutRef.current = null;
+        }
+    };
 
     useEffect(() => {
         if (user) {
@@ -716,9 +790,20 @@ const Home = () => {
             console.log("Incoming call received:", data);
             currentCallIdRef.current = data.callId;
             setIncomingCall({ ...data, isCaller: false });
+            if (incomingCallTimeoutRef.current) {
+                clearTimeout(incomingCallTimeoutRef.current);
+            }
+            incomingCallTimeoutRef.current = setTimeout(() => {
+                signaling.emitRejectCall(socket.current, { to: data.from, callId: data.callId });
+                setIncomingCall(null);
+                currentCallIdRef.current = null;
+                stopCallTones();
+            }, 35000);
             // Play ringtone
             const ringtone = new Audio('https://assets.mixkit.co/active_storage/sfx/1350/1350-preview.mp3');
+            ringtone.loop = true;
             ringtone.play().catch(e => console.error("Ringtone failed", e));
+            window.incomingRingtone = ringtone;
         };
 
         const handleCallInitiated = (data) => {
@@ -728,22 +813,29 @@ const Home = () => {
 
         const handleAcceptCallSignaling = async (data) => {
             console.log("Call accepted by remote user");
-            if (window.ringbackTone) {
-                window.ringbackTone.pause();
-                window.ringbackTone = null;
-            }
+            clearCallTimers();
+            stopCallTones();
             try {
                 // Use refs to get latest state
                 const callType = incomingCallRef.current?.type || 'video';
                 const stream = await webrtc.getMediaStream(callType);
                 setLocalStream(stream);
+                attachStreamEndHandlers(stream);
                 setIsAudioOnlyCall(callType === 'voice');
 
                 const partnerId = activeChatRef.current?.id || incomingCallRef.current?.from || data?.from;
 
                 peerConnection.current = webrtc.createPeerConnection(
                     (candidate) => signaling.emitIceCandidate(s, { to: partnerId, candidate }),
-                    (rStream) => setRemoteStream(rStream)
+                    (rStream) => {
+                        setRemoteStream(rStream);
+                        (rStream?.getTracks() || []).forEach((track) => {
+                            track.onended = () => {
+                                if (endCallRef.current) endCallRef.current(false);
+                            };
+                        });
+                    },
+                    handlePeerConnectionState
                 );
 
                 stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
@@ -759,17 +851,15 @@ const Home = () => {
                 pendingCandidates.current = [];
             } catch (err) {
                 console.error("Error setting up call after acceptance", err);
-                handleEndCall();
+                if (endCallRef.current) endCallRef.current(false);
             }
         };
 
         const handleRejectCallSignaling = () => {
             alert("Call rejected");
-            if (window.ringbackTone) {
-                window.ringbackTone.pause();
-                window.ringbackTone = null;
-            }
-            handleEndCall();
+            stopCallTones();
+            clearCallTimers();
+            if (endCallRef.current) endCallRef.current(false);
         };
 
         const handleOffer = async (data) => {
@@ -807,7 +897,9 @@ const Home = () => {
 
         const handleRemoteEndCall = () => {
             console.log("Call ended by remote user");
-            handleEndCall();
+            clearCallTimers();
+            stopCallTones();
+            if (endCallRef.current) endCallRef.current(false);
         };
 
         s.on('incoming-call', handleIncomingCall);
@@ -858,6 +950,15 @@ const Home = () => {
                 to: activeChat.id
             });
 
+            if (outgoingCallTimeoutRef.current) {
+                clearTimeout(outgoingCallTimeoutRef.current);
+            }
+            outgoingCallTimeoutRef.current = setTimeout(() => {
+                if (endCallRef.current) {
+                    endCallRef.current(true);
+                }
+            }, 35000);
+
             // Play ringback tone (calling sound)
             const ringback = new Audio('https://assets.mixkit.co/active_storage/sfx/1350/1350-preview.mp3');
             ringback.loop = true;
@@ -874,12 +975,25 @@ const Home = () => {
     const handleAcceptCall = async () => {
         if (!incomingCall) return;
         try {
+            clearCallTimers();
+            stopCallTones();
             const stream = await webrtc.getMediaStream(incomingCall.type);
             setLocalStream(stream);
+            attachStreamEndHandlers(stream);
             setIsAudioOnlyCall(incomingCall.type === 'voice');
 
-            peerConnection.current = webrtc.createPeerConnection((candidate) => signaling.emitIceCandidate(socket.current, { to: incomingCall.from, candidate }),
-                (rStream) => setRemoteStream(rStream));
+            peerConnection.current = webrtc.createPeerConnection(
+                (candidate) => signaling.emitIceCandidate(socket.current, { to: incomingCall.from, candidate }),
+                (rStream) => {
+                    setRemoteStream(rStream);
+                    (rStream?.getTracks() || []).forEach((track) => {
+                        track.onended = () => {
+                            if (endCallRef.current) endCallRef.current(false);
+                        };
+                    });
+                },
+                handlePeerConnectionState
+            );
 
             stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
 
@@ -894,6 +1008,8 @@ const Home = () => {
     };
 
     const handleRejectCall = () => {
+        clearCallTimers();
+        stopCallTones();
         if (incomingCall?.from) {
             signaling.emitRejectCall(socket.current, { to: incomingCall.from, callId: currentCallIdRef.current });
         }
@@ -901,22 +1017,19 @@ const Home = () => {
         currentCallIdRef.current = null;
     };
 
-    const handleEndCall = () => {
+    const handleEndCall = (notifyRemote = true) => {
         // Robust target detection
         const targetId = activeChatRef.current?.id || incomingCallRef.current?.from || incomingCallRef.current?.to;
 
-        if (targetId && socket.current) {
+        if (notifyRemote && targetId && socket.current) {
             signaling.emitEndCall(socket.current, { to: targetId, callId: currentCallIdRef.current });
         }
 
-        // Stop ringback tone if active
-        if (window.ringbackTone) {
-            window.ringbackTone.pause();
-            window.ringbackTone = null;
-        }
+        clearCallTimers();
+        stopCallTones();
 
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach(track => track.stop());
         }
         if (screenStreamRef.current) {
             screenStreamRef.current.getTracks().forEach(track => track.stop());
@@ -936,6 +1049,10 @@ const Home = () => {
         pendingCandidates.current = [];
         currentCallIdRef.current = null;
     };
+
+    useEffect(() => {
+        endCallRef.current = handleEndCall;
+    });
 
     const handleToggleScreenShare = async () => {
         if (!peerConnection.current) return;
@@ -973,7 +1090,9 @@ const Home = () => {
                 }
 
                 screenTrack.onended = () => {
-                    handleToggleScreenShare(); // Revert to camera if user stops via browser UI
+                    if (peerConnection.current) {
+                        handleToggleScreenShare(); // Revert to camera if user stops via browser UI
+                    }
                 };
 
                 setIsSharingScreen(true);
