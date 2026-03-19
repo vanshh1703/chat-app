@@ -6,9 +6,15 @@ const getDefaultApiOrigin = () => {
         return 'http://localhost:5000';
     }
 
-    const { protocol, hostname } = window.location;
+    const { protocol, hostname, port } = window.location;
     const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
     if (isLocalhost) return 'http://localhost:5000';
+
+    // If frontend is running on a dev/custom port (e.g. 5173 on LAN mobile testing),
+    // default backend to :5000 on same host.
+    if (port && port !== '5000' && port !== '80' && port !== '443') {
+        return `${protocol}//${hostname}:5000`;
+    }
 
     return `${protocol}//${hostname}`;
 };
