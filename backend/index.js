@@ -15,7 +15,7 @@ const { pool, initializeDB } = require('./db');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const webpush = require('web-push');
-const { encryptBufferForStorage, decryptBufferFromStorage, encryptMessageForStorage, decryptTextFromStorage } = require('./messageCrypto');
+const { encryptBufferForStorage, decryptBufferFromStorage, encryptMessageForStorage, encryptTextForStorage, decryptTextFromStorage } = require('./messageCrypto');
 
 const hasVapidKeys = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 
@@ -127,7 +127,9 @@ function sanitizeMessageForClient(message) {
 
 function resolveAvatarUrlForClient(userRow) {
     if (!userRow) return userRow;
-    if (!userRow.avatar_is_encrypted) return userRow.avatar_url;
+    const storedAvatarUrl = userRow.avatar_url;
+    const avatarUrl = typeof storedAvatarUrl === 'string' ? decryptTextFromStorage(storedAvatarUrl) : storedAvatarUrl;
+    if (!userRow.avatar_is_encrypted) return avatarUrl;
 
     const backendBase = (
         process.env.BACKEND_PUBLIC_URL
@@ -144,6 +146,23 @@ function mapUserAvatarForClient(userRow) {
         ...userRow,
         avatar_url: resolveAvatarUrlForClient(userRow)
     };
+}
+
+async function migrateAvatarUrlEncryption() {
+    try {
+        const result = await pool.query('SELECT id, avatar_url FROM users WHERE avatar_url IS NOT NULL');
+        for (const row of result.rows) {
+            const current = row.avatar_url;
+            if (typeof current !== 'string' || !current.trim()) continue;
+            if (current.startsWith('v1:')) continue;
+
+            const encryptedAvatarUrl = encryptTextForStorage(current);
+            await pool.query('UPDATE users SET avatar_url = $1 WHERE id = $2', [encryptedAvatarUrl, row.id]);
+        }
+        console.log('Avatar URL encryption migration complete');
+    } catch (err) {
+        console.error('Avatar URL encryption migration error:', err);
+    }
 }
 
 // File Upload endpoint using Supabase Storage
@@ -241,7 +260,7 @@ app.post('/api/users/upload-avatar', authenticateToken, upload.single('file'), a
                  avatar_is_encrypted = TRUE
              WHERE id = $6
              RETURNING id, username, email, avatar_url, bio, avatar_is_encrypted`,
-            [`/api/users/avatar/${req.user.id}`, publicUrl, encrypted.iv, encrypted.tag, mimeType, req.user.id]
+            [encryptTextForStorage(`/api/users/avatar/${req.user.id}`), publicUrl, encrypted.iv, encrypted.tag, mimeType, req.user.id]
         );
 
         const user = mapUserAvatarForClient(updateResult.rows[0]);
@@ -266,10 +285,12 @@ app.get('/api/users/avatar/:id', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).send('Avatar not found');
 
         const user = result.rows[0];
+        const storedAvatarUrl = user.avatar_url;
+        const avatarUrl = typeof storedAvatarUrl === 'string' ? decryptTextFromStorage(storedAvatarUrl) : storedAvatarUrl;
 
         if (!user.avatar_is_encrypted || !user.avatar_storage_url || !user.avatar_iv || !user.avatar_tag) {
-            if (user.avatar_url && !user.avatar_url.startsWith('/api/users/avatar/')) {
-                return res.redirect(user.avatar_url);
+            if (avatarUrl && !avatarUrl.startsWith('/api/users/avatar/')) {
+                return res.redirect(avatarUrl);
             }
             return res.status(404).send('Avatar not found');
         }
@@ -293,10 +314,10 @@ app.post('/api/auth/register', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const result = await pool.query(
-            'INSERT INTO users (username, email, password, avatar_url) VALUES ($1, $2, $3, $4) RETURNING id, username, email, avatar_url',
-            [username, email, hashedPassword, `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`]
+            'INSERT INTO users (username, email, password, avatar_url, avatar_is_encrypted) VALUES ($1, $2, $3, $4, FALSE) RETURNING id, username, email, avatar_url, avatar_is_encrypted',
+            [username, email, hashedPassword, encryptTextForStorage(`https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`)]
         );
-        res.status(201).json(result.rows[0]);
+        res.status(201).json(mapUserAvatarForClient(result.rows[0]));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'User already exists' });
@@ -640,6 +661,9 @@ app.get('/api/users/search', authenticateToken, async (req, res) => {
 // Update Profile
 app.post('/api/users/update-profile', authenticateToken, async (req, res) => {
     const { username, avatar_url, bio } = req.body;
+    const encryptedAvatarUrl = avatar_url === undefined || avatar_url === null
+        ? null
+        : encryptTextForStorage(avatar_url);
     try {
         const result = await pool.query(
             `UPDATE users
@@ -653,7 +677,7 @@ app.post('/api/users/update-profile', authenticateToken, async (req, res) => {
                  avatar_mime_type = CASE WHEN $2 IS NULL THEN avatar_mime_type ELSE NULL END
              WHERE id = $4
              RETURNING id, username, email, avatar_url, bio, avatar_is_encrypted`,
-            [username, avatar_url, bio, req.user.id]
+            [username, encryptedAvatarUrl, bio, req.user.id]
         );
         res.json(mapUserAvatarForClient(result.rows[0]));
     } catch (err) {
@@ -993,12 +1017,16 @@ app.get('/api/calls/history', authenticateToken, async (req, res) => {
             LIMIT 50
         `, [userId]);
         const normalizedRows = result.rows.map((row) => {
-            const callerAvatar = row.caller_avatar_is_encrypted
-                ? resolveAvatarUrlForClient({ id: row.caller_user_id, avatar_url: row.caller_avatar, avatar_is_encrypted: true })
-                : row.caller_avatar;
-            const receiverAvatar = row.receiver_avatar_is_encrypted
-                ? resolveAvatarUrlForClient({ id: row.receiver_user_id, avatar_url: row.receiver_avatar, avatar_is_encrypted: true })
-                : row.receiver_avatar;
+            const callerAvatar = resolveAvatarUrlForClient({
+                id: row.caller_user_id,
+                avatar_url: row.caller_avatar,
+                avatar_is_encrypted: row.caller_avatar_is_encrypted
+            });
+            const receiverAvatar = resolveAvatarUrlForClient({
+                id: row.receiver_user_id,
+                avatar_url: row.receiver_avatar,
+                avatar_is_encrypted: row.receiver_avatar_is_encrypted
+            });
 
             return {
                 ...row,
@@ -1216,8 +1244,10 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 initializeDB().then(() => {
-    server.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
+    migrateAvatarUrlEncryption().finally(() => {
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
     });
 }).catch(err => {
     console.error('CRITICAL: Database initialization failed. Server not started.', err);
