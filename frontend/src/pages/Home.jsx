@@ -375,6 +375,7 @@ const Home = () => {
     const [messages, setMessages] = useState([]);
     const [messageText, setMessageText] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeHomeTab, setActiveHomeTab] = useState('All');
     const [searchResults, setSearchResults] = useState([]);
     const socket = useRef();
     const scrollRef = useRef();
@@ -457,6 +458,17 @@ const Home = () => {
         }
         return null;
     }, [messages]);
+
+    const homeTabs = useMemo(() => ['All', 'Favorites', 'Work', 'Groups', 'Communities'], []);
+
+    const filteredSidebarUsers = useMemo(() => {
+        if (activeHomeTab === 'Favorites') {
+            return sidebarUsers.filter((chat) => chat.is_pinned);
+        }
+        return sidebarUsers;
+    }, [activeHomeTab, sidebarUsers]);
+
+    const storyUsers = useMemo(() => filteredSidebarUsers.slice(0, 8), [filteredSidebarUsers]);
 
     // WebRTC & Calling State
     const [incomingCall, setIncomingCall] = useState(null);
@@ -2186,78 +2198,90 @@ const Home = () => {
             )}
             <div className="flex h-screen w-full bg-black overflow-hidden font-sans relative transition-colors duration-300">
                 {/* Sidebar */}
-                <div className={`w-full md:w-[350px] flex flex-col bg-white/80 dark:bg-slate-900/80 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
-                    <div className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <Link to="/profile" aria-label="Go to your profile" className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm hover:scale-105 transition-transform">
-                                <img src={user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} alt="Profile" className="w-full h-full object-cover" width="44" height="44" />
-                            </Link>
-                            <div>
-                                <h3 className="font-bold text-gray-800 dark:text-white text-sm">{user?.username}</h3>
-                                <p className="text-xs text-green-500 font-medium">Online</p>
+                <div className={`w-full md:w-[350px] flex flex-col bg-linear-to-b from-[#8f6a5d] via-[#2b2224] to-black border-r border-white/10 transition-all duration-300 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-4 pb-3">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-3xl font-semibold text-white tracking-tight">Chats</h2>
+                            <div className="flex items-center gap-2">
+                                <button className="w-8 h-8 rounded-full bg-white/15 text-white/85 flex items-center justify-center hover:bg-white/20 transition-colors" title="Search">
+                                    <Search size={16} />
+                                </button>
+                                <button onClick={() => setIsOfflineChatOpen(true)} className="w-8 h-8 rounded-full bg-white/15 text-white/85 flex items-center justify-center hover:bg-white/20 transition-colors" title="Offline Mesh Chat">
+                                    <Wifi size={16} />
+                                </button>
+                                <Link to="/settings" aria-label="Settings" className="w-8 h-8 rounded-full bg-white/15 text-white/85 flex items-center justify-center hover:bg-white/20 transition-colors">
+                                    <MoreVertical size={16} />
+                                </Link>
                             </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                            <button onClick={() => setIsOfflineChatOpen(true)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors" title="Offline Mesh Chat (Bluetooth/Wi-Fi)">
-                                <Wifi size={20} />
-                            </button>
-                            <Link to="/calls" aria-label="Call History" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" title="Call History">
-                                <Clock size={20} />
-                            </Link>
-                            <Link to="/settings" aria-label="Settings" className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
-                                <SettingsIcon size={20} />
-                            </Link>
+
+                        <div className="relative rounded-2xl flex items-center px-3 py-2 bg-black/35 border border-white/10">
+                            <Search size={16} className="text-white/45 mr-2" />
+                            <input type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none w-full text-sm text-white placeholder:text-white/40" />
                         </div>
-                    </div>
-                    <div className="px-4 py-2 relative">
-                        <div className="relative rounded-2xl flex items-center px-4 py-2.5 bg-gray-100/80 dark:bg-slate-800/80 border border-transparent transition-all duration-300 focus-within:bg-white dark:focus-within:bg-slate-800 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
-                            <Search size={18} className="text-gray-400 mr-2" />
-                            <input type="text" placeholder="Find someone new..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none w-full text-sm placeholder-gray-400 dark:text-white" />
-                        </div>
-                        {searchResults.length > 0 && (<div className="absolute left-4 right-4 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden">
-                            {searchResults.map((res) => (<div key={res.id} onClick={() => handleSelectChat(res)} className="flex items-center gap-3 p-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0">
+
+                        {searchResults.length > 0 && (<div className="absolute left-4 right-4 top-[132px] bg-[#171717] rounded-2xl shadow-2xl border border-white/10 z-50 overflow-hidden">
+                            {searchResults.map((res) => (<div key={res.id} onClick={() => handleSelectChat(res)} className="flex items-center gap-3 p-3 hover:bg-white/8 cursor-pointer transition-colors border-b border-white/5 last:border-0">
                                 <img src={res.avatar_url} className="w-8 h-8 rounded-full" alt="" width="32" height="32" />
-                                <span className="text-sm font-bold text-slate-700">{res.username}</span>
+                                <span className="text-sm font-semibold text-white/90">{res.username}</span>
                             </div>))}
                         </div>)}
+
+                        <div className="mt-4 flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
+                            <div className="shrink-0 flex flex-col items-center gap-1.5">
+                                <button className="w-14 h-14 rounded-full bg-white/10 border border-white/15 text-white/90 flex items-center justify-center">
+                                    <Plus size={18} />
+                                </button>
+                                <span className="text-[10px] text-white/60">You</span>
+                            </div>
+                            {storyUsers.map((story) => (
+                                <button key={`story_${story.id}`} onClick={() => handleSelectChat(story)} className="shrink-0 flex flex-col items-center gap-1.5">
+                                    <SafeAvatar src={story.avatar_url} alt={story.alias || story.username} size="w-14 h-14" className="ring-2 ring-white/20" />
+                                    <span className="text-[10px] text-white/70 max-w-[52px] truncate">{story.alias || story.username}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                            {homeTabs.map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveHomeTab(tab)}
+                                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs transition-colors ${activeHomeTab === tab ? 'bg-white/18 text-white border border-white/20' : 'bg-black/25 text-white/55 border border-white/8 hover:text-white/75'}`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto mt-2 px-2 pb-4">
-                        <h4 className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Direct Messages</h4>
-                        <div className="space-y-1">
-                            {sidebarUsers.map(chat => (<div key={chat.id} onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)} onMouseLeave={() => setHoveredMsgId(null)} onClick={() => handleSelectChat(chat)} className={`group flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all duration-200 ${activeChat?.id === chat.id ? 'bg-white shadow-[0_10px_25px_rgba(0,0,0,0.05)]' : Number(chat.unreadcount) > 0 ? 'bg-blue-50/80' : 'hover:bg-white/50'}`}>
+
+                    <div className="flex-1 overflow-y-auto px-3 pb-24">
+                        <div className="space-y-2">
+                            {filteredSidebarUsers.map(chat => (<div key={chat.id} onMouseEnter={() => setHoveredMsgId(`sidebar_${chat.id}`)} onMouseLeave={() => setHoveredMsgId(null)} onClick={() => handleSelectChat(chat)} className={`group flex items-center gap-3 p-2.5 cursor-pointer rounded-2xl transition-all duration-200 border ${activeChat?.id === chat.id ? 'bg-white/14 border-white/20' : 'bg-black/28 border-white/8 hover:bg-white/8'}`}>
                                 <div className="relative group/profile" style={{ cursor: 'pointer' }}>
                                     <div
-                                        className="absolute inset-0 rounded-full z-10 group-hover/profile:ring-2 group-hover/profile:ring-blue-200"
+                                        className="absolute inset-0 rounded-full z-10"
                                         onClick={e => { e.stopPropagation(); handleViewProfile(chat); }}
                                     ></div>
                                     {chat.id === ashPersona.id ? (
-                                        <div className="w-14 h-14 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-indigo-950 flex items-center justify-center border border-white/20 shrink-0">
                                             <img src={chat.avatar_url} alt="ASH" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
-                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-14 h-14" />
+                                        <SafeAvatar src={chat.avatar_url} alt={chat.username} size="w-12 h-12" className="border-white/20" />
                                     )}
-                                    {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full z-10"></div>}
-                                    {chat.is_pinned && (<div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-900 rounded-full shadow-md text-blue-500 border border-blue-100">
-                                        <Pin size={8} fill="currentColor" />
-                                    </div>)}
+                                    {onlineUsers[chat.id]?.isOnline && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border border-black rounded-full z-10"></div>}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <h4 className="text-base font-bold truncate flex items-center gap-1">
+                                        <h4 className="text-[14px] font-semibold truncate text-white/95">
                                             {chat.alias || chat.username}
                                         </h4>
-                                        <span className="text-[10px] text-gray-400">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                        <span className="text-[10px] text-white/50">{chat.lastmsgtime ? new Date(chat.lastmsgtime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</span>
                                     </div>
-                                    {/* Hide [System] label in sidebar */}
-                                    {/*
-                                    {chat.id === ashPersona.id && (
-                                        <span className="text-xs text-gray-400 font-semibold">[System]</span>
-                                    )}
-                                    */}
-                                    <p className="text-xs truncate text-gray-500">
+                                    <p className="text-[11px] truncate text-white/60">
                                         {typingUsers[chat.id] ? (
-                                            <span className="text-blue-500 italic">typing...</span>
+                                            <span className="text-emerald-300 italic">typing...</span>
                                         ) : (
                                             (chat.lastmsgtype === 'text' || !chat.lastmsgtype)
                                                 ? (chat.lastmsg || 'No messages yet')
@@ -2265,17 +2289,41 @@ const Home = () => {
                                         )}
                                     </p>
                                 </div>
-                                <div className="flex flex-col items-end gap-2">
-                                    {Number(chat.unreadcount) > 0 && <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">{chat.unreadcount}</div>}
+                                <div className="flex flex-col items-end gap-1.5">
+                                    {Number(chat.unreadcount) > 0 && <div className="min-w-4 h-4 px-1 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold leading-none">{chat.unreadcount}</div>}
                                     {(hoveredMsgId === `sidebar_${chat.id}` || chat.is_pinned) && (<button
                                         onClick={(e) => handlePinChat(e, chat.id)}
-                                        className={`p-1.5 rounded-full transition-all duration-200 ${chat.is_pinned ? 'text-blue-500' : 'text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100'}`}
+                                        className={`p-1 rounded-full transition-all duration-200 ${chat.is_pinned ? 'text-amber-300' : 'text-white/40 hover:text-amber-300 opacity-0 group-hover:opacity-100'}`}
                                         title={chat.is_pinned ? 'Unpin chat' : 'Pin chat'}
                                     >
-                                        {chat.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                                        {chat.is_pinned ? <PinOff size={12} /> : <Pin size={12} />}
                                     </button>)}
                                 </div>
                             </div>))}
+                        </div>
+                    </div>
+
+                    <div className="md:hidden absolute bottom-0 left-0 right-0 p-3 bg-black/70 backdrop-blur-xl border-t border-white/10">
+                        <div className="grid grid-cols-5 items-center">
+                            <button className="flex flex-col items-center gap-1 text-[10px] text-white">
+                                <MessageSquare size={18} />
+                                <span>Chats</span>
+                            </button>
+                            <Link to="/calls" className="flex flex-col items-center gap-1 text-[10px] text-white/60 hover:text-white">
+                                <Phone size={18} />
+                                <span>Call</span>
+                            </Link>
+                            <button className="mx-auto w-10 h-10 rounded-full bg-white/15 border border-white/20 text-white flex items-center justify-center -mt-5">
+                                <Plus size={20} />
+                            </button>
+                            <Link to="/settings" className="flex flex-col items-center gap-1 text-[10px] text-white/60 hover:text-white">
+                                <Activity size={18} />
+                                <span>Updates</span>
+                            </Link>
+                            <Link to="/profile" className="flex flex-col items-center gap-1 text-[10px] text-white/60 hover:text-white">
+                                <img src={user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} alt="Profile" className="w-5 h-5 rounded-full object-cover" width="20" height="20" />
+                                <span>Profile</span>
+                            </Link>
                         </div>
                     </div>
 
