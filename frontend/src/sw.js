@@ -17,12 +17,13 @@ self.addEventListener('push', (event) => {
 
     const isIncomingCall = data?.data?.type === 'incoming_call';
 
+    const silent = Boolean(data.silent);
+
     const options = {
         body: data.body || 'You have a new message.',
         icon: data.icon || '/pwa-192x192.png',
         badge: data.badge || '/pwa-192x192.png',
-        vibrate: data.vibrate || [100, 50, 100],
-        silent: Boolean(data.silent),
+        silent,
         tag: data.tag || 'message-notification',
         renotify: Boolean(data.renotify),
         requireInteraction: Boolean(data.requireInteraction),
@@ -34,6 +35,10 @@ self.addEventListener('push', (event) => {
             ]
             : []
     };
+
+    if (!silent) {
+        options.vibrate = data.vibrate || [100, 50, 100];
+    }
 
     const title = data.title || 'New Message';
 
