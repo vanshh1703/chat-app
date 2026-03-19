@@ -2655,7 +2655,7 @@ const Home = () => {
                                         <div className="truncate"><span className="font-bold text-blue-300">Editing: </span>{editingMsg.content}</div>
                                         <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                                     </div>)}
-                                    <form onSubmit={handleSendMessage} className="flex w-full min-w-0 gap-1 md:gap-1.5 items-center bg-black/85 mb-2 p-2.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15 overflow-hidden">
+                                    <form onSubmit={handleSendMessage} className="flex w-full min-w-0 gap-1 md:gap-1.5 items-center bg-black/85 mb-3 p-2.5 md:p-2 rounded-[30px] md:rounded-full shadow-xl border border-white/15 overflow-hidden">
                                         {isRecording ? (<div className="flex-1 flex items-center justify-between px-2 text-red-500">
                                             <span>Recording... {formatRecordingTime(recordingTime)}</span>
                                             <div className="flex gap-2">
