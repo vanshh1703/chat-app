@@ -1525,7 +1525,6 @@ const Home = () => {
 
         if (forceScrollToBottomRef.current) {
             container.scrollTop = container.scrollHeight;
-            scrollRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
             forceScrollToBottomRef.current = false;
             lastMessageCountRef.current = messages.length;
             return;
@@ -1540,8 +1539,7 @@ const Home = () => {
 
         // If it's a new chat or a NEW incoming message, scroll to bottom
         if (messages.length > lastMessageCountRef.current) {
-            // Scroll to bottom
-            scrollRef.current?.scrollIntoView({ behavior: 'auto' });
+            container.scrollTop = container.scrollHeight;
         }
 
         lastMessageCountRef.current = messages.length;
