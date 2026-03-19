@@ -22,6 +22,38 @@ function encryptAesGcm(plainText, key) {
   return { iv, tag, encrypted };
 }
 
+function encryptBufferForStorage(buffer) {
+  if (!Buffer.isBuffer(buffer)) {
+    throw new Error('encryptBufferForStorage expects a Buffer');
+  }
+
+  const iv = crypto.randomBytes(12);
+  const key = getSecretKey();
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return {
+    encryptedBuffer: encrypted,
+    iv: iv.toString('base64'),
+    tag: tag.toString('base64')
+  };
+}
+
+function decryptBufferFromStorage(encryptedBuffer, ivBase64, tagBase64) {
+  if (!Buffer.isBuffer(encryptedBuffer)) {
+    throw new Error('decryptBufferFromStorage expects a Buffer');
+  }
+
+  const iv = Buffer.from(ivBase64, 'base64');
+  const tag = Buffer.from(tagBase64, 'base64');
+  const key = getSecretKey();
+
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
+}
+
 function serializeEncryptedPayload({ iv, tag, encrypted }) {
   return `${ENCRYPTION_PREFIX}:${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
 }
@@ -88,6 +120,8 @@ function decryptTextFromStorage(value) {
 }
 
 module.exports = {
+  encryptBufferForStorage,
+  decryptBufferFromStorage,
   encryptMessageForStorage,
   encryptTextForStorage,
   decryptTextFromStorage,

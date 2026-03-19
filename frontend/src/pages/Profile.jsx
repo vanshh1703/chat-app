@@ -29,11 +29,12 @@ const Profile = () => {
         setMessage({ type: '', text: '' });
 
         try {
-            const { data } = await api.updateProfile({ username, avatar_url: avatarUrl, bio });
+            const { data } = await api.updateProfile({ username, bio });
             const profile = JSON.parse(localStorage.getItem('profile'));
             profile.user = data;
             localStorage.setItem('profile', JSON.stringify(profile));
             setUser(data);
+            setAvatarUrl(data.avatar_url || avatarUrl);
             setMessage({ type: 'success', text: 'Profile updated successfully!' });
         } catch (err) {
             setMessage({ type: 'error', text: err.response?.data?.error || 'Update failed' });
@@ -73,11 +74,20 @@ const Profile = () => {
 
         setLoading(true);
         try {
-            const { data } = await api.uploadFile(formData);
-            setAvatarUrl(data.fileUrl);
-            setMessage({ type: 'success', text: 'Photo uploaded! Don\'t forget to save changes.' });
+            const { data } = await api.uploadAvatar(formData);
+            const resolvedAvatarUrl = data?.avatarUrl || data?.user?.avatar_url || '';
+            setAvatarUrl(resolvedAvatarUrl);
+
+            if (data?.user) {
+                const profile = JSON.parse(localStorage.getItem('profile'));
+                profile.user = data.user;
+                localStorage.setItem('profile', JSON.stringify(profile));
+                setUser(data.user);
+            }
+
+            setMessage({ type: 'success', text: 'Encrypted avatar uploaded successfully.' });
         } catch (err) {
-            setMessage({ type: 'error', text: 'Upload failed' });
+            setMessage({ type: 'error', text: err.response?.data?.error || 'Upload failed' });
         } finally {
             setLoading(false);
         }

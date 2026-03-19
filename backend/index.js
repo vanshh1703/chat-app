@@ -15,7 +15,7 @@ const { pool, initializeDB } = require('./db');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const webpush = require('web-push');
-const { encryptMessageForStorage, decryptTextFromStorage } = require('./messageCrypto');
+const { encryptBufferForStorage, decryptBufferFromStorage, encryptMessageForStorage, decryptTextFromStorage } = require('./messageCrypto');
 
 const hasVapidKeys = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 
@@ -125,6 +125,27 @@ function sanitizeMessageForClient(message) {
     return safe;
 }
 
+function resolveAvatarUrlForClient(userRow) {
+    if (!userRow) return userRow;
+    if (!userRow.avatar_is_encrypted) return userRow.avatar_url;
+
+    const backendBase = (
+        process.env.BACKEND_PUBLIC_URL
+        || process.env.RENDER_EXTERNAL_URL
+        || `http://localhost:${process.env.PORT || 5000}`
+    ).replace(/\/$/, '');
+    const pathOnly = `/api/users/avatar/${userRow.id}`;
+    return `${backendBase}${pathOnly}`;
+}
+
+function mapUserAvatarForClient(userRow) {
+    if (!userRow) return userRow;
+    return {
+        ...userRow,
+        avatar_url: resolveAvatarUrlForClient(userRow)
+    };
+}
+
 // File Upload endpoint using Supabase Storage
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
     console.log('--- Upload Request Received ---');
@@ -181,6 +202,91 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     }
 });
 
+app.post('/api/users/upload-avatar', authenticateToken, upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const mimeType = req.file.mimetype || '';
+    if (!mimeType.startsWith('image/')) {
+        return res.status(400).json({ error: 'Avatar must be an image file' });
+    }
+
+    try {
+        const encrypted = encryptBufferForStorage(req.file.buffer);
+        const ext = path.extname(req.file.originalname || '') || '.enc';
+        const fileName = `avatars/${uuidv4()}${ext}.enc`;
+
+        const { error: uploadError } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(fileName, encrypted.encryptedBuffer, {
+                contentType: 'application/octet-stream',
+                upsert: false
+            });
+
+        if (uploadError) {
+            console.error('Avatar encrypted upload failed:', uploadError);
+            return res.status(500).json({ error: 'Avatar upload failed' });
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+            .from(BUCKET_NAME)
+            .getPublicUrl(fileName);
+
+        const updateResult = await pool.query(
+            `UPDATE users
+             SET avatar_url = $1,
+                 avatar_storage_url = $2,
+                 avatar_iv = $3,
+                 avatar_tag = $4,
+                 avatar_mime_type = $5,
+                 avatar_is_encrypted = TRUE
+             WHERE id = $6
+             RETURNING id, username, email, avatar_url, bio, avatar_is_encrypted`,
+            [`/api/users/avatar/${req.user.id}`, publicUrl, encrypted.iv, encrypted.tag, mimeType, req.user.id]
+        );
+
+        const user = mapUserAvatarForClient(updateResult.rows[0]);
+        return res.json({ avatarUrl: user.avatar_url, user });
+    } catch (err) {
+        console.error('Encrypted avatar upload error:', err);
+        return res.status(500).json({ error: 'Encrypted avatar upload failed' });
+    }
+});
+
+app.get('/api/users/avatar/:id', async (req, res) => {
+    try {
+        const userId = Number(req.params.id);
+        if (!userId) return res.status(400).send('Invalid user id');
+
+        const result = await pool.query(
+            `SELECT id, avatar_url, avatar_storage_url, avatar_iv, avatar_tag, avatar_mime_type, avatar_is_encrypted
+             FROM users WHERE id = $1`,
+            [userId]
+        );
+
+        if (result.rows.length === 0) return res.status(404).send('Avatar not found');
+
+        const user = result.rows[0];
+
+        if (!user.avatar_is_encrypted || !user.avatar_storage_url || !user.avatar_iv || !user.avatar_tag) {
+            if (user.avatar_url && !user.avatar_url.startsWith('/api/users/avatar/')) {
+                return res.redirect(user.avatar_url);
+            }
+            return res.status(404).send('Avatar not found');
+        }
+
+        const encryptedResponse = await axios.get(user.avatar_storage_url, { responseType: 'arraybuffer' });
+        const encryptedBuffer = Buffer.from(encryptedResponse.data);
+        const decrypted = decryptBufferFromStorage(encryptedBuffer, user.avatar_iv, user.avatar_tag);
+
+        res.setHeader('Content-Type', user.avatar_mime_type || 'image/jpeg');
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        return res.send(decrypted);
+    } catch (err) {
+        console.error('Avatar decrypt/serve error:', err);
+        return res.status(500).send('Avatar load failed');
+    }
+});
+
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
     const { username, email, password } = req.body;
@@ -233,7 +339,8 @@ app.post('/api/auth/login', async (req, res) => {
             [user.id, userAgent, ip, location, true] // We'll handle 'is_current' differently on fetch if needed
         );
 
-        res.json({ token, user: { id: user.id, username: user.username, email: user.email, avatar_url: user.avatar_url, bio: user.bio } });
+        const normalizedUser = mapUserAvatarForClient(user);
+        res.json({ token, user: { id: normalizedUser.id, username: normalizedUser.username, email: normalizedUser.email, avatar_url: normalizedUser.avatar_url, bio: normalizedUser.bio } });
     } catch (err) {
         console.error(err);
         res.status(500).send('Login error');
@@ -529,13 +636,13 @@ app.get('/api/users/search', authenticateToken, async (req, res) => {
     const { q } = req.query;
     try {
         const result = await pool.query(
-            `SELECT u.id, u.username, u.avatar_url, u.is_online, u.last_seen, a.alias 
+            `SELECT u.id, u.username, u.avatar_url, u.avatar_is_encrypted, u.is_online, u.last_seen, a.alias 
              FROM users u 
              LEFT JOIN contact_aliases a ON a.contact_id = u.id AND a.user_id = $2 
              WHERE u.username ILIKE $1 AND u.id != $2 LIMIT 10`,
             [`%${q}%`, req.user.id]
         );
-        res.json(result.rows);
+        res.json(result.rows.map(mapUserAvatarForClient));
     } catch (err) {
         console.error(err);
         res.status(500).send('Search error');
@@ -547,10 +654,20 @@ app.post('/api/users/update-profile', authenticateToken, async (req, res) => {
     const { username, avatar_url, bio } = req.body;
     try {
         const result = await pool.query(
-            'UPDATE users SET username = COALESCE($1, username), avatar_url = COALESCE($2, avatar_url), bio = COALESCE($3, bio) WHERE id = $4 RETURNING id, username, email, avatar_url, bio',
+            `UPDATE users
+             SET username = COALESCE($1, username),
+                 avatar_url = COALESCE($2, avatar_url),
+                 bio = COALESCE($3, bio),
+                 avatar_is_encrypted = CASE WHEN $2 IS NULL THEN avatar_is_encrypted ELSE FALSE END,
+                 avatar_storage_url = CASE WHEN $2 IS NULL THEN avatar_storage_url ELSE NULL END,
+                 avatar_iv = CASE WHEN $2 IS NULL THEN avatar_iv ELSE NULL END,
+                 avatar_tag = CASE WHEN $2 IS NULL THEN avatar_tag ELSE NULL END,
+                 avatar_mime_type = CASE WHEN $2 IS NULL THEN avatar_mime_type ELSE NULL END
+             WHERE id = $4
+             RETURNING id, username, email, avatar_url, bio, avatar_is_encrypted`,
             [username, avatar_url, bio, req.user.id]
         );
-        res.json(result.rows[0]);
+        res.json(mapUserAvatarForClient(result.rows[0]));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Profile update failed' });
@@ -579,7 +696,7 @@ app.post('/api/users/change-password', authenticateToken, async (req, res) => {
 app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
     try {
         const query = `
-            SELECT DISTINCT u.id, u.username, u.avatar_url, u.is_online, u.last_seen, a.alias,
+            SELECT DISTINCT u.id, u.username, u.avatar_url, u.avatar_is_encrypted, u.is_online, u.last_seen, a.alias,
                 (SELECT content FROM messages 
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
@@ -625,8 +742,10 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
             else if (row.lastmsgtype === 'file') displayMsg = '📁 File';
             else if (row.lastmsgtype === 'call') displayMsg = '📞 Call';
 
+            const normalized = mapUserAvatarForClient(row);
+
             return { 
-                ...row, 
+                ...normalized, 
                 lastmsg: displayMsg,
                 // Pass along E2EE data for frontend decryption
                 lastMsgData: {
@@ -704,14 +823,14 @@ app.post('/api/users/set-alias', authenticateToken, async (req, res) => {
 app.get('/api/users/profile/:id', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(`
-            SELECT u.id, u.username, u.email, u.avatar_url, u.is_online, u.last_seen, u.bio, a.alias
+            SELECT u.id, u.username, u.email, u.avatar_url, u.avatar_is_encrypted, u.is_online, u.last_seen, u.bio, a.alias
             FROM users u
             LEFT JOIN contact_aliases a ON a.contact_id = u.id AND a.user_id = $1
             WHERE u.id = $2
         `, [req.user.id, req.params.id]);
 
         if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-        res.json(result.rows[0]);
+        res.json(mapUserAvatarForClient(result.rows[0]));
     } catch (err) {
         console.error(err);
         res.status(500).send('Get profile error');
@@ -876,8 +995,8 @@ app.get('/api/calls/history', authenticateToken, async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 cl.*,
-                u1.username as caller_name, u1.avatar_url as caller_avatar,
-                u2.username as receiver_name, u2.avatar_url as receiver_avatar
+                u1.username as caller_name, u1.id as caller_user_id, u1.avatar_url as caller_avatar, u1.avatar_is_encrypted as caller_avatar_is_encrypted,
+                u2.username as receiver_name, u2.id as receiver_user_id, u2.avatar_url as receiver_avatar, u2.avatar_is_encrypted as receiver_avatar_is_encrypted
             FROM call_logs cl
             JOIN users u1 ON cl.caller_id = u1.id
             JOIN users u2 ON cl.receiver_id = u2.id
@@ -885,7 +1004,22 @@ app.get('/api/calls/history', authenticateToken, async (req, res) => {
             ORDER BY cl.created_at DESC
             LIMIT 50
         `, [userId]);
-        res.json(result.rows);
+        const normalizedRows = result.rows.map((row) => {
+            const callerAvatar = row.caller_avatar_is_encrypted
+                ? resolveAvatarUrlForClient({ id: row.caller_user_id, avatar_url: row.caller_avatar, avatar_is_encrypted: true })
+                : row.caller_avatar;
+            const receiverAvatar = row.receiver_avatar_is_encrypted
+                ? resolveAvatarUrlForClient({ id: row.receiver_user_id, avatar_url: row.receiver_avatar, avatar_is_encrypted: true })
+                : row.receiver_avatar;
+
+            return {
+                ...row,
+                caller_avatar: callerAvatar,
+                receiver_avatar: receiverAvatar
+            };
+        });
+
+        res.json(normalizedRows);
     } catch (err) {
         console.error(err);
         res.status(500).send('Database error');

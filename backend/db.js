@@ -32,6 +32,11 @@ const initializeDB = async () => {
         try { await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT'); } catch (e) { }
         try { await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP'); } catch (e) { }
         try { await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE'); } catch (e) { }
+        try { await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_storage_url TEXT'); } catch (e) { }
+        try { await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_iv TEXT'); } catch (e) { }
+        try { await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_tag TEXT'); } catch (e) { }
+        try { await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mime_type TEXT'); } catch (e) { }
+        try { await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_is_encrypted BOOLEAN DEFAULT FALSE'); } catch (e) { }
 
         // 3. Dependent tables
         await pool.query(`

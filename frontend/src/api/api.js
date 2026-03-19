@@ -38,6 +38,9 @@ export const markAsRead = (data) => API.post('messages/mark-read', data);
 export const uploadFile = (formData) => API.post('upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
 });
+export const uploadAvatar = (formData) => API.post('users/upload-avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+});
 export const pinChat = (data) => API.post('users/pin-chat', data);
 export const muteChat = (data) => API.post('users/mute-chat', data);
 export const getLinkPreview = (url) => API.get(`utils/link-preview?url=${encodeURIComponent(url)}`);
