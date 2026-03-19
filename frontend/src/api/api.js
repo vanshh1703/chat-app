@@ -72,22 +72,10 @@ export const testPush = (message) => API.post('push/test', { message });
 export const searchGifs = async (query = '', limit = 20) => {
     const key = import.meta.env.VITE_TENOR_API_KEY || 'LIVDSRZULELA';
     const clientKey = import.meta.env.VITE_TENOR_CLIENT_KEY || 'chat-app';
-    const endpoint = query?.trim()
-        ? 'https://tenor.googleapis.com/v2/search'
-        : 'https://tenor.googleapis.com/v2/featured';
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 50));
+    const trimmedQuery = (query || '').trim();
 
-    const { data } = await axios.get(endpoint, {
-        params: {
-            key,
-            client_key: clientKey,
-            q: query?.trim() || undefined,
-            limit,
-            media_filter: 'gif,tinygif'
-        }
-    });
-
-    const items = Array.isArray(data?.results) ? data.results : [];
-    return items
+    const normalizeV2 = (items = []) => items
         .map((item) => {
             const gifUrl = item?.media_formats?.gif?.url || item?.media_formats?.tinygif?.url;
             if (!gifUrl) return null;
@@ -99,6 +87,58 @@ export const searchGifs = async (query = '', limit = 20) => {
             };
         })
         .filter(Boolean);
+
+    const normalizeV1 = (items = []) => items
+        .map((item) => {
+            const gifUrl = item?.media?.[0]?.gif?.url || item?.media?.[0]?.tinygif?.url;
+            if (!gifUrl) return null;
+            return {
+                id: item.id,
+                title: item.content_description || item.title || 'GIF',
+                url: gifUrl,
+                previewUrl: item?.media?.[0]?.tinygif?.url || gifUrl
+            };
+        })
+        .filter(Boolean);
+
+    try {
+        const endpoint = trimmedQuery
+            ? 'https://tenor.googleapis.com/v2/search'
+            : 'https://tenor.googleapis.com/v2/featured';
+
+        const { data } = await axios.get(endpoint, {
+            params: {
+                key,
+                client_key: clientKey,
+                q: trimmedQuery || undefined,
+                limit: safeLimit,
+                media_filter: 'minimal'
+            }
+        });
+
+        const normalized = normalizeV2(Array.isArray(data?.results) ? data.results : []);
+        if (normalized.length > 0) return normalized;
+    } catch (err) {
+        const status = err?.response?.status;
+        if (status && status !== 400) {
+            throw err;
+        }
+    }
+
+    const legacyEndpoint = trimmedQuery
+        ? 'https://g.tenor.com/v1/search'
+        : 'https://g.tenor.com/v1/trending';
+
+    const { data: legacyData } = await axios.get(legacyEndpoint, {
+        params: {
+            key,
+            q: trimmedQuery || undefined,
+            limit: safeLimit,
+            media_filter: 'minimal'
+        }
+    });
+
+    return normalizeV1(Array.isArray(legacyData?.results) ? legacyData.results : []);
 };
 
 export default API;
