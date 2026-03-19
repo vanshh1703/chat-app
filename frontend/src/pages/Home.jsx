@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Info, RefreshCw, Calculator } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Info, RefreshCw, Calculator, Eye } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -3370,6 +3370,30 @@ const Home = () => {
                                     <span>Reply</span>
                                     <CornerUpLeft size={18} />
                                 </button>
+
+                                <button
+                                    onClick={() => {
+                                        handlePinMessage(messageActionMsg.id);
+                                        setMessageActionMsg(null);
+                                    }}
+                                    className="w-full flex items-center justify-between px-4 py-3 text-left border-t border-gray-200 hover:bg-gray-50"
+                                >
+                                    <span>{messageActionMsg.is_pinned ? 'Unpin' : 'Pin'}</span>
+                                    {messageActionMsg.is_pinned ? <PinOff size={18} /> : <Pin size={18} />}
+                                </button>
+
+                                {messageActionMsg.message_type === 'image' && messageActionMsg.file_url && (
+                                    <button
+                                        onClick={() => {
+                                            window.open(messageActionMsg.file_url, '_blank', 'noopener,noreferrer');
+                                            setMessageActionMsg(null);
+                                        }}
+                                        className="w-full flex items-center justify-between px-4 py-3 text-left border-t border-gray-200 hover:bg-gray-50"
+                                    >
+                                        <span>View Photo</span>
+                                        <Eye size={18} />
+                                    </button>
+                                )}
 
                                 {messageActionMsg.message_type === 'image' && messageActionMsg.file_url && (
                                     <button

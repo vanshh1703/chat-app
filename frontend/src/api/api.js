@@ -72,6 +72,7 @@ export const testPush = (message) => API.post('push/test', { message });
 export const searchGifs = async (query = '', limit = 20) => {
     const key = import.meta.env.VITE_TENOR_API_KEY || 'LIVDSRZULELA';
     const clientKey = import.meta.env.VITE_TENOR_CLIENT_KEY || 'chat-app';
+    const useV2 = String(import.meta.env.VITE_TENOR_USE_V2 || '').toLowerCase() === 'true';
     const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 50));
     const trimmedQuery = (query || '').trim();
 
@@ -101,27 +102,29 @@ export const searchGifs = async (query = '', limit = 20) => {
         })
         .filter(Boolean);
 
-    try {
-        const endpoint = trimmedQuery
-            ? 'https://tenor.googleapis.com/v2/search'
-            : 'https://tenor.googleapis.com/v2/featured';
+    if (useV2) {
+        try {
+            const endpoint = trimmedQuery
+                ? 'https://tenor.googleapis.com/v2/search'
+                : 'https://tenor.googleapis.com/v2/featured';
 
-        const { data } = await axios.get(endpoint, {
-            params: {
-                key,
-                client_key: clientKey,
-                q: trimmedQuery || undefined,
-                limit: safeLimit,
-                media_filter: 'minimal'
+            const { data } = await axios.get(endpoint, {
+                params: {
+                    key,
+                    client_key: clientKey,
+                    q: trimmedQuery || undefined,
+                    limit: safeLimit,
+                    media_filter: 'minimal'
+                }
+            });
+
+            const normalized = normalizeV2(Array.isArray(data?.results) ? data.results : []);
+            if (normalized.length > 0) return normalized;
+        } catch (err) {
+            const status = err?.response?.status;
+            if (status && status !== 400) {
+                throw err;
             }
-        });
-
-        const normalized = normalizeV2(Array.isArray(data?.results) ? data.results : []);
-        if (normalized.length > 0) return normalized;
-    } catch (err) {
-        const status = err?.response?.status;
-        if (status && status !== 400) {
-            throw err;
         }
     }
 
