@@ -607,7 +607,7 @@ const Home = () => {
             });
 
             // Handle Decryption for new messages (only if it's a text message)
-            if (newMessage.message_type === 'text' && newMessage.encrypted_key && encryptionReady) {
+            if (newMessage.message_type === 'text' && (newMessage.encrypted_key || newMessage.sender_encrypted_key) && encryptionReady) {
                 const text = await decrypt(newMessage);
                 setDecryptedMessages(prev => ({ ...prev, [newMessage.id]: text }));
             }
@@ -762,9 +762,9 @@ const Home = () => {
         if (!encryptionReady) return;
 
         const decryptBatch = async () => {
-            const decryptNeededMessages = messages.filter(m => m.message_type === 'text' && m.encrypted_key && !decryptedMessages[m.id]);
+            const decryptNeededMessages = messages.filter(m => m.message_type === 'text' && (m.encrypted_key || m.sender_encrypted_key) && !decryptedMessages[m.id]);
             const decryptNeededSidebar = sidebarUsers
-                .filter(u => u.lastmsgtype === 'text' && u.lastMsgData?.encrypted_key && !decryptedMessages[u.lastMsgData.id])
+                .filter(u => u.lastmsgtype === 'text' && (u.lastMsgData?.encrypted_key || u.lastMsgData?.sender_encrypted_key) && !decryptedMessages[u.lastMsgData.id])
                 .map(u => u.lastMsgData);
 
             const allNeeded = [...decryptNeededMessages, ...decryptNeededSidebar];
@@ -1150,7 +1150,7 @@ const Home = () => {
             if (encryptionReady) {
                 normalizedData.forEach(async (chat) => {
                     const msg = chat.lastMsgData;
-                    if (msg.message_type === 'text' && msg.encrypted_key && !decryptedMessages[msg.id]) {
+                    if (msg.message_type === 'text' && (msg.encrypted_key || msg.sender_encrypted_key) && !decryptedMessages[msg.id]) {
                         try {
                             const text = await decrypt(msg);
                             setDecryptedMessages(prev => ({ ...prev, [msg.id]: text }));
@@ -2346,7 +2346,7 @@ const Home = () => {
                                                                     <>
                                                                         <div className="flex flex-col">
                                                                             <span>{decryptedMessages[msg.id] || msg.content}</span>
-                                                                            {msg.encrypted_key && (
+                                                                            {(msg.encrypted_key || msg.sender_encrypted_key) && (
                                                                                 <span className="text-[8px] opacity-70 flex items-center gap-1 mt-1">
                                                                                     <Shield size={10} className={decryptedMessages[msg.id]?.startsWith('⚠️') ? 'text-rose-500' : 'text-emerald-500'} />
                                                                                     {decryptedMessages[msg.id]?.startsWith('⚠️') ? 'Decryption Failed' : 'End-to-End Encrypted'}

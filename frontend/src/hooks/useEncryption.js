@@ -59,12 +59,12 @@ export function useEncryption(userId) {
    * Decrypts an incoming message
    */
   const decrypt = useCallback(async (message) => {
-    if (!message.encrypted_key || !message.iv || !keys?.privateKey) {
+    if (!message.iv || !keys?.privateKey) {
       return message.content;
     }
 
     try {
-      const ciphertext = message.content === "[Encrypted Message]" ? (message.encrypted_content || message.encryptedContent) : message.content;
+      const ciphertext = message.encrypted_content || message.encryptedContent || message.content;
       
       if (!ciphertext || ciphertext === "[Encrypted Message]") {
         console.warn(`[E2EE Decrypt] Missing ciphertext for message ${message.id}. Raw content: ${message.content}`);
@@ -72,11 +72,15 @@ export function useEncryption(userId) {
       }
 
       // Priority: snake_case (database) -> camelCase (previous versions)
-      let keyToUse = message.encrypted_key || message.encryptedKey;
+      let keyToUse = message.encrypted_key || message.encryptedKey || message.sender_encrypted_key || message.senderEncryptedKey;
       const isSender = (message.sender_id && String(message.sender_id) === String(userId)) || (message.senderId && String(message.senderId) === String(userId));
       
       if (isSender) {
         keyToUse = message.sender_encrypted_key || message.senderEncryptedKey || keyToUse;
+      }
+
+      if (!keyToUse) {
+        return message.content;
       }
 
       const decrypted = await crypto.decryptMessage({
