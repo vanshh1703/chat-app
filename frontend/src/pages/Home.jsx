@@ -12,7 +12,7 @@ import StealthNotificationToast from '../components/StealthNotificationToast';
 
 // face-api is loaded dynamically only when camera+face recognition is used (see useFaceapi hook)
 
-const FileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDrawingInitialImage }) => {
+const FileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDrawingInitialImage, onOpenMessageActions }) => {
     const isMine = msg.sender_id === user.id;
     const fileUrl = msg.file_url;
 
@@ -41,7 +41,17 @@ const FileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDrawingInitia
                 onTouchCancel={handleTouchEndOrCancel}
             >
                 {fileUrl ? (
-                    <a href={fileUrl} target="_blank" rel="noreferrer">
+                    <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => {
+                            if (onOpenMessageActions && window.innerWidth < 768) {
+                                e.preventDefault();
+                                onOpenMessageActions(msg);
+                            }
+                        }}
+                    >
                         <img src={fileUrl} alt={msg.content}
                             className="max-w-[240px] max-h-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" />
                     </a>
@@ -433,6 +443,7 @@ const Home = () => {
     const [showMediaGallery, setShowMediaGallery] = useState(false);
     const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
     const [showDecoyAppsMenu, setShowDecoyAppsMenu] = useState(false);
+    const [messageActionMsg, setMessageActionMsg] = useState(null);
     const [historyMsg, setHistoryMsg] = useState(null);
     const [messageOffset, setMessageOffset] = useState(0);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -2003,7 +2014,16 @@ const Home = () => {
     };
 
     const renderFileMessage = (msg) => {
-        return <FileMessage msg={msg} user={user} activeChat={activeChat} setIsDrawingOpen={setIsDrawingOpen} setDrawingInitialImage={setDrawingInitialImage} />;
+        return (
+            <FileMessage
+                msg={msg}
+                user={user}
+                activeChat={activeChat}
+                setIsDrawingOpen={setIsDrawingOpen}
+                setDrawingInitialImage={setDrawingInitialImage}
+                onOpenMessageActions={setMessageActionMsg}
+            />
+        );
     };
 
     const startRecording = async () => {
@@ -3128,6 +3148,92 @@ const Home = () => {
                                 >
                                     Close Audit Log
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {messageActionMsg && (
+                    <div className="fixed inset-0 z-210 bg-black/35 flex items-end justify-center" onClick={() => setMessageActionMsg(null)}>
+                        <div
+                            className="w-full max-w-md bg-white text-black rounded-t-[26px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="p-4">
+                                {messageActionMsg.content && (
+                                    <div className="mb-4 rounded-xl bg-gray-100 px-3 py-2 text-sm text-gray-700 line-clamp-2">
+                                        {messageActionMsg.message_type === 'text' ? messageActionMsg.content : (messageActionMsg.content || 'Attachment')}
+                                    </div>
+                                )}
+                                <p className="text-sm font-semibold mb-2">React</p>
+                                <div className="flex items-center gap-3 text-3xl mb-4">
+                                    {['🔥', '🙌', '😭', '🙈', '🙏', '😠'].map((emoji) => (
+                                        <button
+                                            key={emoji}
+                                            onClick={() => {
+                                                handleReact(messageActionMsg.id, emoji);
+                                                setMessageActionMsg(null);
+                                            }}
+                                            className="hover:scale-110 transition-transform"
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="border-t border-gray-200">
+                                <button
+                                    onClick={() => {
+                                        if (messageActionMsg.message_type === 'text') {
+                                            handleCopyMessage(messageActionMsg);
+                                        } else if (messageActionMsg.file_url) {
+                                            navigator.clipboard.writeText(messageActionMsg.file_url).catch(() => {});
+                                        }
+                                        setMessageActionMsg(null);
+                                    }}
+                                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
+                                >
+                                    <span>Copy</span>
+                                    <Copy size={18} />
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        handleStartReply(messageActionMsg);
+                                        setMessageActionMsg(null);
+                                    }}
+                                    className="w-full flex items-center justify-between px-4 py-3 text-left border-t border-gray-200 hover:bg-gray-50"
+                                >
+                                    <span>Reply</span>
+                                    <CornerUpLeft size={18} />
+                                </button>
+
+                                {messageActionMsg.message_type === 'image' && messageActionMsg.file_url && (
+                                    <button
+                                        onClick={() => {
+                                            setDrawingInitialImage(messageActionMsg.file_url);
+                                            setIsDrawingOpen(true);
+                                            setMessageActionMsg(null);
+                                        }}
+                                        className="w-full flex items-center justify-between px-4 py-3 text-left border-t border-gray-200 hover:bg-gray-50"
+                                    >
+                                        <span>Draw</span>
+                                        <PenTool size={18} />
+                                    </button>
+                                )}
+
+                                {messageActionMsg.sender_id === user.id && (
+                                    <button
+                                        onClick={() => {
+                                            handleDeleteMessage(messageActionMsg.id);
+                                            setMessageActionMsg(null);
+                                        }}
+                                        className="w-full flex items-center justify-between px-4 py-3 text-left border-t border-gray-200 text-red-600 hover:bg-red-50"
+                                    >
+                                        <span>Delete</span>
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
