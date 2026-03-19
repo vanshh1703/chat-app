@@ -1655,6 +1655,57 @@ const Home = () => {
         if (!user || !location.search) return;
 
         const params = new URLSearchParams(location.search);
+        const startCallTypeParam = params.get('startCall');
+        const targetId = params.get('to');
+
+        if (!targetId || (startCallTypeParam !== 'voice' && startCallTypeParam !== 'video')) return;
+
+        const startCallType = startCallTypeParam === 'video' ? 'video' : 'voice';
+        const targetName = params.get('name') || 'Contact';
+        const targetAvatar = params.get('avatar') || '';
+
+        const matchedUser = sidebarUsers.find((chat) => String(chat.id) === String(targetId));
+        const targetUser = matchedUser || {
+            id: Number(targetId),
+            username: targetName,
+            alias: targetName,
+            avatar_url: targetAvatar
+        };
+
+        let isCancelled = false;
+
+        const initOutgoingCall = async () => {
+            try {
+                if (!activeChatRef.current || String(activeChatRef.current.id) !== String(targetId)) {
+                    await handleSelectChat(targetUser);
+                }
+
+                if (isCancelled) return;
+
+                setTimeout(() => {
+                    if (isCancelled) return;
+                    handleStartCall(startCallType);
+                }, 120);
+            } catch (err) {
+                console.error('Failed to start call from call logs swipe:', err);
+            } finally {
+                if (!isCancelled) {
+                    navigate('/home', { replace: true });
+                }
+            }
+        };
+
+        initOutgoingCall();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [location.search, navigate, sidebarUsers, user]);
+
+    useEffect(() => {
+        if (!user || !location.search) return;
+
+        const params = new URLSearchParams(location.search);
         if (params.get('incoming') !== 'call') return;
 
         const from = params.get('from');

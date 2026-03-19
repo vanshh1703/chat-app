@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Phone, Video, PhoneMissed, PhoneIncoming, PhoneOutgoing, Search, Home, User, Clock3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
@@ -41,6 +41,65 @@ const getDayLabel = (dateStr) => {
     if (isYesterday) return 'Yesterday';
 
     return formatDate(dateStr);
+};
+
+const SwipeToCallRow = ({ children, onSwipeCall }) => {
+    const [translateX, setTranslateX] = useState(0);
+    const touchStartRef = useRef(null);
+    const touchCurrentRef = useRef(null);
+
+    const handleTouchStart = (event) => {
+        touchStartRef.current = event.touches[0].clientX;
+        touchCurrentRef.current = event.touches[0].clientX;
+    };
+
+    const handleTouchMove = (event) => {
+        if (touchStartRef.current === null) return;
+
+        touchCurrentRef.current = event.touches[0].clientX;
+        const deltaX = touchCurrentRef.current - touchStartRef.current;
+
+        if (deltaX > 0) {
+            setTranslateX(Math.min(deltaX, 90));
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (touchStartRef.current === null || touchCurrentRef.current === null) {
+            setTranslateX(0);
+            return;
+        }
+
+        const totalSwipe = touchCurrentRef.current - touchStartRef.current;
+        if (totalSwipe > 70) {
+            onSwipeCall();
+        }
+
+        setTranslateX(0);
+        touchStartRef.current = null;
+        touchCurrentRef.current = null;
+    };
+
+    return (
+        <div className="relative overflow-hidden rounded-2xl">
+            <div className="absolute inset-y-0 left-0 w-16 flex items-center justify-center text-emerald-300">
+                <Phone size={18} />
+            </div>
+            <div
+                className="relative touch-pan-y"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
+                style={{
+                    transform: `translateX(${translateX}px)`,
+                    transition: translateX === 0 ? 'transform 0.2s ease-out' : 'none'
+                }}
+            >
+                {children}
+            </div>
+        </div>
+    );
 };
 
 const CallLogs = () => {
@@ -111,6 +170,27 @@ const CallLogs = () => {
     }, [filteredLogs]);
 
     const groupedOrder = useMemo(() => Object.keys(groupedLogs), [groupedLogs]);
+
+    const handleSwipeCall = useCallback((log) => {
+        if (!user?.id) return;
+
+        const isOutgoing = log.caller_id === user.id;
+        const targetId = isOutgoing ? log.receiver_id : log.caller_id;
+        if (!targetId) return;
+
+        const targetName = isOutgoing ? log.receiver_name : log.caller_name;
+        const targetAvatar = isOutgoing ? log.receiver_avatar : log.caller_avatar;
+        const callType = log.call_type === 'video' ? 'video' : 'voice';
+
+        const params = new URLSearchParams({
+            startCall: callType,
+            to: String(targetId),
+            name: targetName || 'Contact',
+            avatar: targetAvatar || ''
+        });
+
+        navigate(`/home?${params.toString()}`);
+    }, [navigate, user?.id]);
 
     
 
@@ -213,7 +293,8 @@ const CallLogs = () => {
                                         const meta = renderCallMeta(log);
 
                                         return (
-                                            <div key={log.id} className="flex items-center gap-3 px-1 py-1.5">
+                                            <SwipeToCallRow key={log.id} onSwipeCall={() => handleSwipeCall(log)}>
+                                                <div className="flex items-center gap-3 px-1 py-1.5">
                                                 <div className="w-13 h-13 rounded-full overflow-hidden shrink-0 bg-black/40 border border-white/10 flex items-center justify-center">
                                                     {otherAvatar ? (
                                                         <img src={otherAvatar} alt={otherName} className="w-full h-full object-cover" />
@@ -231,6 +312,7 @@ const CallLogs = () => {
                                                 </div>
                                                 <span className="text-sm text-white/55">{formatTime(log.created_at)}</span>
                                             </div>
+                                            </SwipeToCallRow>
                                         );
                                     })}
                                 </div>
