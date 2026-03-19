@@ -15,6 +15,8 @@ self.addEventListener('push', (event) => {
         data = { title: 'New Message', body: event.data.text() };
     }
 
+    const isIncomingCall = data?.data?.type === 'incoming_call';
+
     const options = {
         body: data.body || 'You have a new message.',
         icon: data.icon || '/pwa-192x192.png',
@@ -24,7 +26,13 @@ self.addEventListener('push', (event) => {
         tag: data.tag || 'message-notification',
         renotify: Boolean(data.renotify),
         requireInteraction: Boolean(data.requireInteraction),
-        data: data.data || {}
+        data: data.data || {},
+        actions: isIncomingCall
+            ? [
+                { action: 'open_call', title: 'Open Call' },
+                { action: 'dismiss', title: 'Dismiss' }
+            ]
+            : []
     };
 
     const title = data.title || 'New Message';
@@ -34,15 +42,23 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const urlToOpen = event.notification.data.url || '/';
+    if (event.action === 'dismiss') return;
+
+    const notificationData = event.notification.data || {};
+    const urlToOpen = notificationData.url || '/';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
             // If a window is already open, focus it
             for (let i = 0; i < windowClients.length; i++) {
                 const client = windowClients[i];
-                if (client.url.includes(urlToOpen) && 'focus' in client) {
-                    return client.focus();
+                if ('focus' in client) {
+                    return client.focus().then(() => {
+                        if ('navigate' in client) {
+                            return client.navigate(urlToOpen);
+                        }
+                        return client;
+                    });
                 }
             }
             // Otherwise open a new window

@@ -39,10 +39,6 @@ export const getLoginActivity = () => API.get('users/login-activity');
 export const updateProfile = (data) => API.post('users/update-profile', data);
 export const changePassword = (data) => API.post('users/change-password', data);
 
-// E2EE Public Key APIs
-export const uploadPublicKey = (publicKey) => API.post('keys', { publicKey });
-export const getPublicKey = (userId) => API.get(`keys/${userId}`);
-
 // Push Notification APIs
 export const getVapidPublicKey = () => API.get('push/vapid-public-key');
 export const subscribePush = (subscription) => API.post('push/subscribe', { subscription });

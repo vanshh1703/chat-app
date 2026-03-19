@@ -1,136 +1,174 @@
-import React, { useState, useEffect } from 'react';
-import { Phone, Video, PhoneMissed, PhoneIncoming, PhoneOutgoing, ArrowLeft, Clock, Calendar, MoreVertical, Search, Filter, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Phone, Video, PhoneMissed, PhoneIncoming, PhoneOutgoing, ArrowLeft, Search, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
+
+const TABS = [
+    { id: 'all', label: 'All Calls' },
+    { id: 'incoming', label: 'Incoming' },
+    { id: 'outgoing', label: 'Outgoing' },
+    { id: 'missed', label: 'Missed' }
+];
+
+const formatDuration = (seconds) => {
+    if (!seconds) return '0s';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+};
+
+const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatTime = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+};
+
+const StatusPill = React.memo(({ status, isOutgoing }) => {
+    const config = {
+        missed: {
+            bg: 'bg-rose-500/10 dark:bg-rose-500/5',
+            text: 'text-rose-600 dark:text-rose-400',
+            border: 'border-rose-500/20',
+            label: 'Missed',
+            icon: <PhoneMissed size={12} />
+        },
+        rejected: {
+            bg: 'bg-slate-500/10 dark:bg-slate-500/5',
+            text: 'text-slate-600 dark:text-slate-400',
+            border: 'border-slate-500/20',
+            label: 'Rejected',
+            icon: <ArrowLeft size={12} className="rotate-45" />
+        },
+        incoming: {
+            bg: 'bg-emerald-500/10 dark:bg-emerald-500/5',
+            text: 'text-emerald-600 dark:text-emerald-400',
+            border: 'border-emerald-500/20',
+            label: 'Incoming',
+            icon: <PhoneIncoming size={12} />
+        },
+        outgoing: {
+            bg: 'bg-blue-500/10 dark:bg-blue-500/5',
+            text: 'text-blue-600 dark:text-blue-400',
+            border: 'border-blue-500/20',
+            label: 'Outgoing',
+            icon: <PhoneOutgoing size={12} />
+        }
+    };
+
+    let type = status;
+    if (status !== 'missed' && status !== 'rejected') {
+        type = isOutgoing ? 'outgoing' : 'incoming';
+    }
+
+    const { bg, text, border, label, icon } = config[type] || config.incoming;
+
+    return (
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${bg} ${text} ${border}`}>
+            {icon}
+            {label}
+        </span>
+    );
+});
 
 const CallLogs = () => {
     const [callLogs, setCallLogs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('all'); // all, missed, incoming, outgoing
     const [searchTerm, setSearchTerm] = useState('');
-    const [user] = useState(JSON.parse(localStorage.getItem('profile'))?.user);
+    const user = useMemo(() => JSON.parse(localStorage.getItem('profile'))?.user || null, []);
     const navigate = useNavigate();
 
     // Pagination states (simulated for UI)
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 7;
 
-    useEffect(() => {
-        const fetchLogs = async () => {
-            try {
-                const { data } = await api.getCallHistory();
-                setCallLogs(data);
-            } catch (err) {
-                console.error("Error fetching call logs:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchLogs();
-    }, []);
-
-    const filteredLogs = callLogs.filter(log => {
-        const isOutgoing = log.caller_id === user.id;
-        const otherName = isOutgoing ? log.receiver_name : log.caller_name;
-
-        const matchesTab =
-            activeTab === 'all' ||
-            (activeTab === 'missed' && log.status === 'missed') ||
-            (activeTab === 'incoming' && log.receiver_id === user.id) ||
-            (activeTab === 'outgoing' && log.caller_id === user.id);
-
-        const matchesSearch = otherName?.toLowerCase().includes(searchTerm.toLowerCase());
-
-        return matchesTab && matchesSearch;
-    });
-
-    const paginatedLogs = filteredLogs.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    );
-
-    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-
-    const formatDuration = (seconds) => {
-        if (!seconds) return '0s';
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        if (h > 0) return `${h}h ${m}m ${s}s`;
-        if (m > 0) return `${m}m ${s}s`;
-        return `${s}s`;
-    };
-
-    const formatDate = (dateStr) => {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    };
-
-    const formatTime = (dateStr) => {
-        const date = new Date(dateStr);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    };
-
-    const StatusPill = ({ status, isOutgoing }) => {
-        const config = {
-            missed: {
-                bg: 'bg-rose-500/10 dark:bg-rose-500/5',
-                text: 'text-rose-600 dark:text-rose-400',
-                border: 'border-rose-500/20',
-                label: 'Missed',
-                icon: <PhoneMissed size={12} />
-            },
-            rejected: {
-                bg: 'bg-slate-500/10 dark:bg-slate-500/5',
-                text: 'text-slate-600 dark:text-slate-400',
-                border: 'border-slate-500/20',
-                label: 'Rejected',
-                icon: <ArrowLeft size={12} className="rotate-45" />
-            },
-            incoming: {
-                bg: 'bg-emerald-500/10 dark:bg-emerald-500/5',
-                text: 'text-emerald-600 dark:text-emerald-400',
-                border: 'border-emerald-500/20',
-                label: 'Incoming',
-                icon: <PhoneIncoming size={12} />
-            },
-            outgoing: {
-                bg: 'bg-blue-500/10 dark:bg-blue-500/5',
-                text: 'text-blue-600 dark:text-blue-400',
-                border: 'border-blue-500/20',
-                label: 'Outgoing',
-                icon: <PhoneOutgoing size={12} />
-            }
-        };
-
-        let type = status;
-        if (status !== 'missed' && status !== 'rejected') {
-            type = isOutgoing ? 'outgoing' : 'incoming';
+    const fetchLogs = useCallback(async () => {
+        if (!user?.id) {
+            setCallLogs([]);
+            setError('User session not found. Please login again.');
+            setLoading(false);
+            return;
         }
 
-        const { bg, text, border, label, icon } = config[type] || config.incoming;
+        setLoading(true);
+        setError('');
+        try {
+            const { data } = await api.getCallHistory();
+            setCallLogs(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error('Error fetching call logs:', err);
+            setError('Unable to load call history right now.');
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id]);
 
-        return (
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${bg} ${text} ${border}`}>
-                {icon}
-                {label}
-            </span>
-        );
-    };
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
 
-    const tabs = [
-        { id: 'all', label: 'All Calls' },
-        { id: 'incoming', label: 'Incoming' },
-        { id: 'outgoing', label: 'Outgoing' },
-        { id: 'missed', label: 'Missed' }
-    ];
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    const filteredLogs = useMemo(() => {
+        if (!user?.id) return [];
+
+        return callLogs.filter((log) => {
+            const isOutgoing = log.caller_id === user.id;
+            const otherName = (isOutgoing ? log.receiver_name : log.caller_name) || '';
+            const callStatus = (log.status || '').toLowerCase();
+
+            const matchesTab =
+                activeTab === 'all' ||
+                (activeTab === 'missed' && log.status === 'missed') ||
+                (activeTab === 'incoming' && log.receiver_id === user.id) ||
+                (activeTab === 'outgoing' && log.caller_id === user.id);
+
+            const matchesSearch =
+                !normalizedSearch ||
+                otherName.toLowerCase().includes(normalizedSearch) ||
+                callStatus.includes(normalizedSearch);
+
+            return matchesTab && matchesSearch;
+        });
+    }, [activeTab, callLogs, normalizedSearch, user?.id]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, normalizedSearch]);
+
+    const totalPages = useMemo(
+        () => Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage)),
+        [filteredLogs.length]
+    );
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const paginatedLogs = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredLogs.slice(start, start + itemsPerPage);
+    }, [currentPage, filteredLogs]);
+
+    const rangeStart = filteredLogs.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+    const rangeEnd = filteredLogs.length === 0 ? 0 : Math.min(currentPage * itemsPerPage, filteredLogs.length);
 
     return (
         <div className="min-h-screen bg-[#FDFDFF] dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-500 selection:bg-blue-500/30">
             {/* Ambient Background */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-40">
-                <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-blue-500/5 dark:bg-blue-500/10 rounded-full -[150px]" />
-                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full -[150px]" />
+                <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-[150px]" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[150px]" />
             </div>
 
             <div className="relative max-w-[1200px] mx-auto px-6 py-12 md:py-20">
@@ -153,10 +191,10 @@ const CallLogs = () => {
 
                         {/* Tabs Inspired by Screenshot */}
                         <div className="flex p-1.5 bg-slate-100/50 dark:bg-slate-900 shadow-inner rounded-3xl border border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar">
-                            {tabs.map((tab) => (
+                                {TABS.map((tab) => (
                                 <button
                                     key={tab.id}
-                                    onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }}
+                                    onClick={() => setActiveTab(tab.id)}
                                     className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab.id
                                             ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
                                             : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -209,6 +247,23 @@ const CallLogs = () => {
                                             </div>
                                         </td>
                                     </tr>
+                                ) : error ? (
+                                    <tr>
+                                        <td colSpan="6" className="py-24 text-center px-12">
+                                            <div className="flex flex-col items-center gap-5 max-w-md mx-auto">
+                                                <div className="w-16 h-16 rounded-3xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center border border-rose-100 dark:border-rose-900/30">
+                                                    <Hash size={22} className="text-rose-400" />
+                                                </div>
+                                                <p className="text-sm font-bold text-rose-500">{error}</p>
+                                                <button
+                                                    onClick={fetchLogs}
+                                                    className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                                                >
+                                                    Retry
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ) : paginatedLogs.length === 0 ? (
                                     <tr>
                                         <td colSpan="6" className="py-32 text-center px-12">
@@ -230,14 +285,19 @@ const CallLogs = () => {
                                         const isOutgoing = log.caller_id === user.id;
                                         const otherName = isOutgoing ? log.receiver_name : log.caller_name;
                                         const otherAvatar = isOutgoing ? log.receiver_avatar : log.caller_avatar;
-                                        const isMissed = log.status === 'missed';
 
                                         return (
                                             <tr key={log.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all duration-300 border-b border-slate-50/50 dark:border-slate-800/30 last:border-0">
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-12 h-12 rounded-[18px] overflow-hidden ring-4 ring-slate-100/50 dark:ring-slate-800/50 group-hover:ring-blue-500/20 transition-all duration-500">
-                                                            <img src={otherAvatar} alt={otherName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" width="48" height="48" loading="lazy" />
+                                                            {otherAvatar ? (
+                                                                <img src={otherAvatar} alt={otherName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" width="48" height="48" loading="lazy" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-black uppercase">
+                                                                    {String(otherName || '?').charAt(0)}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <span className="font-black text-sm uppercase tracking-tight group-hover:text-blue-500 transition-colors">{otherName}</span>
                                                     </div>
@@ -285,7 +345,7 @@ const CallLogs = () => {
                     {/* Pagination Footer Styled like Reference */}
                     <div className="px-8 py-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-transparent flex flex-col sm:flex-row items-center justify-between gap-6">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                            Showing <span className="text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredLogs.length)}</span> of <span className="text-slate-900 dark:text-white">{filteredLogs.length}</span> calls
+                            Showing <span className="text-slate-900 dark:text-white">{rangeStart} - {rangeEnd}</span> of <span className="text-slate-900 dark:text-white">{filteredLogs.length}</span> calls
                         </p>
 
                         <div className="flex items-center gap-3">

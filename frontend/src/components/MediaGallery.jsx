@@ -79,7 +79,7 @@ const MediaGallery = ({ isOpen, onClose, messages, activeChat }) => {
                 {activeTab === 'media' && (
                     <div className="grid grid-cols-3 gap-2">
                         {media.length > 0 ? media.map(msg => (
-                            <DecryptedMedia msg={msg} activeChat={activeChat} />
+                            <MediaItem msg={msg} />
                         )) : (
                             <div className="col-span-3 py-10 text-center text-gray-400">
                                 <ImageIcon size={32} className="mx-auto mb-2 opacity-30" />
@@ -188,55 +188,12 @@ const MediaGallery = ({ isOpen, onClose, messages, activeChat }) => {
     );
 };
 
-
-import { keyManager } from '../utils/keyManager';
-import { decryptFile } from '../utils/mediaCrypto';
-import { Loader2, Shield } from 'lucide-react';
-
-const DecryptedMedia = ({ msg, activeChat }) => {
-    const [decryptedUrl, setDecryptedUrl] = useState(null);
-    const [decrypting, setDecrypting] = useState(false);
-
-    useEffect(() => {
-        const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
-        if (isEncrypted && msg.file_url && !decryptedUrl && !decrypting) {
-            const performDecryption = async () => {
-                setDecrypting(true);
-                try {
-                    const response = await fetch(msg.file_url);
-                    const encryptedBlob = await response.blob();
-                    const profile = JSON.parse(localStorage.getItem('profile'));
-                    const userId = profile?.user?.id;
-                    const myKeys = await keyManager.getMyKeys(userId);
-
-                    const isMine = String(msg.sender_id) === String(userId);
-                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
-
-                    const ext = msg.content ? msg.content.split('.').pop().toLowerCase() : '';
-                    let mimeType = 'application/octet-stream';
-                    if (msg.message_type === 'image') mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-                    else if (msg.message_type === 'video') mimeType = ext === 'webm' ? 'video/webm' : ext === 'mov' ? 'video/quicktime' : 'video/mp4';
-                    else if (msg.message_type === 'audio') mimeType = ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
-
-                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, mimeType);
-                    setDecryptedUrl(URL.createObjectURL(decrypted));
-                } catch (err) {
-                    console.error("Gallery decryption error:", err);
-                } finally {
-                    setDecrypting(false);
-                }
-            };
-            performDecryption();
-        }
-    }, [msg, decryptedUrl, decrypting]);
-
-    const url = decryptedUrl || msg.file_url;
+const MediaItem = ({ msg }) => {
+    const url = msg.file_url;
     const formatDate = (isoString) => {
         const date = new Date(isoString);
         return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     };
-
-    if (decrypting) return <div className="aspect-square flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-xl gap-2"><Loader2 className="animate-spin text-blue-500" size={24} /><span className="text-[8px] font-bold text-gray-400 uppercase">Decrypting...</span></div>;
 
     const [videoError, setVideoError] = useState(false);
     return (
@@ -255,11 +212,6 @@ const DecryptedMedia = ({ msg, activeChat }) => {
             <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                 <span className="absolute bottom-1 right-2 text-[8px] text-white/80 font-bold tracking-wider">{formatDate(msg.created_at)}</span>
             </div>
-            {(msg.is_media_encrypted || (msg.encrypted_key && msg.iv)) && (
-                <div className="absolute top-1.5 right-1.5 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
-                    <Shield size={8} />
-                </div>
-            )}
         </a>
     );
 };

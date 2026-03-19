@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Image as ImageIcon, Video, Music, FileText, Download, Link as LinkIcon, ArrowUpRight, Phone, Mail, Bell, BellOff, ChevronRight, Shield, Loader2 } from 'lucide-react';
+import { X, Image as ImageIcon, Video, Music, FileText, Download, Link as LinkIcon, ArrowUpRight, Phone, Mail, Bell, BellOff, ChevronRight, Shield } from 'lucide-react';
 import * as api from '../api/api';
-import { keyManager } from '../utils/keyManager';
-import { decryptFile } from '../utils/mediaCrypto';
 
 // Search icon (not always exported from lucide-react)
 const Search = ({ size, className }) => (
@@ -11,47 +9,9 @@ const Search = ({ size, className }) => (
     </svg>
 );
 
-// ── Decrypted preview (thumbnail grid) ──────────────────────────────────────
-const DecryptedMediaPreview = ({ msg }) => {
-    const [decryptedUrl, setDecryptedUrl] = useState(null);
-    const [decrypting, setDecrypting] = useState(false);
-
-    useEffect(() => {
-        const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
-        if (isEncrypted && msg.file_url && !decryptedUrl && !decrypting) {
-            const performDecryption = async () => {
-                setDecrypting(true);
-                try {
-                    const response = await fetch(msg.file_url);
-                    const encryptedBlob = await response.blob();
-                    const profile = JSON.parse(localStorage.getItem('profile'));
-                    const userId = profile?.user?.id;
-                    const myKeys = await keyManager.getMyKeys(userId);
-                    const isMine = String(msg.sender_id) === String(userId);
-                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
-                    const mimeType =
-                        msg.message_type === 'image' ? 'image/jpeg' :
-                        msg.message_type === 'video' ? 'video/webm' :
-                        'application/octet-stream';
-                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, mimeType);
-                    setDecryptedUrl(URL.createObjectURL(decrypted));
-                } catch (err) {
-                    console.error('Preview decryption error:', err);
-                } finally {
-                    setDecrypting(false);
-                }
-            };
-            performDecryption();
-        }
-    }, [msg, decryptedUrl, decrypting]);
-
-    const url = decryptedUrl || msg.file_url;
-
-    if (decrypting) return (
-        <div className="w-full h-full flex items-center justify-center">
-            <Loader2 className="animate-spin text-blue-500" size={16} />
-        </div>
-    );
+// ── Media preview (thumbnail grid) ──────────────────────────────────────
+const MediaPreview = ({ msg }) => {
+    const url = msg.file_url;
 
     if (msg.message_type === 'audio') return (
         <div className="w-full h-full flex items-center justify-center bg-purple-50 dark:bg-purple-900/20 text-purple-500">
@@ -62,53 +22,14 @@ const DecryptedMediaPreview = ({ msg }) => {
     return <img src={url} alt="" className="w-full h-full object-cover" />;
 };
 
-// ── Decrypted full media cell (grid view) ───────────────────────────────────
-const DecryptedMedia = ({ msg }) => {
-    const [decryptedUrl, setDecryptedUrl] = useState(null);
-    const [decrypting, setDecrypting] = useState(false);
-
-    useEffect(() => {
-        const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
-        if (isEncrypted && msg.file_url && !decryptedUrl && !decrypting) {
-            const performDecryption = async () => {
-                setDecrypting(true);
-                try {
-                    const response = await fetch(msg.file_url);
-                    const encryptedBlob = await response.blob();
-                    const profile = JSON.parse(localStorage.getItem('profile'));
-                    const userId = profile?.user?.id;
-                    const myKeys = await keyManager.getMyKeys(userId);
-                    const isMine = String(msg.sender_id) === String(userId);
-                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
-                    const mimeType =
-                        msg.message_type === 'image' ? 'image/jpeg' :
-                        msg.message_type === 'video' ? 'video/webm' :
-                        'application/octet-stream';
-                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, mimeType);
-                    setDecryptedUrl(URL.createObjectURL(decrypted));
-                } catch (err) {
-                    console.error('Full media decryption error:', err);
-                } finally {
-                    setDecrypting(false);
-                }
-            };
-            performDecryption();
-        }
-    }, [msg, decryptedUrl, decrypting]);
-
-    const url = decryptedUrl || msg.file_url;
+// ── Full media cell (grid view) ───────────────────────────────────
+const MediaTile = ({ msg }) => {
+    const url = msg.file_url;
 
     const formatDate = (isoString) => {
         const date = new Date(isoString);
         return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     };
-
-    if (decrypting) return (
-        <div className="aspect-square flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-xl gap-2">
-            <Loader2 className="animate-spin text-blue-500" size={24} />
-            <span className="text-[8px] font-bold text-gray-400 uppercase">Decrypting...</span>
-        </div>
-    );
 
     return (
         <a href={url} target="_blank" rel="noreferrer" className="aspect-square relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-sm min-h-25">
@@ -127,11 +48,6 @@ const DecryptedMedia = ({ msg }) => {
                     {formatDate(msg.created_at)}
                 </span>
             </div>
-            {(msg.is_media_encrypted || (msg.encrypted_key && msg.iv)) && (
-                <div className="absolute top-1.5 right-1.5 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
-                    <Shield size={8} />
-                </div>
-            )}
         </a>
     );
 };
@@ -298,7 +214,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 {/* Quick actions */}
                 <div className="grid grid-cols-3 gap-4">
                     {[
-                        { icon: Phone,  label: 'Call',   color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/30', onClick: () => onStartCall('audio') },
+                        { icon: Phone,  label: 'Call',   color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/30', onClick: () => onStartCall('voice') },
                         { icon: Video,  label: 'Video',  color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/30',       onClick: () => onStartCall('video') },
                         { icon: Search, label: 'Search', color: 'text-gray-500',    bg: 'bg-gray-50 dark:bg-slate-800',         onClick: () => { onClose(); onStartSearch(); } },
                     ].map((btn, i) => (
@@ -347,7 +263,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                             {[...media, ...audio].slice(0, 5).map((msg, idx) => (
                                 <div key={idx} className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl shrink-0 overflow-hidden bg-gray-100 dark:bg-slate-800 border-2 border-white dark:border-slate-700 shadow-sm">
-                                    <DecryptedMediaPreview msg={msg} />
+                                    <MediaPreview msg={msg} />
                                 </div>
                             ))}
                         </div>
@@ -379,8 +295,8 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                             <Shield size={20} />
                         </div>
                         <div className="text-left flex-1">
-                            <p className="text-sm font-bold text-gray-800 dark:text-slate-200">Encryption</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Messages are E2E encrypted</p>
+                            <p className="text-sm font-bold text-gray-800 dark:text-slate-200">Privacy</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Private messaging enabled</p>
                         </div>
                         <ArrowUpRight size={16} className="text-gray-300" />
                     </button>
@@ -415,7 +331,7 @@ const ProfileOrganizer = ({ isOpen, onClose, activeChat, messages, isMuted, onTo
                 {activeTab === 'media' && (
                     <div className="grid grid-cols-3 gap-2">
                         {media.length > 0 ? media.map(msg => (
-                            <DecryptedMedia key={msg.id} msg={msg} />
+                            <MediaTile key={msg.id} msg={msg} />
                         )) : (
                             <div className="col-span-3 py-10 text-center text-gray-400">
                                 <ImageIcon size={32} className="mx-auto mb-2 opacity-30" />

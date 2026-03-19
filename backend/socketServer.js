@@ -1,4 +1,5 @@
 const { pool } = require('./db');
+const { encryptTextForStorage, decryptTextFromStorage } = require('./messageCrypto');
 
 module.exports = (io, socket, options = {}) => {
     const { sendPushNotification } = options;
@@ -36,10 +37,13 @@ module.exports = (io, socket, options = {}) => {
 
             const result = await pool.query(
                 'INSERT INTO messages (sender_id, receiver_id, content, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
-                [callerId, receiverId, content, 'call']
+                [callerId, receiverId, encryptTextForStorage(content), 'call']
             );
 
-            const newMessage = result.rows[0];
+            const newMessage = {
+                ...result.rows[0],
+                content: decryptTextFromStorage(result.rows[0].content)
+            };
             safeEmit(callerId, 'receive_message', newMessage);
             safeEmit(receiverId, 'receive_message', newMessage);
         } catch (err) {

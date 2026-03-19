@@ -15,6 +15,7 @@ const { pool, initializeDB } = require('./db');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const webpush = require('web-push');
+const { encryptTextForStorage, decryptTextFromStorage } = require('./messageCrypto');
 
 const hasVapidKeys = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 
@@ -88,6 +89,41 @@ const authenticateToken = (req, res, next) => {
         next();
     });
 };
+
+const SENSITIVE_MESSAGE_FIELDS = [
+    'encrypted_key',
+    'sender_encrypted_key',
+    'iv',
+    'encrypted_content',
+    'is_media_encrypted'
+];
+
+function sanitizeMessageForClient(message) {
+    if (!message) return message;
+
+    const safe = { ...message };
+    safe.content = decryptTextFromStorage(safe.content);
+
+    if (Array.isArray(safe.edit_history)) {
+        safe.edit_history = safe.edit_history.map(entry => {
+            if (!entry || typeof entry !== 'object') return entry;
+            return {
+                ...entry,
+                content: typeof entry.content === 'string' ? decryptTextFromStorage(entry.content) : entry.content
+            };
+        });
+    }
+
+    if (safe.reply_to_msg) {
+        safe.reply_to_msg = sanitizeMessageForClient(safe.reply_to_msg);
+    }
+
+    for (const field of SENSITIVE_MESSAGE_FIELDS) {
+        delete safe[field];
+    }
+
+    return safe;
+}
 
 // File Upload endpoint using Supabase Storage
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
@@ -552,22 +588,6 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
                  ORDER BY created_at DESC LIMIT 1) as lastMsgId,
-                (SELECT encrypted_key FROM messages 
-                 WHERE (sender_id = u.id AND receiver_id = $1) 
-                    OR (sender_id = $1 AND receiver_id = u.id) 
-                 ORDER BY created_at DESC LIMIT 1) as lastMsgEncKey,
-                (SELECT sender_encrypted_key FROM messages 
-                 WHERE (sender_id = u.id AND receiver_id = $1) 
-                    OR (sender_id = $1 AND receiver_id = u.id) 
-                 ORDER BY created_at DESC LIMIT 1) as lastMsgSenderEncKey,
-                (SELECT iv FROM messages 
-                 WHERE (sender_id = u.id AND receiver_id = $1) 
-                    OR (sender_id = $1 AND receiver_id = u.id) 
-                 ORDER BY created_at DESC LIMIT 1) as lastMsgIv,
-                (SELECT encrypted_content FROM messages 
-                 WHERE (sender_id = u.id AND receiver_id = $1) 
-                    OR (sender_id = $1 AND receiver_id = u.id) 
-                 ORDER BY created_at DESC LIMIT 1) as lastMsgEncContent,
                 (SELECT sender_id FROM messages 
                  WHERE (sender_id = u.id AND receiver_id = $1) 
                     OR (sender_id = $1 AND receiver_id = u.id) 
@@ -593,10 +613,10 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
         const result = await pool.query(query, [req.user.id]);
 
         const formattedRows = result.rows.map(row => {
-            let displayMsg = row.lastmsg;
+            let displayMsg = decryptTextFromStorage(row.lastmsg);
             if (row.lastmsgtype === 'telepathy') {
                 try {
-                    const signal = JSON.parse(row.lastmsg);
+                    const signal = JSON.parse(displayMsg);
                     displayMsg = `${signal.icon} ${signal.label}`;
                 } catch (e) { }
             } else if (row.lastmsgtype === 'image') displayMsg = '📷 Photo';
@@ -611,12 +631,9 @@ app.get('/api/users/sidebar', authenticateToken, async (req, res) => {
                 // Pass along E2EE data for frontend decryption
                 lastMsgData: {
                     id: row.lastmsgid,
-                    content: row.lastmsg,
-                    encrypted_key: row.lastmsgenckey,
-                    sender_encrypted_key: row.lastmsgsenderenckey,
-                    iv: row.lastmsgiv,
-                    encrypted_content: row.lastmsgenccontent,
-                    sender_id: row.lastmsgsenderid
+                    content: displayMsg,
+                    sender_id: row.lastmsgsenderid,
+                    message_type: row.lastmsgtype
                 }
             };
         });
@@ -740,14 +757,20 @@ app.get('/api/messages/shared/:otherId', authenticateToken, async (req, res) => 
             SELECT * FROM messages 
             WHERE ((sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1))
             AND (
-                message_type IN ('image', 'video', 'file', 'audio')
-                OR (message_type = 'text' AND content ~ 'https?://')
+                message_type IN ('image', 'video', 'file', 'audio', 'text')
             )
             AND is_deleted = false
             ORDER BY created_at DESC
         `, [req.user.id, req.params.otherId]);
 
-        res.json(result.rows);
+        const decryptedRows = result.rows.map(sanitizeMessageForClient);
+        const urlRegex = /https?:\/\//i;
+        const filteredRows = decryptedRows.filter((row) => (
+            ['image', 'video', 'file', 'audio'].includes(row.message_type)
+            || (row.message_type === 'text' && urlRegex.test(row.content || ''))
+        ));
+
+        res.json(filteredRows);
     } catch (err) {
         console.error(err);
         res.status(500).send('Shared content error');
@@ -769,7 +792,8 @@ app.get('/api/messages/:otherId', authenticateToken, async (req, res) => {
         `, [req.user.id, req.params.otherId, limit, offset]);
 
         // Reverse because we fetch the latest (DESC) for pagination, but frontend expects ASC for chat flow
-        res.json(result.rows.reverse());
+        const payload = result.rows.map(sanitizeMessageForClient).reverse();
+        res.json(payload);
     } catch (err) {
         console.error(err);
         res.status(500).send('Message history error');
@@ -825,18 +849,19 @@ io.on('connection', (socket) => {
     }
 
     socket.on('send_message', async (data) => {
-        const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName, encrypted_key, sender_encrypted_key, iv, encrypted_content, is_media_encrypted } = data;
+        const { senderId, receiverId, content, messageType, replyToId, fileUrl, senderName } = data;
         try {
+            const encryptedContentForStorage = encryptTextForStorage(content || '');
             const result = await pool.query(
-                'INSERT INTO messages (sender_id, receiver_id, content, message_type, reply_to_id, file_url, encrypted_key, sender_encrypted_key, iv, encrypted_content, is_media_encrypted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
-                [senderId, receiverId, content, messageType || 'text', replyToId || null, fileUrl || null, encrypted_key || null, sender_encrypted_key || null, iv || null, encrypted_content || null, is_media_encrypted || false]
+                'INSERT INTO messages (sender_id, receiver_id, content, message_type, reply_to_id, file_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+                [senderId, receiverId, encryptedContentForStorage, messageType || 'text', replyToId || null, fileUrl || null]
             );
-            const newMessage = result.rows[0];
+            const newMessage = sanitizeMessageForClient(result.rows[0]);
 
             let replyToMsg = null;
             if (replyToId) {
                 const replyResult = await pool.query('SELECT * FROM messages WHERE id = $1', [replyToId]);
-                replyToMsg = replyResult.rows[0] || null;
+                replyToMsg = replyResult.rows[0] ? sanitizeMessageForClient(replyResult.rows[0]) : null;
             }
             const payload = { ...newMessage, reply_to_msg: replyToMsg, senderName };
 
@@ -865,7 +890,7 @@ io.on('connection', (socket) => {
                 RETURNING *
             `, [senderId.toString(), emoji, messageId]);
 
-            const updatedMessage = result.rows[0];
+            const updatedMessage = sanitizeMessageForClient(result.rows[0]);
             io.to(senderId.toString()).emit('message_updated', updatedMessage);
             io.to(receiverId.toString()).emit('message_updated', updatedMessage);
         } catch (err) {
@@ -885,8 +910,8 @@ io.on('connection', (socket) => {
             // It was already doing an UPDATE setting is_deleted = true.
             // But we can also clear file_url if we want to be thorough.
             const result = await pool.query(
-                'UPDATE messages SET is_deleted = true, content = \'\', file_url = NULL WHERE id = $1 AND sender_id = $2 RETURNING *',
-                [messageId, senderId]
+                'UPDATE messages SET is_deleted = true, content = $3, file_url = NULL WHERE id = $1 AND sender_id = $2 RETURNING *',
+                [messageId, senderId, encryptTextForStorage('')]
             );
             if (result.rows.length === 0) return; // not authorised
             const deleted = result.rows[0];
@@ -905,20 +930,22 @@ io.on('connection', (socket) => {
             if (currentMsgResult.rows.length === 0) return; // not authorised
 
             const { content: oldContent, created_at: oldTimestamp, edit_history: currentHistory } = currentMsgResult.rows[0];
+            const oldContentPlain = decryptTextFromStorage(oldContent);
             const newHistory = [...(currentHistory || []), { content: oldContent, edited_at: oldTimestamp }];
+            const encryptedContentForStorage = encryptTextForStorage(newContent);
 
             const result = await pool.query(
                 'UPDATE messages SET content = $1, is_edited = true, edit_history = $2 WHERE id = $3 AND sender_id = $4 RETURNING *',
-                [newContent, JSON.stringify(newHistory), messageId, senderId]
+                [encryptedContentForStorage, JSON.stringify(newHistory.map((entry, idx) => idx === newHistory.length - 1 ? { ...entry, content: oldContentPlain } : entry)), messageId, senderId]
             );
             if (result.rows.length === 0) return; // not authorised
 
-            const updatedMsg = result.rows[0];
+            const updatedMsg = sanitizeMessageForClient(result.rows[0]);
             // We need to fetch reply_to_msg if it exists, similar to send_message
             let replyToMsg = null;
             if (updatedMsg.reply_to_id) {
                 const replyResult = await pool.query('SELECT * FROM messages WHERE id = $1', [updatedMsg.reply_to_id]);
-                replyToMsg = replyResult.rows[0] || null;
+                replyToMsg = replyResult.rows[0] ? sanitizeMessageForClient(replyResult.rows[0]) : null;
             }
             const payload = { ...updatedMsg, reply_to_msg: replyToMsg };
 
@@ -935,9 +962,9 @@ io.on('connection', (socket) => {
             const content = `${senderName} took a screenshot`;
             const result = await pool.query(
                 'INSERT INTO messages (sender_id, receiver_id, content, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
-                [senderId, receiverId, content, 'system']
+                [senderId, receiverId, encryptTextForStorage(content), 'system']
             );
-            const newMessage = result.rows[0];
+            const newMessage = sanitizeMessageForClient(result.rows[0]);
             const payload = { ...newMessage, senderName: 'System' };
 
             io.to(senderId.toString()).emit('receive_message', payload);

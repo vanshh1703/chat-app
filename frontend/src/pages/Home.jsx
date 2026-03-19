@@ -1,25 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Lock, Key, Info } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, MoreVertical, Phone, Video, Plus, Smile, Send, Check, CheckCheck, CornerUpLeft, X, FileText, Download, Image as ImageIcon, Film, Trash2, ArrowLeft, Mic, Square, Settings as SettingsIcon, Camera, BarChart2, Activity, Clock, Calendar, MessageSquare, Award, TrendingUp, Zap, Pin, PinOff, Mail, Edit2, Brain, Copy, PenTool, Wifi, History, Bell, BellOff, Shield, Info } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { processMessage, ashPersona, KNOWLEDGE, INTENTS } from '../bot/ash';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
 import { Suspense } from 'react';
-import { EmojiPicker, CallUI, DrawingModal, OfflineChatManager, ProfileOrganizer, KeyVerification } from '../components/lazyComponents';
+import { EmojiPicker, CallUI, DrawingModal, OfflineChatManager, ProfileOrganizer } from '../components/lazyComponents';
 import * as webrtc from '../webrtc';
 import * as signaling from '../socket-events';
 import StealthNotificationToast from '../components/StealthNotificationToast';
-import { subscribeToPush } from '../utils/pushManager';
 
 // face-api is loaded dynamically only when camera+face recognition is used (see useFaceapi hook)
-import { useEncryption } from '../hooks/useEncryption';
-import { keyManager } from '../utils/keyManager';
-import { encryptFile, decryptFile } from '../utils/mediaCrypto';
 
-const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDrawingInitialImage }) => {
+const FileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDrawingInitialImage }) => {
     const isMine = msg.sender_id === user.id;
-    const [decryptedUrl, setDecryptedUrl] = useState(null);
-    const [decrypting, setDecrypting] = useState(false);
+    const fileUrl = msg.file_url;
 
     // Mobile long press logic for the pen icon
     const [showMobileActions, setShowMobileActions] = useState(false);
@@ -37,73 +32,6 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
             longPressTimerRef.current = null;
         }
     };
-
-    useEffect(() => {
-        const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
-        if (isEncrypted && msg.file_url && !decryptedUrl && !decrypting) {
-            const performDecryption = async () => {
-                setDecrypting(true);
-                try {
-                    console.log("Starting media decryption for:", msg.id);
-                    // Fetch the encrypted file as a blob
-                    const response = await fetch(msg.file_url);
-                    if (!response.ok) throw new Error(`Failed to fetch encrypted media: ${response.status}`);
-                    const encryptedBlob = await response.blob();
-
-                    // Get private key from keyManager
-                    const myKeys = await keyManager.getMyKeys(user.id);
-                    if (!myKeys || !myKeys.privateKey) {
-                        console.error("No private key found for decryption");
-                        return;
-                    }
-
-                    // For sent messages, we MUST use sender_encrypted_key if it exists
-                    // For received messages, we MUST use encrypted_key
-                    const isMine = String(msg.sender_id) === String(user.id);
-                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
-
-                    if (!keyToUse) {
-                        console.error("No encrypted key available for this message", msg.id);
-                        return;
-                    }
-
-                    const ext = msg.content ? msg.content.split('.').pop().toLowerCase() : '';
-                    let mimeType = 'application/octet-stream';
-                    if (msg.message_type === 'image') mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-                    else if (msg.message_type === 'video') mimeType = ext === 'webm' ? 'video/webm' : ext === 'mov' ? 'video/quicktime' : 'video/mp4';
-                    else if (msg.message_type === 'audio') mimeType = ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
-
-                    const decrypted = await decryptFile(encryptedBlob, keyToUse, msg.iv, myKeys.privateKey, mimeType);
-                    const fingerprint = await keyManager.getFingerprint(user.id);
-                    console.log(`[decryptFile] Decryption successful for message ${msg.id}. Local Fingerprint: ${fingerprint}`);
-                    const url = URL.createObjectURL(decrypted);
-                    setDecryptedUrl(url);
-                } catch (err) {
-                    const fingerprint = await keyManager.getFingerprint(user.id);
-                    const isMine = String(msg.sender_id) === String(user.id);
-                    const keyToUse = isMine ? (msg.sender_encrypted_key || msg.encrypted_key) : msg.encrypted_key;
-
-                    console.error("Media decryption error detail:", {
-                        msgId: msg.id,
-                        errorName: err.name,
-                        errorMessage: err.message,
-                        hasIv: !!msg.iv,
-                        keySource: isMine ? (msg.sender_encrypted_key ? 'sender' : 'fallback-recipient') : 'recipient',
-                        keyStart: keyToUse ? keyToUse.substring(0, 20) + '...' : 'null',
-                        localFingerprint: fingerprint
-                    });
-                } finally {
-                    setDecrypting(false);
-                }
-            };
-            performDecryption();
-        }
-    }, [msg, decryptedUrl, decrypting, user.id]);
-
-    const isEncrypted = msg.is_media_encrypted || (!!msg.encrypted_key && !!msg.iv);
-    const fileUrl = isEncrypted ? (decryptedUrl || null) : msg.file_url;
-
-    // Removed decrypting/loading UI for instant experience
 
     if (msg.message_type === 'image') {
         return (
@@ -134,11 +62,6 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                 >
                     <PenTool size={16} />
                 </button>
-                {(isEncrypted) && (
-                    <div className="absolute bottom-2 right-2 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
-                        <Lock size={10} />
-                    </div>
-                )}
             </div>
         );
     }
@@ -148,11 +71,6 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
                 <video controls className="max-w-[280px] rounded-xl" src={fileUrl} preload="metadata" playsInline>
                     Your browser does not support video.
                 </video>
-                {(isEncrypted) && (
-                    <div className="absolute top-2 right-2 p-1 bg-emerald-500/80 backdrop-blur-sm text-white rounded-md">
-                        <Lock size={10} />
-                    </div>
-                )}
             </div>
         );
     }
@@ -168,10 +86,10 @@ const DecryptedFileMessage = ({ msg, user, activeChat, setIsDrawingOpen, setDraw
             <div className="min-w-0">
                 <p className={`text-xs font-semibold truncate max-w-[160px] ${isMine ? 'text-white' : 'text-gray-800'}`}>{msg.content}</p>
                 <p className={`text-[10px] ${isMine ? 'text-white/70' : 'text-gray-400'}`}>
-                    {isEncrypted ? 'Encrypted File' : 'Tap to download'}
+                    Tap to download
                 </p>
             </div>
-            {isEncrypted ? <Lock size={14} className="text-emerald-500" /> : <Download size={14} className={isMine ? 'text-white/80' : 'text-blue-400'} />}
+            <Download size={14} className={isMine ? 'text-white/80' : 'text-blue-400'} />
         </a>
     );
 };
@@ -336,7 +254,7 @@ const YouTubePlayer = ({ url }) => {
                 src={`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`}
                 title="YouTube video player"
                 frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allow="accelerometer; autoplay; clipboard-write; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
                 className="w-full h-full"
             ></iframe>
@@ -518,8 +436,27 @@ const Home = () => {
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const messageContainerRef = useRef(null);
-    const [isKeyVerificationOpen, setIsKeyVerificationOpen] = useState(false);
+    const location = useLocation();
     const navigate = useNavigate();
+
+    const normalizedChatSearch = useMemo(() => chatSearchTerm.trim().toLowerCase(), [chatSearchTerm]);
+
+    const filteredChatMessages = useMemo(() => {
+        if (!normalizedChatSearch) return messages;
+        return messages.filter((message) => {
+            const content = message.content || '';
+            return content.toLowerCase().includes(normalizedChatSearch);
+        });
+    }, [messages, normalizedChatSearch]);
+
+    const latestPinnedMessage = useMemo(() => {
+        for (let index = messages.length - 1; index >= 0; index -= 1) {
+            if (messages[index]?.is_pinned) {
+                return messages[index];
+            }
+        }
+        return null;
+    }, [messages]);
 
     // WebRTC & Calling State
     const [incomingCall, setIncomingCall] = useState(null);
@@ -543,10 +480,6 @@ const Home = () => {
     const [isSharingScreen, setIsSharingScreen] = useState(false);
     const screenStreamRef = useRef(null);
 
-    // E2EE Encryption Hook
-    const { encrypt, decrypt, isReady: encryptionReady } = useEncryption(user?.id);
-    const [decryptedMessages, setDecryptedMessages] = useState({}); // { msgId: text }
-
     useEffect(() => {
         if (user) {
             setChatWallpaper(localStorage.getItem(`chatWallpaper_${user.id}`) || 'default');
@@ -560,24 +493,15 @@ const Home = () => {
         return () => socket.current.disconnect();
     }, []);
 
-    // Initialize listeners and Request Notification Permission
+    // Initialize listeners and request notification permission (subscription handled globally in App)
     useEffect(() => {
         if (!socket.current) return;
 
         // Request browser notification permission
-        console.log('Notification permission status:', Notification.permission);
         if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-            console.log('Requesting notification permission...');
-            Notification.requestPermission().then(permission => {
-                console.log('Notification permission result:', permission);
-                if (permission === 'granted') {
-                    console.log('Subscribing to push notifications (first time)...');
-                    subscribeToPush();
-                }
+            Notification.requestPermission().catch(() => {
+                // Ignore permission request failures silently
             });
-        } else if ('Notification' in window && Notification.permission === 'granted') {
-            console.log('Already have permission, subscribing to push notifications...');
-            subscribeToPush();
         }
 
         const currentSocket = socket.current;
@@ -606,11 +530,6 @@ const Home = () => {
                 return prev;
             });
 
-            // Handle Decryption for new messages (only if it's a text message)
-            if (newMessage.message_type === 'text' && (newMessage.encrypted_key || newMessage.sender_encrypted_key) && encryptionReady) {
-                const text = await decrypt(newMessage);
-                setDecryptedMessages(prev => ({ ...prev, [newMessage.id]: text }));
-            }
             if (newMessage.sender_id !== user.id) {
                 // Determine if we should show a foreground notification/sound
                 // Use String comparison for safety
@@ -755,34 +674,7 @@ const Home = () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [user, activeChat, sidebarUsers, encryptionReady, decrypt]);
-
-    // Batch Decrypt Messages when they change (including sidebar last messages)
-    useEffect(() => {
-        if (!encryptionReady) return;
-
-        const decryptBatch = async () => {
-            const decryptNeededMessages = messages.filter(m => m.message_type === 'text' && (m.encrypted_key || m.sender_encrypted_key) && !decryptedMessages[m.id]);
-            const decryptNeededSidebar = sidebarUsers
-                .filter(u => u.lastmsgtype === 'text' && (u.lastMsgData?.encrypted_key || u.lastMsgData?.sender_encrypted_key) && !decryptedMessages[u.lastMsgData.id])
-                .map(u => u.lastMsgData);
-
-            const allNeeded = [...decryptNeededMessages, ...decryptNeededSidebar];
-            if (allNeeded.length === 0) return;
-
-            const newDecrypted = { ...decryptedMessages };
-            let changed = false;
-            for (const msg of allNeeded) {
-                if (!newDecrypted[msg.id]) {
-                    newDecrypted[msg.id] = await decrypt(msg);
-                    changed = true;
-                }
-            }
-            if (changed) setDecryptedMessages(newDecrypted);
-        };
-
-        decryptBatch();
-    }, [messages, sidebarUsers, encryptionReady, decrypt, decryptedMessages]);
+    }, [user, activeChat, sidebarUsers]);
 
     // --- WebRTC Signaling Listeners ---
     useEffect(() => {
@@ -1138,28 +1030,9 @@ const Home = () => {
                     id: u.lastmsgid,
                     content: u.lastmsg,
                     sender_id: u.lastmsgsenderid,
-                    encrypted_key: u.lastmsgenckey,
-                    sender_encrypted_key: u.lastmsgsenderenckey,
-                    iv: u.lastmsgiv,
-                    encrypted_content: u.lastmsgenccontent,
                     message_type: u.lastmsgtype
                 }
             }));
-
-            // Handle background decryption for sidebar messages
-            if (encryptionReady) {
-                normalizedData.forEach(async (chat) => {
-                    const msg = chat.lastMsgData;
-                    if (msg.message_type === 'text' && (msg.encrypted_key || msg.sender_encrypted_key) && !decryptedMessages[msg.id]) {
-                        try {
-                            const text = await decrypt(msg);
-                            setDecryptedMessages(prev => ({ ...prev, [msg.id]: text }));
-                        } catch (e) {
-                            console.error(`Sidebar decryption failed for user ${chat.id}`, e);
-                        }
-                    }
-                });
-            }
 
             // Ensure ASH is always in the sidebar
             let updatedSidebarUsers = [...normalizedData];
@@ -1434,7 +1307,7 @@ const Home = () => {
     // Wallpaper Logic
     useEffect(() => {
         const handleStorage = (e) => {
-            if (user && e.key === `chatWallpaper_${user.id} `) setChatWallpaper(e.newValue || 'default');
+            if (user && e.key === `chatWallpaper_${user.id}`) setChatWallpaper(e.newValue || 'default');
         };
         window.addEventListener('storage', handleStorage);
         return () => window.removeEventListener('storage', handleStorage);
@@ -1514,6 +1387,42 @@ const Home = () => {
         }
     };
 
+    useEffect(() => {
+        if (!user || !location.search) return;
+
+        const params = new URLSearchParams(location.search);
+        if (params.get('incoming') !== 'call') return;
+
+        const from = params.get('from');
+        const typeParam = params.get('type');
+        const type = typeParam === 'video' ? 'video' : 'voice';
+        const name = params.get('name') || 'Someone';
+
+        if (!from) {
+            navigate('/home', { replace: true });
+            return;
+        }
+
+        const matchedUser = sidebarUsers.find((chat) => String(chat.id) === String(from));
+
+        if (!incomingCallRef.current) {
+            setIncomingCall({
+                from,
+                name,
+                avatar: matchedUser?.avatar_url,
+                type,
+                isCaller: false,
+                subtitle: `${type === 'video' ? 'Video' : 'Voice'} call via notification`
+            });
+        }
+
+        if (matchedUser && String(activeChatRef.current?.id) !== String(matchedUser.id)) {
+            handleSelectChat(matchedUser);
+        }
+
+        navigate('/home', { replace: true });
+    }, [location.search, navigate, sidebarUsers, user]);
+
     const loadMoreMessages = async () => {
         if (!activeChat || !hasMoreMessages || isLoadingMore || activeChat.id === ashPersona.id) return;
 
@@ -1556,7 +1465,7 @@ const Home = () => {
 
     // --- Copy Logic ---
     const handleCopyMessage = (msg) => {
-        const baseContent = decryptedMessages[msg.id] || msg.content;
+        const baseContent = msg.content;
         const textToCopy = msg.message_type === 'telepathy' ? baseContent.split(' • ')[0] : baseContent;
         navigator.clipboard.writeText(textToCopy).then(() => {
             // Optional: Show a brief toast or change icon state
@@ -1649,36 +1558,21 @@ const Home = () => {
             didSend = true;
         } else {
             const sendFlow = async () => {
-                if (!encryptionReady) {
-                    alert('Encryption is still initializing. Please wait a moment and try again.');
-                    return false;
-                }
-
                 try {
-                    const encryptedPayload = await encrypt(messageText, activeChat.id);
-                    if (!encryptedPayload?.isEncrypted || !encryptedPayload.encryptedContent || !encryptedPayload.encryptedKey || !encryptedPayload.iv) {
-                        alert('Message could not be encrypted. Please verify both users have encryption keys.');
-                        return false;
-                    }
-
                     const msgData = {
                         senderId: user.id,
                         receiverId: activeChat.id,
-                        content: encryptedPayload.content || '[Encrypted Message]',
+                        content: messageText,
                         messageType: 'text',
                         replyToId: replyingTo ? replyingTo.id : null,
-                        senderName: user.username,
-                        encrypted_key: encryptedPayload.encryptedKey,
-                        sender_encrypted_key: encryptedPayload.senderEncryptedKey || null,
-                        iv: encryptedPayload.iv,
-                        encrypted_content: encryptedPayload.encryptedContent
+                        senderName: user.username
                     };
 
                     socket.current.emit('send_message', msgData);
                     return true;
                 } catch (err) {
-                    console.error('Text encryption send error:', err);
-                    alert('Failed to encrypt and send message. Please try again.');
+                    console.error('Text send error:', err);
+                    alert('Failed to send message. Please try again.');
                     return false;
                 }
             };
@@ -1755,27 +1649,8 @@ const Home = () => {
     const handleSendFile = async () => {
         if (!attachPreview || !activeChat) return;
         try {
-            if (!encryptionReady) {
-                alert('Encryption is still initializing. Please wait a moment and try again.');
-                return;
-            }
-
-            const recipientPublicKey = await keyManager.fetchFriendPublicKey(activeChat.id);
-            const myKeys = await keyManager.getMyKeys(user.id);
-            if (!recipientPublicKey || !myKeys?.publicKey) {
-                alert('Recipient encryption key not found. Ask the contact to open the app once, then try again.');
-                return;
-            }
-
-            const mediaPayload = await encryptFile(attachPreview.file, recipientPublicKey, myKeys.publicKey);
-            const encryptedFile = new File(
-                [mediaPayload.encryptedBlob],
-                `${attachPreview.file.name}.enc`,
-                { type: 'application/octet-stream' }
-            );
-
             const formData = new FormData();
-            formData.append('file', encryptedFile);
+            formData.append('file', attachPreview.file);
             const { data } = await api.uploadFile(formData);
 
             socket.current.emit('send_message', {
@@ -1785,11 +1660,7 @@ const Home = () => {
                 messageType: attachPreview.type || data.messageType || 'file',
                 fileUrl: data.fileUrl,
                 replyToId: replyingTo ? replyingTo.id : null,
-                senderName: user.username,
-                encrypted_key: mediaPayload.encryptedKey,
-                sender_encrypted_key: mediaPayload.senderEncryptedKey || null,
-                iv: mediaPayload.iv,
-                is_media_encrypted: true
+                senderName: user.username
             });
 
             setAttachPreview(null);
@@ -1806,7 +1677,7 @@ const Home = () => {
     };
 
     const renderFileMessage = (msg) => {
-        return <DecryptedFileMessage msg={msg} user={user} activeChat={activeChat} setIsDrawingOpen={setIsDrawingOpen} setDrawingInitialImage={setDrawingInitialImage} />;
+        return <FileMessage msg={msg} user={user} activeChat={activeChat} setIsDrawingOpen={setIsDrawingOpen} setDrawingInitialImage={setDrawingInitialImage} />;
     };
 
     const startRecording = async () => {
@@ -2185,25 +2056,9 @@ const Home = () => {
                                         {typingUsers[chat.id] ? (
                                             <span className="text-blue-500 italic">typing...</span>
                                         ) : (
-                                            (() => {
-                                                const hasDecryptedText = !!decryptedMessages[chat.lastMsgData?.id];
-                                                const isEncryptedText =
-                                                    (chat.lastmsgtype === 'text' || !chat.lastmsgtype) &&
-                                                    !!(chat.lastMsgData?.encrypted_key || chat.lastMsgData?.sender_encrypted_key) &&
-                                                    !!chat.lastMsgData?.iv;
-
-                                                if (hasDecryptedText) {
-                                                    return decryptedMessages[chat.lastMsgData?.id];
-                                                }
-
-                                                if (isEncryptedText) {
-                                                    return '🔒 Encrypted message';
-                                                }
-
-                                                return (chat.lastmsgtype === 'text' || !chat.lastmsgtype)
-                                                    ? (chat.lastmsg || 'No messages yet')
-                                                    : `[${chat.lastmsgtype.charAt(0).toUpperCase() + chat.lastmsgtype.slice(1)}]`;
-                                            })()
+                                            (chat.lastmsgtype === 'text' || !chat.lastmsgtype)
+                                                ? (chat.lastmsg || 'No messages yet')
+                                                : `[${chat.lastmsgtype.charAt(0).toUpperCase() + chat.lastmsgtype.slice(1)}]`
                                         )}
                                     </p>
                                 </div>
@@ -2260,14 +2115,6 @@ const Home = () => {
                                                     className="font-bold text-gray-800 dark:text-white text-base flex items-center gap-1.5"
                                                 >
                                                     {activeChat.alias || activeChat.username}
-                                                    {encryptionReady && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setIsKeyVerificationOpen(true); }}
-                                                            className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors"
-                                                        >
-                                                            <Lock size={14} className="text-emerald-500" />
-                                                        </button>
-                                                    )}
                                                 </h3>
                                             </div>
                                             <p className="text-[12px] text-gray-500 ml-0.5 mt-0.5">{getStatusText(activeChat.id)}</p>
@@ -2297,7 +2144,7 @@ const Home = () => {
                             </div>
 
                             {/* Pinned Messages Banner */}
-                            {messages.some(m => m.is_pinned) && (<div className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20  border-b border-amber-100 dark:border-amber-800 flex items-center justify-between z-10 sticky top-[60px] md:top-[73px]">
+                            {latestPinnedMessage && (<div className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20  border-b border-amber-100 dark:border-amber-800 flex items-center justify-between z-10 sticky top-[60px] md:top-[73px]">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="p-1.5 bg-amber-100 dark:bg-amber-800 rounded-lg text-amber-600 dark:text-amber-400">
                                         <Pin size={14} fill="currentColor" />
@@ -2305,11 +2152,11 @@ const Home = () => {
                                     <div className="flex-1 truncate">
                                         <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Pinned Message</p>
                                         <p className="text-xs text-gray-700 dark:text-slate-300 truncate font-medium">
-                                            {(decryptedMessages[messages.filter(m => m.is_pinned).reverse()[0].id] || messages.filter(m => m.is_pinned).reverse()[0].content) || "Attachment"}
+                                            {latestPinnedMessage.content || "Attachment"}
                                         </p>
                                     </div>
                                 </div>
-                                <button onClick={() => scrollToMessage(messages.filter(m => m.is_pinned).reverse()[0].id)} className="text-[10px] font-bold text-amber-600 hover:scale-105 transition-transform px-3 py-1 bg-white dark:bg-slate-800 rounded-lg border border-amber-200">View</button>
+                                <button onClick={() => scrollToMessage(latestPinnedMessage.id)} className="text-[10px] font-bold text-amber-600 hover:scale-105 transition-transform px-3 py-1 bg-white dark:bg-slate-800 rounded-lg border border-amber-200">View</button>
                             </div>)}
 
                             <div
@@ -2322,7 +2169,7 @@ const Home = () => {
                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                                     </div>
                                 )}
-                                {messages.filter(m => !chatSearchTerm || (m.content && m.content.toLowerCase().includes(chatSearchTerm.toLowerCase()))).map((msg, i) => (
+                                {filteredChatMessages.map((msg, i) => (
                                     <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex ${msg.message_type === 'system' ? 'justify-center' : String(msg.sender_id) === String(user.id) ? 'justify-end' : 'justify-start'}`}>
                                         {msg.message_type === 'system' ? (
                                             <div className="px-4 py-1.5 bg-gray-200/50 dark:bg-slate-800/50 rounded-full text-[11px] font-bold text-gray-500">{msg.content}</div>
@@ -2337,7 +2184,7 @@ const Home = () => {
                                                                         <p className="font-bold">{msg.reply_to_msg.sender_id === user.id ? 'You' : activeChat.alias || activeChat.username}</p>
                                                                         <p className="truncate">
                                                                             {msg.reply_to_msg.message_type === 'text'
-                                                                                ? (decryptedMessages[msg.reply_to_msg.id] || msg.reply_to_msg.content)
+                                                                                ? msg.reply_to_msg.content
                                                                                 : msg.reply_to_msg.message_type === 'image' ? '📷 Photo'
                                                                                     : msg.reply_to_msg.message_type === 'video' ? '🎥 Video'
                                                                                         : msg.reply_to_msg.message_type === 'audio' ? '🎵 Audio'
@@ -2359,13 +2206,7 @@ const Home = () => {
                                                                 ) : msg.message_type === 'text' ? (
                                                                     <>
                                                                         <div className="flex flex-col">
-                                                                            <span>{decryptedMessages[msg.id] || msg.content}</span>
-                                                                            {(msg.encrypted_key || msg.sender_encrypted_key) && (
-                                                                                <span className="text-[8px] opacity-70 flex items-center gap-1 mt-1">
-                                                                                    <Shield size={10} className={decryptedMessages[msg.id]?.startsWith('⚠️') ? 'text-rose-500' : 'text-emerald-500'} />
-                                                                                    {decryptedMessages[msg.id]?.startsWith('⚠️') ? 'Decryption Failed' : 'End-to-End Encrypted'}
-                                                                                </span>
-                                                                            )}
+                                                                            <span>{msg.content}</span>
                                                                             {msg.is_edited && (
                                                                                 <button
                                                                                     onClick={() => setHistoryMsg(msg)}
@@ -2402,7 +2243,7 @@ const Home = () => {
                                                                             <button
                                                                                 onClick={() => {
                                                                                     setEditingMsg(msg);
-                                                                                    setMessageText(decryptedMessages[msg.id] || msg.content);
+                                                                                    setMessageText(msg.content);
                                                                                     inputRef.current?.focus();
                                                                                 }}
                                                                                 className="p-1 hover:bg-gray-100 rounded text-blue-500"
@@ -2456,7 +2297,7 @@ const Home = () => {
                                     {replyingTo && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
                                         <div className="truncate"><span className="font-bold text-blue-600">Reply to: </span>
                                             {replyingTo.message_type === 'text'
-                                                ? (decryptedMessages[replyingTo.id] || replyingTo.content)
+                                                ? replyingTo.content
                                                 : replyingTo.message_type === 'image' ? '📷 Photo'
                                                     : replyingTo.message_type === 'video' ? '🎥 Video'
                                                         : replyingTo.message_type === 'audio' ? '🎵 Audio'
@@ -2465,7 +2306,7 @@ const Home = () => {
                                         <button onClick={() => setReplyingTo(null)}><X size={14} /></button>
                                     </div>)}
                                     {editingMsg && (<div className="flex justify-between items-center bg-blue-50 p-2 rounded-xl mb-2 text-xs">
-                                        <div className="truncate"><span className="font-bold text-blue-600">Editing: </span>{decryptedMessages[editingMsg.id] || editingMsg.content}</div>
+                                        <div className="truncate"><span className="font-bold text-blue-600">Editing: </span>{editingMsg.content}</div>
                                         <button onClick={() => { setEditingMsg(null); setMessageText(''); }}><X size={14} /></button>
                                     </div>)}
                                     <form onSubmit={handleSendMessage} className="flex gap-2 items-center bg-white p-2 rounded-2xl shadow-sm border">
@@ -2894,15 +2735,6 @@ const Home = () => {
                         </div>
                     </div>
                 )}
-
-                <Suspense fallback={null}>
-                    <KeyVerification
-                        isOpen={isKeyVerificationOpen}
-                        onClose={() => setIsKeyVerificationOpen(false)}
-                        user={user}
-                        friend={activeChat}
-                    />
-                </Suspense>
             </div>
         </>
     );
